@@ -50,13 +50,13 @@ Official references:
 ## Prerequisites
 
 - A DigitalOcean account with payment verification completed.
-- Terraform 1.7+ or OpenTofu installed locally.
+- Terraform 1.7+, OpenTofu, or Docker installed locally. `tf.sh` automatically
+  uses a pinned Terraform container when neither CLI is installed.
 - An Ed25519 SSH public key at `~/.ssh/id_ed25519.pub`, or an override in
   `terraform.tfvars`.
 - A DigitalOcean API token with write access. Never commit it, put it in a
   Terraform variable file, or paste it into project logs or chat.
-- Docker is not required locally; cloud-init installs Docker Engine and the
-  Compose plugin on the Droplet.
+- Cloud-init installs Docker Engine and the Compose plugin on the Droplet.
 
 If needed, create an SSH key locally:
 
