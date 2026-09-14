@@ -1,0 +1,115 @@
+name: agentforge-openemr
+
+services:
+  database:
+    image: mariadb:11.8.8@sha256:24e76fcec8c003a0362d0dd53f4806e7e79458d7fdeaf47437760e19496f5a9c
+    restart: unless-stopped
+    command:
+      - mariadbd
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+    environment:
+      MARIADB_DATABASE: openemr
+      MARIADB_USER: openemr
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      MARIADB_PASSWORD_FILE: /run/secrets/mysql_password
+    secrets:
+      - mysql_root_password
+      - mysql_password
+    volumes:
+      - database_data:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test:
+        - CMD
+        - healthcheck.sh
+        - --connect
+        - --innodb_initialized
+      start_period: 60s
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  openemr:
+    image: ${OPENEMR_IMAGE:-openemr/openemr:8.1.1@sha256:796adaa7b3d03c76902e9afd2c1b420afc39f040425a68d4aefdf4ace285fa0b}
+    restart: unless-stopped
+    entrypoint:
+      - /bin/bash
+      - /run/config/openemr-entrypoint.sh
+    command:
+      - ./openemr.sh
+    environment:
+      MYSQL_HOST: database
+      MYSQL_DATABASE: openemr
+      MYSQL_USER: openemr
+      OE_USER: challenge-admin
+    secrets:
+      - mysql_root_password
+      - mysql_password
+      - openemr_admin_password
+    volumes:
+      - openemr_sites:/var/www/localhost/htdocs/openemr/sites
+      - openemr_logs:/var/log
+      - openemr_ssl:/etc/ssl
+      - ./openemr-entrypoint.sh:/run/config/openemr-entrypoint.sh:ro
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - /usr/bin/curl
+        - --fail
+        - --insecure
+        - --location
+        - --show-error
+        - --silent
+        - https://localhost/meta/health/livez
+      start_period: 180s
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    restart: unless-stopped
+    environment:
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME in .env}
+      TLS_EMAIL: ${TLS_EMAIL:?set TLS_EMAIL in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - frontend
+    depends_on:
+      openemr:
+        condition: service_healthy
+
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql_root_password
+  mysql_password:
+    file: ./secrets/mysql_password
+  openemr_admin_password:
+    file: ./secrets/openemr_admin_password
+
+volumes:
+  database_data:
+  openemr_sites:
+  openemr_logs:
+  openemr_ssl:
+  caddy_data:
+  caddy_config:
+
+networks:
+  frontend:
+  backend:
+    internal: true
