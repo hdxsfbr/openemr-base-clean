@@ -1,7 +1,11 @@
 # AgentForge Clinical Co-Pilot — Challenge Submission
 
-**Live deployment:** https://openemr-147-182-203-111.sslip.io (demo data only; see
-[docs/deployment/digitalocean.md](docs/deployment/digitalocean.md))
+**Deployment:** infrastructure is proven (provisioned, TLS-verified, demo data
+loaded, and torn down again on 2026-09-14 to control cost between uses — see
+[docs/deployment/digitalocean.md](docs/deployment/digitalocean.md)). Currently
+destroyed; re-provision with `infra/digitalocean/tf.sh apply` +
+`infra/digitalocean/deploy.sh` before a demo, interview, or submission and put
+the resulting URL here.
 
 ## Submission Deliverables
 

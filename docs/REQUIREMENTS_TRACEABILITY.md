@@ -8,8 +8,8 @@ Status values: `Not started`, `In progress`, `Verified`, or `Blocked`.
 
 | Requirement | Planned implementation or artifact | Verification evidence | Status |
 | --- | --- | --- | --- |
-| OpenEMR runs locally with realistic sample data | Development compose stack plus documented clinical demo cohort | `SETUP.md`; repeatable seed command; screenshots or smoke test | In progress — runtime verified, demo data pending |
-| Publicly accessible deployment | Single-Droplet Terraform, restricted Compose networks, and Caddy TLS ingress | `docs/deployment/digitalocean.md`; URL and external smoke test pending | In progress — configuration added, not provisioned |
+| OpenEMR runs locally with realistic sample data | Development compose stack plus documented clinical demo cohort | `SETUP.md`; repeatable seed command; screenshots or smoke test | In progress — bundled OpenEMR demo dataset verified locally and on the DO deployment (3 patients/3 encounters/11 appointments); the deterministic challenge-specific cohort called for in `SETUP.md` is still not built |
+| Publicly accessible deployment | Single-Droplet Terraform, restricted Compose networks, and Caddy TLS ingress | `docs/deployment/digitalocean.md`; external smoke test | Verified 2026-09-14 — provisioned, public TLS smoke test passed, demo data loaded, then destroyed to control cost between uses. Re-provision (`tf.sh apply` + `deploy.sh`, ~4 min) before each demo/interview/submission checkpoint |
 | Full audit with approximately 500-word summary | Security, performance, architecture, data-quality, and compliance passes | `AUDIT.md` with commands, findings, severity, remediation | In progress |
 | Narrow target user and concrete workflow | Primary-care physician pre-visit workflow | `USERS.md`; user/use-case review | In progress |
 | Every use case explains why an agent is appropriate | Explicit rationale and rejected UI alternatives per use case | `USERS.md` use-case sections | In progress |

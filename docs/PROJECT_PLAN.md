@@ -97,7 +97,7 @@ September 14–20, 2026.
 - [x] Run the base OpenEMR stack locally.
 - [x] Verify the application, database, login, and supporting services.
 - [ ] Load or design realistic demo patient data.
-- [ ] Establish the public deployment path without deploying the development
+- [x] Establish the public deployment path without deploying the development
       compose stack as-is.
 - [ ] Inventory relevant OpenEMR modules, services, ACLs, APIs, and audit logs.
 
@@ -113,9 +113,13 @@ September 14–20, 2026.
 
 **Gate:** no AI-layer implementation until the audit is complete.
 
-The reproducible DigitalOcean/Compose path is prepared under
-`infra/digitalocean`, but this preparation item remains open until the first
-external TLS smoke test and teardown are verified.
+The reproducible DigitalOcean/Compose path under `infra/digitalocean` was
+externally verified on 2026-09-14: provisioned, public TLS smoke test passed,
+demo data loaded (3 patients / 3 encounters / 11 appointments, schema upgraded
+to current), and torn down again afterward to control cost. Re-provisioning is
+a single `tf.sh apply` + `deploy.sh` cycle (~4 minutes) before each demo,
+interview, or submission checkpoint. See `docs/deployment/digitalocean.md` for
+the runbook and known gotchas found during this run.
 
 ### Tuesday, September 15: complete one vertical slice
 

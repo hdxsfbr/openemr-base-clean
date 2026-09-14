@@ -5,6 +5,17 @@ portal. All deadlines are Central Time.
 
 ## Early Submission — Wednesday, September 16 at 11:59 PM
 
+**Repository note (2026-09-14):** Per instructor direction, GitLab
+(`labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean`, personal
+namespace) is the actual working system of record — that's where `main`,
+merges, and CI/history live going forward. The PRD's own submission table
+names "GitHub Repository — Forked from OpenEMR" as the deliverable, and
+`hdxsfbr/openemr-base-clean` on GitHub is kept as a genuine fork of
+`Gauntlet-HQ/openemr-base-clean` to satisfy that literal requirement. GitHub
+is not kept in sync with GitLab commit-for-commit — confirm with the
+instructor/portal which URL is actually expected at submission time, and if
+it's GitHub, push the final state there before submitting.
+
 ### Hard gates and repository
 
 - [ ] Public repository is based on the required OpenEMR fork.

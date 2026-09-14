@@ -4,9 +4,13 @@
 
 This is a reproducible, single-Droplet baseline for demo data and short-lived
 smoke testing. Terraform, Compose, Caddy, shell scripts, and a local cold start
-through the TLS proxy were validated on September 13, 2026. It has not yet been
-provisioned or externally verified, and it does not make the application
-suitable for real patient data.
+through the TLS proxy were validated on September 13, 2026. It was provisioned
+and externally verified for real on September 14, 2026: a live Droplet, valid
+public TLS, and the bundled OpenEMR demo dataset (3 patients, 3 encounters, 11
+appointments; schema upgraded to current) all confirmed reachable at a
+`sslip.io` hostname, then destroyed again to stop billing. It still does not
+make the application suitable for real patient data — see "Before the
+Evaluator Deployment" below.
 
 The stack exposes only Caddy on ports 80 and 443. Caddy redirects HTTP to HTTPS
 and obtains a public certificate. OpenEMR and MariaDB are not published on host
@@ -162,6 +166,36 @@ placed in cloud-init or Terraform state.
   control panel.
 - Destroying this smoke host destroys its database and generated credentials.
   There is intentionally no backup for the disposable cycle.
+
+## Known Gotchas From the First Live Run (2026-09-14)
+
+**Upgrade tooling is stripped from the running image.** Both the pinned
+release image and newer `:flex` tags remove `sql_upgrade.php` and
+`acl_upgrade.php` from the webroot after their own boot-time setup completes
+(deliberate hardening — these are setup-only entry points). This means
+`demoData()`'s `devtoolsLibrary.source` function can import the OpenEMR
+5.0.0.5 demo dump but cannot finish the schema/ACL upgrade on those images.
+The exact `flex` digest pinned in `docker/development-easy` (the one used
+locally) still has this behavior too when run standalone, without the local
+repo bind-mounted over it. The workaround used for this deployment:
+`docker compose cp` the repo's own `sql_upgrade.php` and `acl_upgrade.php`
+into the running container, invoke `upgradeOpenEMR` and
+`changeEncodingCollation` from `devtoolsLibrary.source` directly (CLI mode via
+`run_php_as_apache`), then delete both files again afterward to restore the
+hardened state. This is safe because it uses the exact same source the local
+dev stack already runs, but it is a manual step, not something `deploy.sh`
+does today. Before the evaluator deployment, bake the demo cohort into a
+project-owned image at *build* time instead, so no runtime container ever
+carries upgrade tooling.
+
+**Caddy can get stuck in `Created` state.** Its `depends_on: condition:
+service_healthy` on `openemr` sometimes resolves after `docker compose up
+--wait`'s window has already returned (e.g. when re-deploying with a
+different image tag that needs to build/boot from scratch), leaving Caddy
+created but never started. Symptom: the public URL times out even though
+`docker compose ps` shows `openemr` and `database` healthy. Fix: `docker
+compose up --detach --wait --wait-timeout 120 caddy` to start it explicitly.
+Worth a `start.sh` follow-up to check for and recover from this automatically.
 
 ## Before the Evaluator Deployment
 

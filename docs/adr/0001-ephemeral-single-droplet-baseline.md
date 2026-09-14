@@ -1,6 +1,8 @@
 # ADR-0001: Ephemeral Single-Droplet Baseline on DigitalOcean
 
-- **Status:** Accepted for baseline smoke testing; final topology pending audit
+- **Status:** Accepted for baseline smoke testing; externally verified live on
+  2026-09-14 (provisioned, TLS-passing, demo data loaded, destroyed after
+  verification); final topology still pending audit
 - **Date:** 2026-09-13
 - **Owners:** Project team
 - **Related requirements:** Public deployment, reproducible setup, TLS,
@@ -76,6 +78,13 @@ cloud-init or Terraform state. Use only synthetic/demo records.
 - The upstream image validates infrastructure only and does not include future
   project code.
 - The final deployment decision remains subject to audit evidence.
+- Both the pinned release image and current `flex` tags strip their own
+  upgrade tooling (`sql_upgrade.php`, `acl_upgrade.php`) after boot, so loading
+  demo data on a live deployment currently requires a manual workaround
+  (temporarily restoring those two files from the repo, running the upgrade,
+  removing them again). See `docs/deployment/digitalocean.md` for the exact
+  steps. Must be replaced by baking the demo cohort into a project-owned image
+  at build time before the evaluator deployment.
 
 ## Verification
 
@@ -84,8 +93,11 @@ cloud-init or Terraform state. Use only synthetic/demo records.
 - The Cloud Firewall exposes only 22 from the configured CIDR and 80/443
   publicly.
 - An external smoke test validates trusted TLS, OpenEMR liveness, and a rendered
-  OpenEMR page.
+  OpenEMR page. **Done 2026-09-14**: passed against a live Droplet at a
+  `sslip.io` hostname with demo data loaded.
 - `terraform destroy` removes the Droplet and all Terraform-managed resources.
+  **Done 2026-09-14**: confirmed zero Droplets remaining via the DigitalOcean
+  API after destroy.
 
 ## Revisit Triggers
 
