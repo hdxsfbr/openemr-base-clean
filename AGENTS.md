@@ -3,7 +3,7 @@
 ## Project Mission
 
 This repository extends OpenEMR with the AgentForge Clinical Co-Pilot described
-in `PROJECT_PLAN.md`. Optimize for a trustworthy, demonstrable clinical workflow:
+in `docs/PROJECT_PLAN.md`. Optimize for a trustworthy, demonstrable clinical workflow:
 authorization, source attribution, deterministic verification, safe failure,
 latency, observability, and reproducible evidence matter more than feature count.
 
@@ -14,8 +14,8 @@ prompts, logs, traces, screenshots, videos, or evaluation artifacts.
 
 Read the documents relevant to the change:
 
-- `PROJECT_PLAN.md` for scope, priorities, and schedule.
-- `REQUIREMENTS_TRACEABILITY.md` for PRD obligations and evidence status.
+- `docs/PROJECT_PLAN.md` for scope, priorities, and schedule.
+- `docs/REQUIREMENTS_TRACEABILITY.md` for PRD obligations and evidence status.
 - `AUDIT.md` for observed constraints and risks.
 - `USERS.md` for the supported user and use cases.
 - `ARCHITECTURE.md` for accepted boundaries and known limitations.

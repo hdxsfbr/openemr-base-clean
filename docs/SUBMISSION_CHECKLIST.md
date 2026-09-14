@@ -17,7 +17,7 @@ portal. All deadlines are Central Time.
 - [ ] `ARCHITECTURE.md` begins with an approximately 500-word summary and traces
       every capability to `USERS.md`.
 - [ ] `KEY_METRICS.md` defines and justifies product-success metrics.
-- [ ] `REQUIREMENTS_TRACEABILITY.md` links requirements to current evidence.
+- [ ] `docs/REQUIREMENTS_TRACEABILITY.md` links requirements to current evidence.
 
 ### Product and engineering
 

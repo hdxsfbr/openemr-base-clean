@@ -1,3 +1,26 @@
+# AgentForge Clinical Co-Pilot — Challenge Submission
+
+**Live deployment:** https://openemr-147-182-203-111.sslip.io (demo data only; see
+[docs/deployment/digitalocean.md](docs/deployment/digitalocean.md))
+
+## Submission Deliverables
+
+These are the exact, root-level, PRD-required artifacts. Everything else in this
+repository — `docs/PROJECT_PLAN.md`, `docs/SUBMISSION_CHECKLIST.md`,
+`docs/REQUIREMENTS_TRACEABILITY.md`, `docs/adr/`, `SETUP.md`, and OpenEMR's own
+upstream docs below (`CONTRIBUTING.md`, `CHANGELOG.md`, etc.) — is internal
+working documentation, not a graded deliverable.
+
+| File | Requirement |
+| --- | --- |
+| [AUDIT.md](AUDIT.md) | Security, performance, architecture, data-quality, and compliance audit |
+| [USERS.md](USERS.md) / [USER.md](USER.md) | Target user, workflow, and use cases |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | AI integration plan, framework choices, verification strategy |
+| [KEY_METRICS.md](KEY_METRICS.md) | Product-success metrics and rationale |
+| [AI_COST_ANALYSIS.md](AI_COST_ANALYSIS.md) | Actual + projected cost analysis |
+
+---
+
 [![Syntax Status](https://github.com/openemr/openemr/actions/workflows/syntax.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/syntax.yml)
 [![Styling Status](https://github.com/openemr/openemr/actions/workflows/styling.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/styling.yml)
 [![Testing Status](https://github.com/openemr/openemr/actions/workflows/test.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/test.yml)
