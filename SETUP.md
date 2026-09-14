@@ -138,8 +138,16 @@ The easy-development stack is not suitable for public deployment:
 - [ ] Define and seed realistic demo patients covering happy, incomplete,
       conflicting, and access-controlled scenarios.
 - [ ] Add an automated smoke test for login and required dependencies.
-- [ ] Select and document the deployment environment.
-- [ ] Create a production-oriented compose/deployment configuration.
+- [x] Select and document the initial DigitalOcean deployment environment.
+- [x] Create a production-oriented Compose and Terraform configuration.
 - [ ] Add secret management, real TLS, restricted networks, backups, and
       rollback instructions.
 - [ ] Fold the final concise setup path into the root `README.md`.
+
+## Public Deployment Baseline
+
+The initial DigitalOcean topology, cost-controlled smoke cycle, teardown rules,
+and known limitations are documented in
+[`docs/deployment/digitalocean.md`](docs/deployment/digitalocean.md). The
+configuration has not yet been provisioned; keep the public-deployment
+requirement in progress until an external smoke test supplies evidence.

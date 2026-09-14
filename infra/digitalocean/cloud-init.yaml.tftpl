@@ -1,0 +1,39 @@
+#cloud-config
+ssh_pwauth: false
+
+users:
+  - default
+  - name: deployer
+    gecos: AgentForge deployment user
+    shell: /bin/bash
+    lock_passwd: true
+    groups:
+      - adm
+    ssh_authorized_keys:
+      - ${jsonencode(ssh_public_key)}
+
+write_files:
+  - path: /etc/apt/keyrings/docker.asc
+    permissions: "0644"
+    source:
+      uri: https://download.docker.com/linux/ubuntu/gpg
+  - path: /etc/apt/sources.list.d/docker.list
+    permissions: "0644"
+    content: |
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable
+  - path: /etc/ssh/sshd_config.d/60-agentforge.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+
+runcmd:
+  - [apt-get, update]
+  - [apt-get, install, -y, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+  - [systemctl, enable, --now, docker]
+  - [usermod, -aG, docker, deployer]
+  - [install, -d, -o, deployer, -g, deployer, -m, "0750", /opt/agentforge]
+  - [systemctl, reload, ssh]
+
+final_message: "AgentForge host bootstrap complete"

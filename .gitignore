@@ -4,6 +4,15 @@
 # environment vars
 .env
 
+# local infrastructure state and credentials
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+infra/digitalocean/runtime/secrets/
+
 # vendor and assets
 node_modules
 /vendor/*

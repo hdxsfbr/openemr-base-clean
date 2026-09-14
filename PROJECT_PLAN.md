@@ -113,6 +113,10 @@ September 14–20, 2026.
 
 **Gate:** no AI-layer implementation until the audit is complete.
 
+The reproducible DigitalOcean/Compose path is prepared under
+`infra/digitalocean`, but this preparation item remains open until the first
+external TLS smoke test and teardown are verified.
+
 ### Tuesday, September 15: complete one vertical slice
 
 - Embed the co-pilot shell in the patient dashboard.

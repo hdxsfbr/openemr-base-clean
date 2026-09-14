@@ -9,7 +9,7 @@ Status values: `Not started`, `In progress`, `Verified`, or `Blocked`.
 | Requirement | Planned implementation or artifact | Verification evidence | Status |
 | --- | --- | --- | --- |
 | OpenEMR runs locally with realistic sample data | Development compose stack plus documented clinical demo cohort | `SETUP.md`; repeatable seed command; screenshots or smoke test | In progress — runtime verified, demo data pending |
-| Publicly accessible deployment | Hardened deployment compose and TLS ingress | URL in README; external smoke test | Not started |
+| Publicly accessible deployment | Single-Droplet Terraform, restricted Compose networks, and Caddy TLS ingress | `docs/deployment/digitalocean.md`; URL and external smoke test pending | In progress — configuration added, not provisioned |
 | Full audit with approximately 500-word summary | Security, performance, architecture, data-quality, and compliance passes | `AUDIT.md` with commands, findings, severity, remediation | In progress |
 | Narrow target user and concrete workflow | Primary-care physician pre-visit workflow | `USERS.md`; user/use-case review | In progress |
 | Every use case explains why an agent is appropriate | Explicit rationale and rejected UI alternatives per use case | `USERS.md` use-case sections | In progress |

@@ -141,9 +141,16 @@ behavior, and what remains vulnerable to semantic misinterpretation.
 
 ## Deployment and Operations
 
-- TODO: Define TLS ingress, public/private services, network policy, secrets,
-  database persistence, backup, restore, migration, and rollback.
-- TODO: Keep development-only services and credentials out of the public stack.
+- The accepted smoke-test baseline is recorded in
+  [`docs/adr/0001-ephemeral-single-droplet-baseline.md`](docs/adr/0001-ephemeral-single-droplet-baseline.md):
+  one DigitalOcean Droplet runs Caddy, OpenEMR, and MariaDB with Caddy as the
+  only public application boundary and MariaDB on an internal network.
+- Deployment credentials are generated on the host and kept out of cloud-init,
+  Terraform state, and version control. The development-only services and
+  credentials are absent from this stack.
+- TODO: Replace the upstream baseline image with a pinned project image.
+- TODO: Validate owned-domain TLS, database persistence, backup, restore,
+  migration, and rollback against the completed audit.
 - TODO: Define `/health` and meaningful `/ready` dependency semantics.
 - TODO: Link alert definitions and the on-call runbook.
 
