@@ -152,7 +152,9 @@ class AnthropicModel:
         import anthropic
 
         self._anthropic = anthropic
-        self.client = anthropic.AsyncAnthropic(api_key=api_key, max_retries=1, timeout=settings.model_timeout_seconds)
+        self.client = anthropic.AsyncAnthropic(
+            api_key=api_key, max_retries=1, timeout=settings.model_timeout_seconds, default_headers=settings.anthropic_headers()
+        )
 
     def _system(self) -> list[dict[str, Any]]:
         return [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]

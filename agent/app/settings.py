@@ -20,6 +20,8 @@ class Settings(BaseSettings):
 
     # Secrets are mounted as files; the service reports "not_configured" when absent.
     anthropic_api_key_file: Path = Path("/run/secrets/anthropic_api_key")
+    # Optional: required by the API when the key is organization-level rather than workspace-scoped.
+    anthropic_workspace_id_file: Path = Path("/run/secrets/anthropic_workspace_id")
     delegation_secret_file: Path = Path("/run/secrets/copilot_delegation_secret")
     langfuse_public_key_file: Path = Path("/run/secrets/langfuse_public_key")
     langfuse_secret_key_file: Path = Path("/run/secrets/langfuse_secret_key")
@@ -51,6 +53,10 @@ class Settings(BaseSettings):
 
     # Demo/CI only: honors X-Copilot-Fault (model, tool:<name>, tracer, budget).
     fault_injection: bool = False
+
+    def anthropic_headers(self) -> dict[str, str]:
+        workspace = self.secret(self.anthropic_workspace_id_file)
+        return {"anthropic-workspace-id": workspace} if workspace else {}
 
     def secret(self, path: Path) -> str | None:
         try:

@@ -143,6 +143,7 @@ services:
     # (Compose file secrets keep the host mode; `mode` is swarm-only).
     secrets:
       - anthropic_api_key
+      - anthropic_workspace_id
       - copilot_delegation_secret
       - langfuse_public_key
       - langfuse_secret_key
@@ -198,6 +199,8 @@ secrets:
     file: ./secrets/demo_user_password
   anthropic_api_key:
     file: ./secrets/anthropic_api_key
+  anthropic_workspace_id:
+    file: ./secrets/anthropic_workspace_id
   langfuse_public_key:
     file: ./secrets/langfuse_public_key
   langfuse_secret_key:

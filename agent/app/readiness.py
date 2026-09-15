@@ -61,7 +61,9 @@ async def check_llm(settings: Settings) -> DependencyStatus:
     try:
         import anthropic
 
-        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key_file.read_text().strip(), max_retries=0, timeout=5.0)
+        client = anthropic.AsyncAnthropic(
+            api_key=settings.anthropic_api_key_file.read_text().strip(), max_retries=0, timeout=5.0, default_headers=settings.anthropic_headers()
+        )
         model = await client.models.retrieve(settings.model_id)
         return DependencyStatus("llm_provider", True, f"reachable:{model.id}")
     except Exception as exc:  # noqa: BLE001 - class only, never the message (may carry request details)

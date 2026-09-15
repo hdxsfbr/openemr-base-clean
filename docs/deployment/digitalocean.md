@@ -180,7 +180,8 @@ ssh "deployer@$DROPLET_IP" cat /opt/agentforge/secrets/demo_user_password
 ```
 
 Operator-supplied secrets (`anthropic_api_key`, `langfuse_public_key`,
-`langfuse_secret_key`) live on the operator's machine as one file each in
+`langfuse_secret_key`, and `anthropic_workspace_id` only when the Anthropic key
+is organization-level rather than workspace-scoped) live on the operator's machine as one file each in
 `~/.config/agentforge/`, next to `do.env`, and are never committed. Push
 whichever exist and restart the agent with:
 
