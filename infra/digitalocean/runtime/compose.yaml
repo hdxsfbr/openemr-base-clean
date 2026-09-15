@@ -111,9 +111,11 @@ services:
       - /bin/sh
       - -c
     command:
-      - cd /var/www/localhost/htdocs/openemr && su -s /bin/sh apache -c "OPENEMR_ROOT=/var/www/localhost/htdocs/openemr php /opt/copilot-demo/cohort/seed_cohort.php --confirm-dev-data --anchor=${DEMO_ANCHOR:-2026-09-15}"
+      - cd /var/www/localhost/htdocs/openemr && su -s /bin/sh apache -c "OPENEMR_ROOT=/var/www/localhost/htdocs/openemr DEMO_USER_PASSWORD_FILE=/run/secrets/demo_user_password php /opt/copilot-demo/cohort/seed_users.php --confirm-dev-data && OPENEMR_ROOT=/var/www/localhost/htdocs/openemr php /opt/copilot-demo/cohort/seed_cohort.php --confirm-dev-data --anchor=${DEMO_ANCHOR:-2026-09-15}"
     environment:
       DEMO_ANCHOR: ${DEMO_ANCHOR:-2026-09-15}
+    secrets:
+      - demo_user_password
     volumes:
       - openemr_sites:/var/www/localhost/htdocs/openemr/sites
       - ./demo/cohort:/opt/copilot-demo/cohort:ro
@@ -187,6 +189,8 @@ secrets:
     file: ./secrets/openemr_admin_password
   copilot_delegation_secret:
     file: ./secrets/copilot_delegation_secret
+  demo_user_password:
+    file: ./secrets/demo_user_password
   anthropic_api_key:
     file: ./secrets/anthropic_api_key
   langfuse_public_key:

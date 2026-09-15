@@ -30,7 +30,7 @@ umask 077
 mkdir -p secrets logs
 
 # Generated on the host; never in cloud-init, Terraform state, or the repository.
-for secret_name in mysql_root_password mysql_password openemr_admin_password copilot_delegation_secret; do
+for secret_name in mysql_root_password mysql_password openemr_admin_password copilot_delegation_secret demo_user_password; do
     if [[ ! -s "secrets/${secret_name}" ]]; then
         openssl rand -hex 24 > "secrets/${secret_name}"
     fi
@@ -65,5 +65,7 @@ printf 'Agent health: https://%s/copilot-api/health\n' "${public_hostname}"
 printf 'OpenEMR username: challenge-admin\n'
 printf 'Read the generated password over SSH with:\n'
 printf '  ssh deployer@<droplet-ip> cat /opt/agentforge/secrets/openemr_admin_password\n'
-printf 'Seed the synthetic cohort (demo data only) with:\n'
+printf 'Seed the demo users and synthetic cohort (demo data only) with:\n'
 printf '  cd /opt/agentforge && docker compose --profile demo run --rm demo-seed | tee logs/demo-seed-$(date +%%F).json\n'
+printf 'Demo clinician password (physician, audit-physician, audit-nurse, audit-frontdesk):\n'
+printf '  ssh deployer@<droplet-ip> cat /opt/agentforge/secrets/demo_user_password\n'

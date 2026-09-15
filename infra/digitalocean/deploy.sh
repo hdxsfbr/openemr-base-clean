@@ -22,11 +22,22 @@ fi
 
 printf 'Waiting for cloud-init on %s...\n' "${droplet_ip}"
 for attempt in $(seq 1 36); do
-    if ssh "${ssh_options[@]}" "${ssh_target}" cloud-init status --wait >/dev/null 2>&1; then
-        break
-    fi
+    # "done" is the normal end state. "error" means a runcmd step failed; the
+    # bootstrap is still usable if Docker is present, so report and continue.
+    status="$(ssh "${ssh_options[@]}" "${ssh_target}" 'cloud-init status 2>/dev/null | head -1' 2>/dev/null || true)"
+    case "${status}" in
+        *done*)
+            break
+            ;;
+        *error*)
+            if ssh "${ssh_options[@]}" "${ssh_target}" 'docker info >/dev/null 2>&1 && test -d /opt/agentforge'; then
+                printf 'cloud-init finished with an error (see /var/log/cloud-init-output.log on the host); Docker is present, continuing.\n' >&2
+                break
+            fi
+            ;;
+    esac
     if [[ "${attempt}" -eq 36 ]]; then
-        printf 'Timed out waiting for the host bootstrap.\n' >&2
+        printf 'Timed out waiting for the host bootstrap (last status: %s).\n' "${status:-unreachable}" >&2
         exit 1
     fi
     sleep 5

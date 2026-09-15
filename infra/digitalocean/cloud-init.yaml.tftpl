@@ -34,6 +34,7 @@ runcmd:
   - [systemctl, enable, --now, docker]
   - [usermod, -aG, docker, deployer]
   - [install, -d, -o, deployer, -g, deployer, -m, "0750", /opt/agentforge]
-  - [systemctl, reload, ssh]
+  # Ubuntu 24.04 socket-activates ssh; a plain reload fails when no session is open yet.
+  - [systemctl, try-reload-or-restart, ssh]
 
 final_message: "AgentForge host bootstrap complete"
