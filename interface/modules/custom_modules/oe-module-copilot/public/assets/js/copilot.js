@@ -51,9 +51,11 @@
             });
         }).finally(function () { clearTimeout(timer); });
     }
-    function postJson(url, payload, headers) {
-        return fetchJson(url, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}), body: JSON.stringify(payload) });
+    function postJson(url, payload, headers, timeoutMs) {
+        return fetchJson(url, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}), body: JSON.stringify(payload) }, timeoutMs);
     }
+    // A turn may take up to the agent's 45 s wall clock; the panel waits a little longer than that.
+    var TURN_TIMEOUT_MS = 60000;
 
     // ---- chart links for cited sources (CAP-05) ----
     function chartUrl(source) {
@@ -158,10 +160,10 @@
         setStatus('Retrieving chart records…', 'text-muted');
         body.textContent = '';
         ensureSession().then(ensureConversation).then(ticket).then(function (t) {
-            setStatus('Verifying…', 'text-muted');
+            setStatus('Retrieving records and verifying (usually 15–30 seconds)…', 'text-muted');
             return postJson(apiBase + '/v1/conversations/' + state.conversationId + '/turns',
                 { message: question, correlation_id: t.correlation_id, stream: false },
-                { 'X-Copilot-Token': t.token, 'X-Correlation-Id': t.correlation_id });
+                { 'X-Copilot-Token': t.token, 'X-Correlation-Id': t.correlation_id }, TURN_TIMEOUT_MS);
         }).then(function (r) {
             if (r.status === 403 && r.data && r.data.status === 'denied') { state.conversationId = null; }
             if (!r.data || (!r.ok && !r.data.turn_id)) {
@@ -171,7 +173,7 @@
             renderTurn(r.data);
             setStatus(r.data.status === 'complete' ? 'Answer verified against the chart.' : r.data.status === 'fallback' ? 'Showing verified records; the narrative service was unavailable.' : 'Answer partially verified; see limitations.', r.data.status === 'complete' ? 'text-success' : 'text-warning');
         }).catch(function (error) {
-            var code = error && error.message ? error.message : 'error';
+            var code = error && error.name === 'AbortError' ? 'AbortError' : (error && error.message ? error.message : 'error');
             var messages = {
                 no_chart: 'Open a patient chart to use the co-pilot.',
                 patient_context_changed: 'The open chart changed. Ask again to start a conversation for this chart.',
