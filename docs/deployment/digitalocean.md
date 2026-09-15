@@ -85,12 +85,26 @@ Replace the documentation-only address in `terraform.tfvars` with the returned
 address followed by `/32`. Recheck it after changing networks; Terraform
 intentionally rejects world-open SSH.
 
-Load the API token without writing it to shell history:
+Load the API token without writing it to shell history. On the owner's
+machine it is kept outside the repository at `~/.config/agentforge/do.env`
+(mode 600, exports `DIGITALOCEAN_TOKEN`):
+
+```bash
+set -a; . ~/.config/agentforge/do.env; set +a
+```
+
+Anywhere else, read it interactively:
 
 ```bash
 read -rsp "DigitalOcean token: " DIGITALOCEAN_TOKEN
 export DIGITALOCEAN_TOKEN
 printf '\n'
+```
+
+To confirm nothing is running before or after a cycle:
+
+```bash
+for r in droplets firewalls reserved_ips volumes; do printf '%s: ' "$r"; curl -s -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" "https://api.digitalocean.com/v2/$r?per_page=50" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d[[k for k in d if isinstance(d[k],list)][0]]))"; done
 ```
 
 ## Fastest Safe Cycle
