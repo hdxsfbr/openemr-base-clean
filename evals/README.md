@@ -19,6 +19,16 @@ evals/
 Directories should be added with the implementation that defines their format;
 we will not preserve empty directory placeholders.
 
+The case format is designed to be the Week 2 golden set and the Week 3
+attack corpus without change: one YAML file per case with a stable id
+(`UC01-AF-DQ-A2-001`), the metadata below, deterministic assertions on
+structured output (claim types, source ids, typed facts, status flags,
+absence states), boolean rubrics for human review, and LLM-judge results
+recorded in a separate field and never mixed into the pass rate. The eval
+client drives the deployed agent API headlessly through the same handshake
+as the Bruno collection (`ARCHITECTURE.md`), which is also the path an
+adversarial platform uses.
+
 `fixtures/cohort/` now exists: the deterministic synthetic cohort
 `af-cohort-v1`, 26 fictional patients mapped to the missing-data,
 conflicting, lab-constraint, untrusted-content, orphan-row, and authorization
@@ -68,6 +78,14 @@ safety-category breakdown.
 
 ## CI and Deployment Gates
 
-TODO: Define a fast deterministic pull-request suite, a controlled model-backed
-suite, and the thresholds that block deployment. Authorization leakage and
-displayed unsupported claims should always be release-blocking.
+Thresholds live in `KEY_METRICS.md`, "Decision Thresholds": release gates,
+runtime alerts, and where risk acceptance is allowed. Authorization leakage,
+displayed unsupported claims, uncertainty recall on safety cases, and safe
+degradation are always release-blocking. A release run executes the whole
+suite; the deterministic subset (authorization, citation invariant, tool and
+model failure, isolation) runs on every change to the gateway, tools,
+verifier, or prompt, and the model-backed subset runs before each deploy.
+GitLab CI carries this from Week 1: a pipeline skeleton with `git diff
+--check`, contract-schema validation, and the deterministic subset against
+the local stack, so Week 2's PR-blocking gate is a threshold change, not new
+infrastructure.
