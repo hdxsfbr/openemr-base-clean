@@ -37,7 +37,7 @@ data contradicts itself and one lab path fails silently (DQ-HIGH-002/003,
 PERF-MED-001). The first turn of "what changed" is a fixed retrieval plan
 whose records render before any model call, so first evidence arrives in
 about two seconds and survives a model outage. A LangGraph turn graph whose
-nodes call the Anthropic SDK directly (Claude Opus 5, ADR-0004) narrates
+nodes call the Anthropic SDK directly (Claude Sonnet 5, ADR-0004) narrates
 from that evidence pack and, on follow-ups, selects tools within bounded
 rounds; the same graph becomes Week 2's subgraph under a supervisor. It
 emits structured claims with typed facts and source identifiers. A
@@ -285,14 +285,17 @@ over a hand-written loop because Week 2 requires an explicit graph with
 checkpointing and human-in-the-loop nodes; building it now makes the Week 1
 turn graph the Week 2 subgraph.
 
-**Model (ADR-0004).** `claude-opus-5` with adaptive thinking and
-`output_config.effort` tuned per turn type: `low` for the UC-01 first-turn
-narration (fixed evidence, fixed shape), `medium` for follow-ups that select
-tools. Structured output through `output_config.format` bound to the
-`TurnClaims` schema; tools declared with `strict: true`. A circuit breaker
-around the model client (open after 3 consecutive failures for 60 s) routes
-turns to the deterministic fallback. Sonnet 5 is the measured alternative in
-`AI_COST_ANALYSIS.md`, not a silent downgrade.
+**Model (ADR-0004).** `claude-sonnet-5` (owner decision 2026-09-15 on
+measured latency: about 10.5 s per narration against 15 to 17 s for Opus 5)
+with adaptive thinking and `output_config.effort` tuned per turn type: `low`
+for the UC-01 first-turn narration (fixed evidence, fixed shape), `medium`
+for follow-ups that select tools. Claims are returned as JSON text and
+validated by the agent against the contract (the grammar-constrained
+structured-output path was measured at 45 s or a timeout and is not used);
+tools are declared with `strict: true` from schemas stripped of bounds. A
+circuit breaker around the model client (open after 3 consecutive failures
+for 60 s) routes turns to the deterministic fallback. Opus 5 stays
+selectable by `COPILOT_MODEL_ID` as the measured alternative.
 
 **The turn graph.**
 
@@ -484,7 +487,10 @@ both ways. These are stated in the panel's help text and in `USERS.md`.
 
 Budget from the audit: gateway ≤50 ms, fan-out ≤300 ms, first evidence
 rendered ≤2 s p95, model ≤4 s, verifier ≤150 ms, complete ≤8 s p95 with
-about 5 s expected. Tools run in parallel from the agent (six concurrent
+about 5 s expected. Measured 2026-09-15 on the deployment: retrieval about
+1 s, narration 5 to 9 s, repair 5 to 14 s, planning 10 to 12 s, turns 24 to
+27 s; the owner accepted a provisional 30 s complete-response target for the
+early submission (`KEY_METRICS.md`), with a 45 s turn wall clock. Tools run in parallel from the agent (six concurrent
 gateway requests, bounded by a per-conversation semaphore of 6). Prompt
 caching on the stable system prompt and the evidence pack prefix. Agent
 service: 2 workers, 32 in-flight turns, queue depth exposed as a metric.

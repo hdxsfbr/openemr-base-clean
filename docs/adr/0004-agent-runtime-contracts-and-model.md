@@ -2,7 +2,8 @@
 
 - **Status:** Accepted 2026-09-15 (owner chose LangGraph from the start on
   2026-09-14 after reviewing the Weeks 1–3 syllabus; approved with
-  ADR-0005..0007 on 2026-09-15)
+  ADR-0005..0007 on 2026-09-15; model amended to Sonnet 5 the same day on
+  measured latency)
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (agent service)
 - **Related requirements:** PRD "Agentic Chatbot" (multi-turn, tool
@@ -60,15 +61,17 @@ cache-friendly regardless of orchestration.
    module JS and the Bruno assertions are generated from the same files;
    tool definitions for the model derive from the same models with
    `strict: true`. No hand-written parallel definitions.
-4. **Model:** `claude-opus-5` in code, adaptive thinking, `output_config.effort`
-   `low` for the fixed-shape first-turn narration and `medium` for
-   tool-selecting follow-ups; prompt caching on the stable system prompt and
-   evidence-pack prefix. **Measured 2026-09-15** on the UC-01 evidence pack
-   (about 1,150 tokens): Opus 5 narrates in 15 to 17 s, Sonnet 5 in about
-   10.5 s, with comparable verifier acceptance (8/10 vs 6/7). Neither meets
-   the 8 s complete-response budget yet; the deployment runs
-   `COPILOT_MODEL_ID=claude-sonnet-5` as an explicit environment setting
-   until the owner confirms or reverts. **Output format:** claims are
+4. **Model:** `claude-sonnet-5` (owner decision 2026-09-15), adaptive
+   thinking, `output_config.effort` `low` for the fixed-shape first-turn
+   narration and `medium` for tool-selecting follow-ups; prompt caching on
+   the stable system prompt and evidence-pack prefix. **Measured 2026-09-15**
+   on the UC-01 evidence pack (about 1,150 tokens): Opus 5 narrates in 15 to
+   17 s, Sonnet 5 in about 10.5 s, with comparable verifier acceptance (8/10
+   vs 6/7); the verifier, not the model, is the safety boundary, so the
+   faster model was chosen. Opus 5 remains the measured alternative,
+   selectable with `COPILOT_MODEL_ID`. The owner also accepted a provisional
+   30 s complete-response target for the early submission
+   (`KEY_METRICS.md`). **Output format:** claims are
    returned as JSON text and validated by the agent (`app/model_output.py`);
    the grammar-constrained `output_config.format` path was measured at 45 s
    or a timeout even for a two-claim schema and is not used.
@@ -113,7 +116,16 @@ cache-friendly regardless of orchestration.
   gateway calls would leave our boundary; compliance requires the data path
   to stay inside our boundary except the model call.
 
-### Model cascade (Haiku for tool selection, Opus for narration)
+### Opus 5 for narration
+
+- Benefits: slightly higher verifier acceptance in the one measured sample.
+- Costs and risks: 15 to 17 s per narration against 10.5 s, on a turn that
+  already carries a planning call and a possible repair; 2.5 times the
+  per-token price.
+- Reason rejected (2026-09-15): latency is the user's constraint and the
+  verifier is the safety boundary; kept selectable by environment.
+
+### Model cascade (Haiku for tool selection, Sonnet for narration)
 
 - Reason deferred: measure one model at tuned effort first; decide in
   `AI_COST_ANALYSIS.md`.

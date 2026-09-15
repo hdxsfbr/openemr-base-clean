@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://us.cloud.langfuse.com"
 
     # Model (ADR-0004).
-    model_id: str = "claude-opus-5"
+    model_id: str = "claude-sonnet-5"  # owner decision 2026-09-15 on measured latency (ADR-0004)
     effort_first_turn: str = "low"
     effort_followup: str = "medium"
     model_timeout_seconds: float = 30.0
