@@ -94,7 +94,9 @@ owner review), and `AUDIT.md` §8 records where it changed this shape:
 - the co-pilot module in our own image, behind a deny-by-default edge; OpenEMR
   issues documented, not fixed (`AUDIT.md` §7.3).
 
-`ARCHITECTURE.md` must reflect those decisions before AI implementation begins.
+`ARCHITECTURE.md` reflects those decisions; ADR-0004..0007 (LangGraph
+runtime and model, state and delegation, verification, observability) were
+accepted on 2026-09-15. AI implementation may begin.
 
 ## Schedule
 
@@ -114,13 +116,16 @@ September 14–20, 2026.
 
 ### Monday, September 14: understand before building
 
-- Complete the security, performance, architecture, data-quality, and
-  compliance audit.
-- Finish the approximately 500-word executive summary in `AUDIT.md`.
-- Validate the target user and workflow in `USERS.md`.
-- Select measurable product outcomes in `KEY_METRICS.md`.
-- Record the audit-driven architecture decisions in `ARCHITECTURE.md`.
-- Deploy a hardened OpenEMR baseline with demo-only data.
+- [x] Complete the security, performance, architecture, data-quality, and
+      compliance audit.
+- [x] Finish the approximately 500-word executive summary in `AUDIT.md`.
+- [x] Define the target user, workflow moment, and use cases in `USERS.md`
+      (owner-approved 2026-09-15; clinician-proxy validation still open).
+- [x] Select measurable product outcomes and thresholds in `KEY_METRICS.md`.
+- [x] Record the audit-driven architecture decisions in `ARCHITECTURE.md`
+      and ADR-0004..0007 (accepted 2026-09-15).
+- [ ] Deploy a hardened OpenEMR baseline with demo-only data (edge allowlist,
+      project image, demo-seed job; moved to Tuesday with the stub deploy).
 
 **Gate:** no AI-layer implementation until the audit is complete.
 
@@ -129,8 +134,12 @@ live access tests, a public cloud-window probe, and synthetic-cohort
 measurements, and passed owner review on 2026-09-14. The patient-scope authorization
 policy (parity with the chart, ADR-0002) and the integration point
 (in-process module gateway, SMART deferred, ADR-0003) are decided in
-`docs/adr/`. `USERS.md` validation, `KEY_METRICS.md` thresholds, and the
-audit-driven `ARCHITECTURE.md` revision remain.
+`docs/adr/`. `USERS.md` was revised against the Stage 4 text (workflow
+moment, agent-versus-dashboard defense per use case, schedule sweep deferred
+as UC-04, capability table) and `KEY_METRICS.md` thresholds are defined;
+`ARCHITECTURE.md` is revised against §8 and the ADRs; ADR-0004..0007 were
+accepted on 2026-09-15 (Stage 5 gate passed). The clinician-proxy validation
+remains.
 
 The reproducible DigitalOcean/Compose path under `infra/digitalocean` was
 externally verified on 2026-09-14: provisioned, public TLS smoke test passed,
@@ -146,6 +155,8 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
 
 - Embed the co-pilot shell in the patient dashboard.
 - Implement authenticated, typed patient-data tools.
+- Scaffold the LangGraph turn graph with the checkpointer and the GitLab CI
+  skeleton before the first model call.
 - Propagate a correlation ID through the UI, gateway, tools, LLM, verifier, and
   logs.
 - Implement one end-to-end question with structured output, citations, and
@@ -187,6 +198,32 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
 - Record the final 3–5 minute demo.
 - Complete the social post and AI interview requirements.
 - Target submission by 10:00 AM CT, ahead of the noon deadline.
+
+## Compounding Into Weeks 2 and 3
+
+The Weeks 1–3 syllabus (`../Gauntlet AI - Remote Phase Syllabus (Weeks 1–3).pdf`,
+read 2026-09-14) makes Week 2 a multimodal evidence agent (lab PDF and
+intake-form ingestion, hybrid RAG for guideline evidence, a supervisor with
+two workers, a 50-case golden set, a PR-blocking eval CI gate) and Week 3 an
+adversarial platform that attacks this co-pilot unattended, with a
+compressed Friday deadline. Week 1 builds none of that, and these choices
+were made so those weeks extend rather than replace:
+
+- LangGraph turn graph from the start (ADR-0004), so the supervisor and
+  workers are a parent graph and subgraphs, not a port.
+- LangGraph checkpointer as the conversation store (ADR-0005), with raw
+  records kept out of state.
+- `SourceId` as a URI scheme and an open claim-type enum, so document pages
+  and guideline chunks become sources without changing the verifier's shape.
+- A reserved, empty write-endpoint class in the gateway with idempotency and
+  provenance, because round-tripping derived records will need a write ADR.
+- Eval case format usable as the golden set; GitLab CI skeleton in Week 1.
+- Headless drive path (agent API, ticket script, eval client), fault
+  injection switch, token budgets, and a daily spend halt, which are the
+  Week 3 attack surface and cost defenses.
+- `KEY_METRICS.md` states how each metric could be gamed and what stops it.
+- Tag a clean, deployable release on 2026-09-20; Week 2's PRD arrives the
+  next morning alongside panel interviews.
 
 ## Priorities
 

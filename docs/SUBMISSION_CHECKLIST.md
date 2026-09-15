@@ -24,11 +24,16 @@ it's GitHub, push the final state there before submitting.
 - [x] `AUDIT.md` begins with an approximately 500-word key-findings summary and
       covers all five required audit areas. *(Complete and owner-reviewed
       2026-09-14; Stage 3 gate passed.)*
-- [ ] `USERS.md` defines the target user, workflow, and agent rationale for every
-      use case; `USER.md` points to it.
-- [ ] `ARCHITECTURE.md` begins with an approximately 500-word summary and traces
-      every capability to `USERS.md`.
-- [ ] `KEY_METRICS.md` defines and justifies product-success metrics.
+- [x] `USERS.md` defines the target user, workflow, and agent rationale for every
+      use case; `USER.md` points to it. *(Revised and owner-approved
+      2026-09-15; clinician-proxy validation checkboxes remain open.)*
+- [x] `ARCHITECTURE.md` begins with an approximately 500-word summary and traces
+      every capability to `USERS.md`. *(Revised against the audit and
+      ADR-0002..0007; owner-approved 2026-09-15, Stage 5 gate passed.)*
+- [x] `KEY_METRICS.md` defines and justifies product-success metrics.
+      *(Definitions, targets, gaming defenses, and decision thresholds
+      approved 2026-09-15; latency and cost thresholds provisional until the
+      load baseline.)*
 - [ ] `docs/REQUIREMENTS_TRACEABILITY.md` links requirements to current evidence.
 
 ### Product and engineering

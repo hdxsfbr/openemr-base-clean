@@ -69,8 +69,14 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   does authorization, audit, and data shaping.
 - **Agent service**: the separate container that runs orchestration and model
   calls and exposes the co-pilot HTTP API.
-- **Delegation token**: the short-lived credential bound to one conversation
-  that the browser and agent use to call the gateway.
+- **Delegation token** (turn ticket): the short-lived (90 s) signed credential
+  bound to one conversation, minted by the module per turn after re-checking
+  the session and open patient, that the browser and agent use to call the
+  agent API and the gateway.
+- **Evidence pack**: the deterministic text rendering of a turn's tool
+  records, with source ids inline, that the model narrates from.
+- **Claim**: one typed, cited statement in the model's structured output;
+  the unit the verifier accepts or withholds.
 - **`AuthorizedPatientContext`**: the immutable object (user, patient,
   allowed sections, reason) the gateway hands to every tool.
 - **Parity**: the decision that the co-pilot sees exactly what the user could
@@ -83,6 +89,12 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
 - **Verifier**: the deterministic step that checks every claim against
   retrieved records before display.
 - **Correlation ID**: the identifier carried through one request end to end.
+- **LangGraph**: the graph runtime the agent service uses for state and
+  edges; nodes are plain Python functions that call the Anthropic SDK.
+- **Turn graph**: the eight-node LangGraph (authorize, classify, plan,
+  retrieve, narrate, verify, repair, render) that runs one conversation turn.
+- **Checkpointer**: LangGraph's persistence of graph state per conversation;
+  SQLite in Week 1, and the co-pilot's only transcript store.
 
 ## Tooling and operations
 
