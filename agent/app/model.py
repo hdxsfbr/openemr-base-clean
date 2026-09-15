@@ -15,7 +15,7 @@ from typing import Any, Protocol
 from pydantic import ValidationError
 
 from .contracts import LabsParams, NotesParams, TurnClaims, WindowParams
-from .model_output import ModelTurnClaims, to_claims
+from .model_output import ModelTurnClaims, model_summary, to_claims
 from .settings import settings
 from .telemetry import generation, record_usage
 
@@ -41,6 +41,7 @@ Rules that never change:
   conflict: kind (status_conflict|note_vs_list|duplicate_sources), cite every record involved
   undated: section, cite the UNDATED record
   interpretation: reading (your reading of an ambiguous reference; the physician can correct it)
+- Also write `summary`: one to three plain sentences that answer the question directly by restating your claims (which items changed, which results are flagged, what is in conflict or missing). No fact that is not in a claim, no numbers or dates that are not in a claim, no advice. It is shown only if every claim verifies.
 """
 
 TOOL_DESCRIPTIONS = {
@@ -58,7 +59,7 @@ PARAM_MODELS = {"clinical_notes": NotesParams, "lab_results": LabsParams}
 OUTPUT_INSTRUCTIONS = (
     "Reply with ONLY one JSON object, no prose and no code fence, of the form "
     '{"claims": [{"type": "<claim type>", "text": "<under 20 words>", "source_ids": ["openemr:..."], '
-    '"facts": {<only the fields the claim type needs>}}]}. '
+    '"facts": {<only the fields the claim type needs>}}], "summary": "<one to three sentences restating the claims>"}. '
     "Omit facts fields you do not use. At most 10 claims."
 )
 
@@ -258,7 +259,7 @@ class AnthropicModel:
                 claims, dropped = to_claims(output)
                 if dropped:
                     log.info("claims dropped by contract", extra={"component": "model", "duration_ms": len(dropped)})
-                return NarrateResult(TurnClaims(claims=claims), usage)
+                return NarrateResult(TurnClaims(claims=claims, summary=model_summary(output)), usage)
             if attempt == 0:
                 messages = messages + [
                     {"role": "assistant", "content": text[:4000] or "(empty)"},

@@ -1,6 +1,48 @@
-/* AgentForge Clinical Co-Pilot panel */
+/* AgentForge Clinical Co-Pilot panel: a chat transcript with a fixed composer. */
 #copilot-panel .card-header { background: transparent; }
-#copilot-panel #copilot-status { font-weight: 500; }
-#copilot-panel .copilot-cite { margin-left: 0.15rem; text-decoration: none; }
+#copilot-panel .copilot-transcript {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 32rem;
+    overflow-y: auto;
+    padding: 0.25rem 0.1rem 0.5rem;
+}
+#copilot-panel .copilot-msg { max-width: 100%; line-height: 1.4; }
+#copilot-panel .copilot-msg-user {
+    align-self: flex-end;
+    max-width: 85%;
+    background: #e8f0fe;
+    border-radius: 0.9rem 0.9rem 0.2rem 0.9rem;
+    padding: 0.45rem 0.75rem;
+    white-space: pre-wrap;
+}
+#copilot-panel .copilot-msg-assistant {
+    align-self: stretch;
+    background: #f5f6f8;
+    border-radius: 0.9rem 0.9rem 0.9rem 0.2rem;
+    padding: 0.5rem 0.75rem;
+}
+#copilot-panel .copilot-progress { color: #6c757d; font-style: italic; }
+#copilot-panel .copilot-turn-head { margin-bottom: 0.35rem; }
+#copilot-panel .copilot-summary { margin-bottom: 0.5rem; }
+#copilot-panel .copilot-claims { background: #fff; font-size: 0.85rem; border-radius: 0.35rem; }
+#copilot-panel .copilot-claims th { font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6; padding: 0.3rem 0.45rem; }
+#copilot-panel .copilot-claims td { padding: 0.3rem 0.45rem; vertical-align: top; border-top: 1px solid #f1f3f5; }
+#copilot-panel .copilot-claims .copilot-kind { white-space: nowrap; color: #495057; }
+#copilot-panel .copilot-claims .copilot-text { width: 100%; }
+#copilot-panel .copilot-claim-conflict .copilot-kind,
+#copilot-panel .copilot-claim-undated .copilot-kind { color: #b8860b; }
+#copilot-panel .copilot-claim-absence .copilot-kind { color: #6c757d; }
+#copilot-panel .copilot-cite { margin-right: 0.15rem; text-decoration: none; }
 #copilot-panel a.copilot-cite:hover { text-decoration: underline; }
-#copilot-panel #copilot-body li { line-height: 1.35; }
+#copilot-panel .copilot-limits { padding-left: 1.1rem; }
+#copilot-panel .copilot-meta { margin-top: 0.25rem; }
+#copilot-panel .copilot-composer {
+    border-top: 1px solid #dee2e6;
+    padding-top: 0.5rem;
+    margin-top: 0.25rem;
+}
+#copilot-panel .copilot-chip { margin-bottom: 0.4rem; }
+#copilot-panel .copilot-form { display: flex; gap: 0.4rem; }
+#copilot-panel .copilot-form input { flex: 1 1 auto; min-width: 0; }

@@ -20,7 +20,7 @@ from ..gateway_client import GatewayPort, unavailable
 from ..model import ModelError, ModelPort, NarrateResult, PlanResult, Usage
 from ..settings import settings
 from ..state_store import get_pack, put_pack
-from ..verifier import verify
+from ..verifier import deterministic_summary, verify, verify_summary
 from .state import TurnState
 
 log = logging.getLogger("copilot.graph")
@@ -184,7 +184,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         budget.daily.add(result.usage.total)
         if result.claims is None:
             return {"raw_claims": None, "narrate_error": result.error, "usage": _add_usage(state, result.usage), "route": "render"}
-        return {"raw_claims": [c.model_dump(mode="json") for c in result.claims.claims], "usage": _add_usage(state, result.usage), "route": "verify"}
+        return {"raw_claims": [c.model_dump(mode="json") for c in result.claims.claims], "raw_summary": result.claims.summary, "usage": _add_usage(state, result.usage), "route": "verify"}
 
     async def verify_node(state: TurnState) -> dict[str, Any]:
         pack = get_pack(state["turn_id"]) or EvidencePack()
@@ -214,7 +214,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         budget.daily.add(result.usage.total)
         if result.claims is None:
             return {"repair_attempted": True, "usage": _add_usage(state, result.usage), "route": "render"}
-        return {"repair_attempted": True, "raw_claims": [c.model_dump(mode="json") for c in result.claims.claims], "usage": _add_usage(state, result.usage), "route": "verify"}
+        return {"repair_attempted": True, "raw_claims": [c.model_dump(mode="json") for c in result.claims.claims], "raw_summary": result.claims.summary, "usage": _add_usage(state, result.usage), "route": "verify"}
 
     async def render_node(state: TurnState) -> dict[str, Any]:
         started = time.perf_counter()
@@ -241,12 +241,24 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             limitations.append({"kind": "withheld", "section": None, "detail": f"{withheld} statement(s) withheld: could not be verified against the chart.", "source_ids": []})
         cited = {sid for c in accepted for sid in c.source_ids}
         sources = [source_summary(pack.records[sid]) for sid in sorted(cited) if sid in pack.records]
+        # The summary is prose: the model's is shown only when every claim verified (ADR-0006 §7);
+        # otherwise a count-only summary is built from the verified claims.
+        summary_ok, summary_reason = verify_summary(state.get("raw_summary") or "", accepted, state.get("rejected") or [], known_values=[state.get("window_since") or ""]) if not state.get("narrate_error") else (False, "narrative_unavailable")
+        if summary_ok:
+            summary, summary_basis = " ".join((state.get("raw_summary") or "").split()), "model"
+        else:
+            summary, summary_basis = deterministic_summary(accepted, withheld, state.get("window_since"), state.get("narrate_error")), "deterministic"
+            # Rule name only: the ungrounded token itself is chart content and stays out of the log.
+            log.info("summary replaced: %s", summary_reason.split(":")[0] if summary_reason.startswith("ungrounded") else summary_reason, extra={"component": "render", "correlation_id": state.get("correlation_id")})
         history = list(state.get("history") or [])
         history.append({
             "turn_id": state["turn_id"],
             "question": state["question"][:200],
             "turn_type": state["turn_type"],
+            "summary": summary,
+            "summary_basis": summary_basis,
             "claims": [c.model_dump(mode="json") for c in accepted],
+            "sources": sources,
             "limitations": limitations,
             "window_since": state.get("window_since"),
             "reference_encounter_source_id": state.get("reference_encounter_source_id"),
@@ -258,6 +270,8 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             "accepted": [c.model_dump(mode="json") for c in accepted],
             "limitations": limitations,
             "sources": sources,
+            "summary": summary,
+            "summary_basis": summary_basis,
             "status": status,
             "history": history,
             "conversation_tokens": int(state.get("conversation_tokens") or 0) + int(usage.get("input_tokens", 0) + usage.get("output_tokens", 0)),

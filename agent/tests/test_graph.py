@@ -70,6 +70,33 @@ async def test_model_claims_are_verified_and_bad_ones_withheld() -> None:
     assert {r["rule"] for r in final["rejected"]} == {"type_facts", "source_exists", "lexicon:advice"}
     assert final["repair_attempted"] is True and model.narrate_calls == 2
     assert final["sources"][0]["source_id"] == A1C_LATEST and final["sources"][0]["table"] == "procedure_result"
+    # Statements were withheld, so the model's prose is not shown; the summary is built from verified claims only.
+    assert final["summary_basis"] == "deterministic" and "1 lab result" in final["summary"] and "3 statement(s) were withheld" in final["summary"]
+    assert final["history"][-1]["summary"] == final["summary"] and final["history"][-1]["sources"] == final["sources"]
+
+
+@pytest.mark.anyio
+async def test_model_summary_shown_only_when_every_claim_verifies() -> None:
+    budget.daily.reset()
+    good = {"id": "c1", "type": "lab_result", "text": "Hemoglobin A1c 6.8 % on 2026-08-31, flagged abnormal.", "facts": {"analyte": "Hemoglobin A1c", "value_text": "6.8", "unit": "%", "date": "2026-08-31", "flag": "abnormal"}, "source_ids": [A1C_LATEST]}
+    model = FakeModel(claims=[good], summary="One result is flagged abnormal: hemoglobin A1c at 6.8 % on 2026-08-31.")
+    final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["status"] == "complete" and final["summary_basis"] == "model" and final["summary"].startswith("One result is flagged")
+
+    # Counts up to the number of claims and the window date are agent-established facts, so they are grounded.
+    model = FakeModel(claims=[good], summary="Since the visit on 2026-06-16 there is 1 flagged result: hemoglobin A1c 6.8 %.")
+    final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["window_since"] == "2026-06-16" and final["summary_basis"] == "model"
+
+    # A number the claims do not carry makes the summary ungrounded: replaced, claims untouched.
+    model = FakeModel(claims=[good], summary="A1c rose from 6.1 to 6.8 %.")
+    final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["status"] == "complete" and final["summary_basis"] == "deterministic" and len(final["accepted"]) == 1
+
+    # Advice language in the summary is rejected by the same lexicon as claims.
+    model = FakeModel(claims=[good], summary="A1c is abnormal; you should recheck it.")
+    final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["summary_basis"] == "deterministic"
 
 
 @pytest.mark.anyio

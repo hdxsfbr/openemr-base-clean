@@ -25,6 +25,9 @@ class TurnState(TypedDict, total=False):
     window_since: str | None
     evidence: list[dict[str, Any]]
     raw_claims: list[dict[str, Any]] | None
+    raw_summary: str
+    summary: str
+    summary_basis: str
     narrate_error: str | None
     accepted: list[dict[str, Any]]
     rejected: list[dict[str, str]]
@@ -55,6 +58,9 @@ PER_TURN_DEFAULTS: dict[str, Any] = {
     "window_since": None,
     "evidence": [],
     "raw_claims": None,
+    "raw_summary": "",
+    "summary": "",
+    "summary_basis": "none",
     "narrate_error": None,
     "accepted": [],
     "rejected": [],

@@ -34,7 +34,9 @@ assert {
   res.body.turn_type: eq uc01_first
   res.body.correlation_id: eq {{turn_correlation}}
   res.body.verification: isDefined
-  res.body.contract_version: eq 1.0.0
+  res.body.contract_version: eq 1.1.0
+  res.body.summary: isString
+  res.body.summary_basis: isDefined
 }
 
 tests {
@@ -45,6 +47,11 @@ tests {
   test("evidence covers the six clinical tools", function () {
     const tools = (res.getBody().evidence || []).map(e => e.tool);
     ["encounters", "problems", "medications", "allergies", "lab_results", "clinical_notes"].forEach(t => expect(tools).to.include(t));
+  });
+  test("the model's prose is shown only when nothing was withheld", function () {
+    const body = res.getBody();
+    if (body.withheld_count > 0) { expect(body.summary_basis).to.equal("deterministic"); }
+    expect(body.summary.length).to.be.greaterThan(0);
   });
   test("correlation id echoed in header", function () {
     expect(res.getHeader("x-correlation-id")).to.equal(bru.getVar("turn_correlation"));

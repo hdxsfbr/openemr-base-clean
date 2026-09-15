@@ -6,7 +6,7 @@ it in the Bruno app, or run it headlessly:
 
 ```bash
 npm install -g @usebruno/cli
-bru run docs/api-collection --env deployed --env-var DEMO_PASSWORD='<demo clinician password>'
+cd docs/api-collection && bru run --env deployed --env-var DEMO_PASSWORD="$(ssh deployer@<droplet-ip> cat /opt/agentforge/secrets/demo_user_password)"
 ```
 
 The demo clinician password is generated on the deployment host

@@ -43,6 +43,13 @@ class ModelClaim(BaseModel):
 
 class ModelTurnClaims(BaseModel):
     claims: list[ModelClaim] = Field(default_factory=list)
+    summary: str | None = None
+
+
+def model_summary(output: ModelTurnClaims, limit: int = 600) -> str:
+    """The model's summary, whitespace-collapsed and capped; empty when absent."""
+    text = " ".join((output.summary or "").split())
+    return text[:limit]
 
 
 def _cap(value: str | None, limit: int) -> str | None:

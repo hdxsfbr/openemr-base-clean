@@ -34,17 +34,21 @@ class FakeGateway:
 class FakeModel:
     """Scripted model: returns the claims it is given; records calls."""
 
-    def __init__(self, claims: list[dict[str, Any]] | None = None, plan_calls: list[tuple[str, dict]] | None = None, repair_claims: list[dict[str, Any]] | None = None) -> None:
+    def __init__(self, claims: list[dict[str, Any]] | None = None, plan_calls: list[tuple[str, dict]] | None = None, repair_claims: list[dict[str, Any]] | None = None, summary: str = "", repair_summary: str | None = None) -> None:
         self.claims = claims or []
         self.repair_claims = repair_claims
+        self.summary = summary
+        self.repair_summary = repair_summary
         self.plan_calls = plan_calls or []
         self.narrate_calls = 0
         self.plan_rounds = 0
 
     async def narrate(self, question: str, pack_text: str, effort: str, rejections=None) -> NarrateResult:
         self.narrate_calls += 1
-        claims = self.repair_claims if (rejections and self.repair_claims is not None) else self.claims
-        return NarrateResult(TurnClaims(claims=[Claim.model_validate(c) for c in claims]), Usage(input_tokens=1200, output_tokens=200, model_calls=1))
+        repairing = bool(rejections) and self.repair_claims is not None
+        claims = self.repair_claims if repairing else self.claims
+        summary = self.repair_summary if (repairing and self.repair_summary is not None) else self.summary
+        return NarrateResult(TurnClaims(claims=[Claim.model_validate(c) for c in claims], summary=summary), Usage(input_tokens=1200, output_tokens=200, model_calls=1))
 
     async def plan(self, question: str, pack_text: str, prior_calls) -> PlanResult:
         self.plan_rounds += 1

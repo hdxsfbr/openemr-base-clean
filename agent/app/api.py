@@ -103,6 +103,8 @@ def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResp
         "sources": state.get("sources") or [],
         "limitations": state.get("limitations") or [],
         "withheld_count": len(state.get("rejected") or []) if not state.get("narrate_error") else 0,
+        "summary": state.get("summary") or "",
+        "summary_basis": state.get("summary_basis") or "none",
         "verification": Verification(
             outcome="not_run" if state.get("raw_claims") is None and not state.get("narrate_error") else ("failed_closed" if state.get("narrate_error") and state.get("turn_type") != "uc01_first" else ("partial" if state.get("rejected") else "passed")),
             rules_applied=state.get("rules") or [],
@@ -168,8 +170,8 @@ async def post_turn(
                         final_state.update(delta or {})
                         if node == "retrieve":
                             yield f"event: evidence\ndata: {json.dumps({'evidence': delta.get('evidence', []), 'window_since': delta.get('window_since'), 'correlation_id': correlation_id})}\n\n"
-                        elif node in ("verify", "repair"):
-                            yield f"event: progress\ndata: {json.dumps({'node': node})}\n\n"
+                        # Node completions drive the panel's progress line; no claim text leaves before the verifier.
+                        yield f"event: progress\ndata: {json.dumps({'node': node, 'next': (delta or {}).get('route', '')})}\n\n"
                 finish_turn_trace(span, final_state)
             response = _response_from_state(final_state, correlation_id)
             metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final_state.get("usage") or {}), final_state.get("evidence") or [], final_state.get("rejected") or [])

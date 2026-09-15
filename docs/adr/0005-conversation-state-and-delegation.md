@@ -49,7 +49,9 @@ memory.
    deleted when the binding closes.
 4. **Isolation by construction.** State is keyed by conversation id only
    reachable with a valid token for that conversation; no process-global
-   state, no model-side memory, nothing in browser storage; a new
+   state, no model-side memory, no conversation content in browser storage
+   (the panel keeps only the opaque conversation id in `sessionStorage` so
+   a page reload can re-fetch the transcript behind a fresh ticket); a new
    conversation starts empty.
 
 ## Alternatives Considered

@@ -558,6 +558,20 @@
       "title": "Status",
       "type": "string"
     },
+    "summary": {
+      "default": "",
+      "description": "Paragraph shown above the claims",
+      "maxLength": 600,
+      "title": "Summary",
+      "type": "string"
+    },
+    "summary_basis": {
+      "default": "none",
+      "description": "model: the model's summary, accepted because every claim verified; deterministic: built from verified claims",
+      "pattern": "^(model|deterministic|none)$",
+      "title": "Summary Basis",
+      "type": "string"
+    },
     "turn_id": {
       "title": "Turn Id",
       "type": "string"
@@ -614,5 +628,5 @@
   ],
   "title": "TurnResponse",
   "type": "object",
-  "x-contract-version": "1.0.0"
+  "x-contract-version": "1.1.0"
 }

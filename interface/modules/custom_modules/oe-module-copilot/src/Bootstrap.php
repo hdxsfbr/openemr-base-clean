@@ -26,7 +26,7 @@ final class Bootstrap
 {
     public const MODULE_DIRECTORY = 'oe-module-copilot';
     public const MODULE_PATH = '/interface/modules/custom_modules/' . self::MODULE_DIRECTORY;
-    public const VERSION = '0.2.1';
+    public const VERSION = '0.3.0';
 
     /** Path prefix, relative to the site root, where the agent API is published by the edge. */
     public const API_BASE = '/copilot-api';
@@ -72,11 +72,13 @@ final class Bootstrap
             . ' data-web-root="' . attr($webRoot) . '"'
             . ' data-correlation-id="' . attr($correlationId) . '"'
             . ' data-version="' . attr($version) . '">'
-            . '<div class="card-header py-2"><h6 class="mb-0">' . xlt('Clinical Co-Pilot') . '</h6></div>'
+            . '<div class="card-header py-2 d-flex justify-content-between align-items-center">'
+            . '<h6 class="mb-0">' . xlt('Clinical Co-Pilot') . '</h6>'
+            . '<span id="copilot-status" class="small text-muted">' . xlt('Checking the co-pilot service...') . '</span>'
+            . '</div>'
             . '<div class="card-body py-2">'
-            . '<p id="copilot-status" class="mb-1 text-muted">' . xlt('Checking the co-pilot service...') . '</p>'
-            . '<div id="copilot-controls" class="mb-2"></div>'
-            . '<div id="copilot-body"></div>'
+            . '<div id="copilot-transcript" class="copilot-transcript" role="log" aria-live="polite" aria-label="' . attr(xl('Co-Pilot conversation')) . '"></div>'
+            . '<div id="copilot-composer" class="copilot-composer"></div>'
             . '<p class="small text-muted mb-0 mt-1">'
             . xlt('Read-only. Every statement cites a chart record. It does not diagnose, recommend, or write to the chart. Access equals what you can open in this chart.')
             . '</p>'

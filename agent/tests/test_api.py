@@ -43,7 +43,8 @@ def test_turn_returns_contract_shaped_response_with_correlation_id(client: TestC
     assert r.headers["X-Correlation-Id"] == "conv1234abcd.1"
     assert body["verification"]["outcome"] in ("passed", "partial")
     assert {e["tool"] for e in body["evidence"]} >= {"encounters", "lab_results"}
-    assert body["contract_version"] == "1.0.0"
+    assert body["contract_version"] == "1.1.0"
+    assert body["summary"] and body["summary_basis"] in ("model", "deterministic")
     got = client.get(f"/v1/conversations/{CID}", headers={"X-Copilot-Token": token})
     assert got.status_code == 200 and len(got.json()["turns"]) == 1
 
@@ -53,7 +54,11 @@ def test_turn_streams_evidence_then_claims(client: TestClient) -> None:
     with client.stream("POST", f"/v1/conversations/{CID}/turns", json={"message": "What changed since the last visit?", "stream": True}, headers={"X-Copilot-Token": token}) as r:
         assert r.status_code == 200
         text = "".join(r.iter_text())
-    assert text.index("event: evidence") < text.index("event: claims") < text.index("event: done")
+    verify_progress = text.index('"node": "verify"')
+    assert text.index("event: evidence") < verify_progress < text.index("event: claims") < text.index("event: done")
+    # No claim text leaves before the claims event: progress events carry node names only.
+    progress_lines = [line for line in text.splitlines() if line.startswith("data:") and '"node"' in line]
+    assert progress_lines and all("text" not in line for line in progress_lines)
 
 
 def test_invalid_body_is_400_and_metrics_exposed(client: TestClient) -> None:

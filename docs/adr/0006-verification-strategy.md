@@ -56,6 +56,16 @@ retrieved in that turn. It makes no model call.
 6. **Fail closed.** Any exception in the verifier, or a response missing a
    verifier outcome, renders nothing from the model. The renderer refuses
    claims without a `verification` block.
+7. **Summary paragraph (added 2026-09-15).** The model also writes a one-
+   to three-sentence `summary` that answers the question by restating its
+   claims. Prose cannot be checked fact by fact, so it is admitted under a
+   stricter gate than claims: it is shown only when no claim was withheld
+   in the turn (so nothing withheld can leak through the prose), it passes
+   the same lexicon, and every number in it appears in a verified claim's
+   text or facts. Otherwise the response carries a deterministic,
+   count-only summary built from the verified claims and is labeled
+   `summary_basis=deterministic`. Owner request: a list of rows without a
+   direct answer was not readable.
 
 ## Alternatives Considered
 
@@ -107,6 +117,9 @@ retrieved in that turn. It makes no model call.
 - Lab rule evals on `AF-DQ-K`, `AF-DQ-L`, `AF-DQ-M`.
 - Lexicon evals: recommendation and dosing phrasings rejected.
 - Fail-closed eval: verifier exception renders no model text.
+- Summary evals (`agent/tests/test_graph.py`): the model's summary is shown
+  when every claim verifies; replaced when any claim is withheld, when it
+  carries a number absent from the claims, or when it uses advice language.
 
 ## Revisit Triggers
 

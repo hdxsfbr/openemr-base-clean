@@ -111,7 +111,7 @@ flowchart LR
 
 | Component | Runs in | Owns | Never does |
 | --- | --- | --- | --- |
-| **Module UI** (`interface/modules/custom_modules/oe-module-copilot/`) | OpenEMR PHP, user session | Panel markup and JS injected by `PatientDemographics\RenderEvent`; rendering of claims, citations, limitation states as text; opening citations in the chart | Compute anything clinical; store conversation in browser storage |
+| **Module UI** (`interface/modules/custom_modules/oe-module-copilot/`) | OpenEMR PHP, user session | Panel markup and JS injected by `PatientDemographics\RenderEvent`; a chat transcript per conversation with a fixed composer; rendering of the summary, claims table, citations, limitation states as text; live progress from the turn's node events; opening citations in the chart | Compute anything clinical; store conversation content in browser storage (only the opaque conversation id is kept in `sessionStorage` so the transcript can be re-fetched after a page reload, behind a fresh ticket) |
 | **Conversation and delegation endpoints** (module, `public/api/*.php`) | OpenEMR PHP, user session + CSRF | `conversation.start` (bind to site, user, pid; mint correlation ID), `turn.ticket` (re-check session and pid; mint delegation token), `conversation.end` | Accept a `pid` from the client; extend the OpenEMR session |
 | **Tool gateway** (module, `public/gateway/*.php`, `$ignoreAuth` with its own token check) | OpenEMR PHP, server-to-server from the agent | Validate the delegation token; build `AuthorizedPatientContext`; per-tool section ACL, squad, break-glass; audit event; call services in process; normalize; return typed records | Trust a patient identifier from the request; return raw service rows; run without an audit row |
 | **Agent service** (`agent/`, own container) | Python, FastAPI, Pydantic, LangGraph (ADR-0004) | Co-pilot HTTP API; the turn graph; evidence pack; model calls; verifier; checkpointed conversation state; budgets; telemetry; `/health`, `/ready` | Hold database credentials or the OpenEMR session; see a `pid`; render unverified text |
@@ -350,8 +350,13 @@ model's instructions are in the system prompt only; the verifier ignores
 anything the model says about policy; the renderer never executes model
 output. `AF-DQ-O` is the regression fixture.
 
-**Streaming.** The API maps graph node events to the `evidence`, `claims`,
-and `done` server-sent events the panel renders in two phases.
+**Streaming.** The API maps graph node events to server-sent events:
+`evidence` after retrieval, `progress` (node name and next route, no
+content) after every node, then `claims` with the full verified turn and
+`done`. The panel shows the progress as a status line inside the pending
+message and renders the answer once. Token-by-token streaming of the answer
+is excluded by design: nothing the model wrote leaves the agent before the
+verifier has run (`AGENTS.md`).
 
 **Fault injection.** When `COPILOT_FAULT_INJECTION=1`, the
 `X-Copilot-Fault` header (`model`, `tool:<name>`, `tracer`, `budget`) sets
@@ -373,8 +378,13 @@ runner loads it. Hand-written parallel definitions are not permitted.
 - `ToolRequest{tool, params, correlation_id}` and `ToolResponse` (envelope
   above), one `params` model per tool, `additionalProperties: false`.
 - `TurnRequest{message, correlation_id?, stream?}`,
-  `TurnResponse{turn_id, status, evidence[], claims[], limitations[],
-  withheld_count, verification, usage, correlation_id}`.
+  `TurnResponse{turn_id, status, evidence[], summary, summary_basis,
+  claims[], sources[], limitations[], withheld_count, verification, usage,
+  correlation_id}`. `summary` is the one-paragraph answer shown above the
+  claims; `summary_basis` says whether it is the model's prose (`model`,
+  allowed only when no claim was withheld this turn and the prose passes the
+  lexicon and cites no number absent from the verified claims) or a
+  count-only paragraph built from the verified claims (`deterministic`).
 - `Claim{id, type, text, facts, source_ids[], window?}` with `type` in
   `change_event | medication_status | lab_result | lab_comparison |
   documented_reference | absence | conflict | undated | interpretation`.
@@ -414,7 +424,10 @@ live in a per-turn memory cache and each turn re-fetches (cache at most
 60 s), so the model's context is rebuilt from fresh tool output and stale
 data cannot outlive a minute. PHI at rest in the agent is therefore limited
 to claim text, and the volume is deleted with the deployment. No
-process-global state, no model-side memory, nothing in browser storage.
+process-global state, no model-side memory, no conversation content in
+browser storage (the panel keeps only the opaque conversation id in
+`sessionStorage`, and any restore goes through a fresh ticket that
+re-checks the open chart).
 
 **Isolation invariants (tested):** a new conversation for the same patient
 carries no prior turns; a patient switch closes the conversation; the same
@@ -456,7 +469,11 @@ lexicon check over claim text rejects the claim.
 
 **Outcome.** Claims that pass render as facts with citations. Rejected
 claims are withheld; the response shows "N statements withheld" and the
-rejection reasons go to the trace. If any claim was rejected, one repair
+rejection reasons go to the trace. The model also writes a short summary
+paragraph; it is shown only when no claim was withheld in the turn, it
+passes the same lexicon, and every number in it appears in a verified
+claim. Otherwise the panel shows a count-only summary built from the
+verified claims, labeled as such (ADR-0006 §7). If any claim was rejected, one repair
 call is made with the rejection list; the second result is verified the same
 way and there is no third attempt. A turn with zero verified claims renders
 the evidence list and a limitation, never free text.

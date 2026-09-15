@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import Any, Iterable
 
 from .contracts import (
     AllergyRecord,
@@ -215,3 +215,77 @@ def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
     elif t is ClaimType.interpretation:
         pass
     result.accepted.append(claim)
+
+
+# ---------------------------------------------------------------- summary
+
+
+NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
+MAX_SUMMARY_CHARS = 600
+
+
+def verify_summary(summary: str, accepted: list[Claim], rejected: list[dict[str, str]], known_values: Iterable[str] = ()) -> tuple[bool, str]:
+    """Whether the model's summary may be shown. The summary is prose, so it
+    cannot be checked fact by fact; it is admitted only when (a) every claim
+    of the final round verified, so nothing withheld can leak through it,
+    (b) it is non-empty and within its cap, (c) it passes the lexicon, and
+    (d) every number in it appears in an accepted claim's text or facts, in
+    `known_values` (turn facts the agent itself established, such as the
+    window date), or is a count no larger than the number of claims.
+    Returns (ok, reason)."""
+    text = " ".join(summary.split())
+    if not text:
+        return False, "empty"
+    if len(text) > MAX_SUMMARY_CHARS:
+        return False, "too_long"
+    if rejected:
+        return False, "claims_withheld"
+    if not accepted:
+        return False, "no_verified_claims"
+    for pattern, rule in FORBIDDEN:
+        if re.search(pattern, text, re.IGNORECASE):
+            return False, "lexicon:" + rule
+    grounded = " ".join(
+        [c.text for c in accepted] + [str(v) for c in accepted for v in c.facts.model_dump(exclude_none=True).values()] + [str(v) for v in known_values if v]
+    )
+    known = set(NUMBER_RE.findall(grounded)) | {str(n) for n in range(len(accepted) + 1)}
+    for token in NUMBER_RE.findall(text):
+        if token not in known:
+            return False, f"ungrounded_number:{token}"
+    return True, "ok"
+
+
+_TYPE_PHRASES = {
+    ClaimType.change_event: ("change", "changes"),
+    ClaimType.lab_result: ("lab result", "lab results"),
+    ClaimType.lab_comparison: ("lab comparison", "lab comparisons"),
+    ClaimType.medication_status: ("medication status", "medication statuses"),
+    ClaimType.documented_reference: ("documented reference", "documented references"),
+    ClaimType.absence: ("absence", "absences"),
+    ClaimType.conflict: ("conflict", "conflicts"),
+    ClaimType.undated: ("undated record", "undated records"),
+    ClaimType.interpretation: ("reading", "readings"),
+}
+
+
+def deterministic_summary(accepted: list[Claim], withheld: int, window_since: str | None, narrate_error: str | None) -> str:
+    """A summary built only from verified claims and turn state, used when the
+    model's summary cannot be shown. Counts, never content."""
+    if narrate_error:
+        lead = "The narrative service was unavailable, so this answer lists verified chart records only."
+    elif not accepted:
+        return "No statement about this question could be verified against the chart." + (f" {withheld} statement(s) were withheld." if withheld else "")
+    else:
+        lead = ""
+    counts: dict[ClaimType, int] = {}
+    for c in accepted:
+        counts[c.type] = counts.get(c.type, 0) + 1
+    parts = [f"{n} {_TYPE_PHRASES[t][0 if n == 1 else 1]}" for t, n in counts.items()]
+    if len(parts) > 1:
+        joined = ", ".join(parts[:-1]) + " and " + parts[-1]
+    else:
+        joined = parts[0] if parts else "no statements"
+    scope = f"since the visit on {window_since}" if window_since else "across the chart"
+    body = f"The chart shows {joined} {scope}."
+    tail = f" {withheld} statement(s) were withheld because they could not be verified." if withheld else ""
+    return " ".join(s for s in (lead, body + tail) if s)

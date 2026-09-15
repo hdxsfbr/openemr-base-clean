@@ -311,9 +311,16 @@
       "maxItems": 40,
       "title": "Claims",
       "type": "array"
+    },
+    "summary": {
+      "default": "",
+      "description": "One to three sentences that answer the question by restating the claims; shown only when every claim verified",
+      "maxLength": 600,
+      "title": "Summary",
+      "type": "string"
     }
   },
   "title": "TurnClaims",
   "type": "object",
-  "x-contract-version": "1.0.0"
+  "x-contract-version": "1.1.0"
 }

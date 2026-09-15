@@ -4,8 +4,6 @@
 }
 
 {$PUBLIC_HOSTNAME} {
-	encode zstd gzip
-
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
@@ -14,8 +12,11 @@
 	}
 
 	# Co-pilot agent API (ADR-0003). The prefix is stripped; the agent sees /health, /ready, /v1/...
+	# Not compressed: turns stream as text/event-stream and must reach the panel event by event.
 	handle_path /copilot-api/* {
-		reverse_proxy agent:8080
+		reverse_proxy agent:8080 {
+			flush_interval -1
+		}
 	}
 
 	# Internal-only module paths: the tool gateway (called by the agent on the
@@ -30,6 +31,7 @@
 	# /meta/health/livez is the only probe exposed; readyz is misleading (SEC-MED-007).
 	@openemr path / /index.php /controller.php /acknowledge_license_cert.html /meta/health/livez /interface/* /public/* /library/* /sites/*/images/*
 	handle @openemr {
+		encode zstd gzip
 		reverse_proxy openemr:80
 	}
 
