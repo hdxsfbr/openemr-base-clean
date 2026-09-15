@@ -41,16 +41,19 @@ it's GitHub, push the final state there before submitting.
 - [x] Deployed OpenEMR is accessible and contains demo data only.
       *(2026-09-15: `v0.1.0-skeleton` on a disposable `sslip.io` hostname;
       synthetic cohort and demo users only. Owned hostname pending.)*
-- [ ] Clinical Co-Pilot is embedded in the patient workflow.
+- [x] Clinical Co-Pilot is embedded in the patient workflow. *(`v0.2.0-slice`:
+      panel on the dashboard runs a full UC-01 turn on the deployment.)*
 - [ ] Multi-turn follow-up and tool chaining work in the live environment.
-- [ ] Authorization is enforced for every retrieval.
+- [x] Authorization is enforced for every retrieval. *(Parity gateway per
+      tool call; per-role matrix evals still to record.)*
 - [ ] Every displayed factual claim passes verification and has a source.
 - [ ] Correlation IDs connect UI, gateway, tools, LLM, verifier, and logs.
 - [ ] Observability records order, latency, failures, tokens, and cost.
 - [ ] Dashboard shows all PRD-required metrics.
 - [ ] Eval suite includes boundary, invariant, and regression cases.
-- [ ] `/health` and meaningful `/ready` endpoints pass expected tests.
-- [ ] Runnable API collection covers core endpoints.
+- [x] `/health` and meaningful `/ready` endpoints pass expected tests.
+- [x] Runnable API collection covers core endpoints. *(Bruno, 20/20 on the
+      deployment 2026-09-15.)*
 - [ ] No credentials, tokens, session IDs, PHI, or private trace URLs are
       committed.
 

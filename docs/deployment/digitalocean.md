@@ -126,7 +126,12 @@ debugging. It remains billable until `./destroy.sh --yes` succeeds.
 
 ## Current Deployment (2026-09-15)
 
-Tag `v0.1.0-skeleton` is live at `https://openemr-137-184-4-22.sslip.io`
+Tag `v0.2.0-slice` (2026-09-15, superseding `v0.1.0-skeleton`) is live at
+`https://openemr-137-184-4-22.sslip.io`: the UC-01 turn runs end to end
+through the panel, per-turn ticket, agent, gateway, and verifier, and the
+Bruno collection passes 20/20 against it as `audit-physician`. Until the
+model key is written the narrative is replaced by the deterministic
+source-cited brief. Earlier baseline `v0.1.0-skeleton` was live at the same URL
 (Droplet `137.184.4.22`, kept up during build days at about $0.86/day):
 project OpenEMR image with the co-pilot module, the agent service
 (`/copilot-api/health` 200, `/copilot-api/ready` 503 until the model and
@@ -177,7 +182,9 @@ ssh "deployer@$DROPLET_IP" cat /opt/agentforge/secrets/demo_user_password
 Operator-supplied secrets (`anthropic_api_key`, `langfuse_public_key`,
 `langfuse_secret_key`) are empty placeholders until written into
 `/opt/agentforge/secrets/`; the agent's `/ready` reports each as
-`not_configured` until then. After writing them:
+`not_configured` until then. Keep them mode 0644 (start.sh sets this): Compose
+file secrets keep the host file's mode and the agent runs as uid 10001; the
+secrets directory itself is 0700. After writing them:
 
 ```bash
 ssh "deployer@$DROPLET_IP" 'cd /opt/agentforge && docker compose up -d --force-recreate agent'

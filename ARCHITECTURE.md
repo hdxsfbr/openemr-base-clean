@@ -694,16 +694,20 @@ now, no orchestration rewrite in Week 2).
 ## Open Items Before the Vertical Slice (2026-09-15)
 
 1. ~~Owner review of ADR-0004 to ADR-0007~~ accepted 2026-09-15.
-2. Confirm the `frontend` network gives the agent a route to `openemr:80`
-   and none to `database` in `infra/digitalocean/runtime/compose.yaml`.
-3. Verify `$ignoreAuth = true` plus our own token check is sufficient for the
-   gateway scripts to bootstrap OpenEMR without a session (pattern from
-   `apis/dispatch.php`).
-4. Confirm the Bruno login step against the local stack; otherwise ship the
-   operator script fallback.
-5. Decide the tracer project and confirm input/output capture is off before
-   the first model call on the deployment.
-6. Define the graph state schema so tool records stay in the per-turn cache
-   and never reach the checkpointer; add the checkpoint-content test.
-7. Stand up the GitLab CI skeleton running `git diff --check`, contract
-   validation, and the deterministic eval subset once cases exist.
+2. ~~Agent network route~~ verified live: the agent reaches `openemr:80`,
+   has no route to `database`.
+3. ~~Gateway bootstrap without a session~~ verified live with `$ignoreAuth`
+   and the token check.
+4. ~~Bruno login step~~ verified against the local stack and the deployment.
+5. Decide the tracer project and confirm masking before the first model call
+   on the deployment (blocked on keys).
+6. ~~Graph state schema~~ done; the checkpoint-content test is still to add.
+7. GitLab CI runs lint, contract drift, and the agent tests; the Bruno
+   deterministic subset and eval cases are still to add.
+8. Version drift between the repository (8.2.0-dev) and the release image
+   (8.1.1) bit once (`PatientSessionUtil::getPid`, `OEGlobalsBag::getString`);
+   `src/Compat.php` is the seam. Add a CI check that greps the module's
+   OpenEMR symbols against the pinned image.
+9. Agent-level denials (missing, tampered, or mismatched token at the agent
+   API) are counted in `/metrics` and logged by the agent; they never reach
+   the gateway, so they leave no OpenEMR audit row. Gateway-level denials do.

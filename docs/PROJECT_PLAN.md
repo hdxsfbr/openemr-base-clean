@@ -157,15 +157,21 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
       module panel, agent `/health` and `/ready`, deny-by-default edge,
       project image, demo seed, CI skeleton.
 - [x] Embed the co-pilot shell in the patient dashboard.
-- [ ] Implement authenticated, typed patient-data tools.
-- [ ] Scaffold the LangGraph turn graph with the checkpointer before the
+- [x] Implement authenticated, typed patient-data tools (seven, behind the
+      parity gateway; contracts exported from Pydantic).
+- [x] Scaffold the LangGraph turn graph with the checkpointer before the
       first model call.
-- Propagate a correlation ID through the UI, gateway, tools, LLM, verifier, and
-  logs.
-- Implement one end-to-end question with structured output, citations, and
-  verification.
-- Wire traces and the operational dashboard.
-- Deploy and smoke-test the vertical slice.
+- [x] Propagate a correlation ID through the UI, gateway, tools, verifier,
+      and logs (model and tracer spans join once the keys exist).
+- [x] Implement one end-to-end question with citations and verification
+      (`v0.2.0-slice`, 2026-09-15): the UC-01 turn runs live on the
+      deployment through panel, ticket, agent, gateway, verifier; without the
+      model key it renders the deterministic source-cited brief.
+- [ ] Wire traces and the operational dashboard (blocked on the Langfuse
+      keys; `/metrics` and JSON logs exist).
+- [x] Deploy and smoke-test the vertical slice (Bruno collection 20/20
+      against the deployment).
+- [ ] First live model turn (blocked on the Anthropic key file).
 
 ### Wednesday, September 16: early submission
 
