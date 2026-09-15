@@ -52,15 +52,22 @@ async def check_gateway(settings: Settings) -> DependencyStatus:
         return DependencyStatus("openemr_gateway", False, exc.__class__.__name__)
 
 
-def check_llm(settings: Settings) -> DependencyStatus:
-    # Skeleton: presence of the key file. The models.retrieve probe lands with the graph.
-    if _secret_present(settings.anthropic_api_key_file):
-        return DependencyStatus("llm_provider", True, "configured")
-    return DependencyStatus("llm_provider", False, "not_configured")
+async def check_llm(settings: Settings) -> DependencyStatus:
+    """Key present and the configured model reachable (models.retrieve)."""
+    if not _secret_present(settings.anthropic_api_key_file):
+        return DependencyStatus("llm_provider", False, "not_configured")
+    try:
+        import anthropic
+
+        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key_file.read_text().strip(), max_retries=0, timeout=5.0)
+        model = await client.models.retrieve(settings.model_id)
+        return DependencyStatus("llm_provider", True, f"reachable:{model.id}")
+    except Exception as exc:  # noqa: BLE001 - class only, never the message (may carry request details)
+        return DependencyStatus("llm_provider", False, exc.__class__.__name__)
 
 
 def check_tracer(settings: Settings) -> DependencyStatus:
-    if _secret_present(settings.langfuse_public_key_file):
+    if _secret_present(settings.langfuse_public_key_file) and _secret_present(settings.langfuse_secret_key_file):
         return DependencyStatus("tracer", True, "configured")
     return DependencyStatus("tracer", False, "not_configured")
 
@@ -85,7 +92,7 @@ def check_state_dir(settings: Settings) -> DependencyStatus:
 async def evaluate(settings: Settings) -> ReadinessReport:
     deps = [
         await check_gateway(settings),
-        check_llm(settings),
+        await check_llm(settings),
         check_tracer(settings),
         check_delegation_secret(settings),
         check_state_dir(settings),

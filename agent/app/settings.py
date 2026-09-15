@@ -10,24 +10,54 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="COPILOT_", extra="ignore")
 
-    # Internal URL of the module's gateway ping endpoint (never through the edge).
+    # Module gateway on the internal network (never through the edge).
+    gateway_base_url: str = "http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway"
     gateway_ping_url: str = (
         "http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php"
     )
     gateway_timeout_seconds: float = 2.0
+    tool_concurrency: int = 6
 
     # Secrets are mounted as files; the service reports "not_configured" when absent.
     anthropic_api_key_file: Path = Path("/run/secrets/anthropic_api_key")
     delegation_secret_file: Path = Path("/run/secrets/copilot_delegation_secret")
-
-    # Tracer configuration presence (keys themselves are read by the tracer client later).
     langfuse_public_key_file: Path = Path("/run/secrets/langfuse_public_key")
+    langfuse_secret_key_file: Path = Path("/run/secrets/langfuse_secret_key")
+    langfuse_host: str = "https://us.cloud.langfuse.com"
+
+    # Model (ADR-0004).
+    model_id: str = "claude-opus-5"
+    effort_first_turn: str = "low"
+    effort_followup: str = "medium"
+    model_timeout_seconds: float = 20.0
+    max_output_tokens: int = 4000
+
+    # Bounds (ADR-0004 decision 5).
+    max_plan_rounds: int = 3
+    max_tool_calls_per_turn: int = 8
+    turn_wall_clock_seconds: float = 12.0
+    tokens_per_turn: int = 20_000
+    tokens_per_conversation: int = 60_000
+    daily_token_halt: int = 2_000_000
+    turns_per_minute: int = 10
+
+    # Evidence pack cap (characters; about 12K tokens at 4 chars per token).
+    evidence_pack_max_chars: int = 48_000
+    conversation_idle_minutes: int = 30
 
     # Writable directory for the checkpointer (ADR-0005).
     state_dir: Path = Path("/var/lib/copilot")
-
-    # Readiness results are cached to keep /ready cheap under polling.
     ready_cache_seconds: float = 30.0
+
+    # Demo/CI only: honors X-Copilot-Fault (model, tool:<name>, tracer, budget).
+    fault_injection: bool = False
+
+    def secret(self, path: Path) -> str | None:
+        try:
+            value = path.read_text().strip()
+        except OSError:
+            return None
+        return value or None
 
 
 settings = Settings()

@@ -82,6 +82,17 @@ class EvidenceSummary(StrictModel):
     absence_state: str | None = None
 
 
+class SourceSummary(StrictModel):
+    """A cited record the panel can open in the chart (CAP-05)."""
+
+    source_id: SourceId
+    table: str = Field(max_length=64)
+    id: int
+    label: str = Field(max_length=160)
+    encounter_id: int | None = None
+    order_id: int | None = None
+
+
 class TurnResponse(StrictModel):
     turn_id: str
     conversation_id: str
@@ -91,6 +102,7 @@ class TurnResponse(StrictModel):
     window_since: date | None = None
     evidence: list[EvidenceSummary] = Field(default_factory=list)
     claims: list[Claim] = Field(default_factory=list)
+    sources: list[SourceSummary] = Field(default_factory=list)
     limitations: list[Limitation] = Field(default_factory=list)
     withheld_count: int = 0
     verification: Verification

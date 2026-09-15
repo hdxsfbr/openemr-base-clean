@@ -169,6 +169,64 @@
       "title": "LimitationKind",
       "type": "string"
     },
+    "SourceSummary": {
+      "additionalProperties": false,
+      "description": "A cited record the panel can open in the chart (CAP-05).",
+      "properties": {
+        "encounter_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Encounter Id"
+        },
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "label": {
+          "maxLength": 160,
+          "title": "Label",
+          "type": "string"
+        },
+        "order_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Order Id"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "table": {
+          "maxLength": 64,
+          "title": "Table",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "table",
+        "id",
+        "label"
+      ],
+      "title": "SourceSummary",
+      "type": "object"
+    },
     "Verification": {
       "additionalProperties": false,
       "properties": {
@@ -258,6 +316,13 @@
       ],
       "default": null,
       "title": "Reference Encounter Source Id"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/SourceSummary"
+      },
+      "title": "Sources",
+      "type": "array"
     },
     "status": {
       "pattern": "^(complete|partial|fallback|denied|failed)$",

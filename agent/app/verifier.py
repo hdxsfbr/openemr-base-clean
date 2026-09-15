@@ -1,0 +1,217 @@
+"""Deterministic claim verification (ADR-0006). Runs after generation and
+before rendering, over the model's claims and this turn's retrieved records.
+Makes no model call; fails closed on any exception."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Any
+
+from .contracts import (
+    AllergyRecord,
+    Claim,
+    ClaimType,
+    LabResultRecord,
+    MedicationRecord,
+    NoteRecord,
+    ProblemRecord,
+    ToolStatus,
+)
+from .evidence import EvidencePack, SECTION_OF_TOOL, _day
+
+FORBIDDEN = [
+    (r"\brecommend", "advice"),
+    (r"\bshould\b", "advice"),
+    (r"\bconsider(ing)?\b", "advice"),
+    (r"\badvis", "advice"),
+    (r"\bdiagnos", "diagnosis"),
+    (r"\btreat(s|ed|ment|ing)?\b", "indication_inference"),
+    (r"\bbecause\b", "causal"),
+    (r"\bdue to\b", "causal"),
+    (r"\bcaused\b", "causal"),
+    (r"\blikely\b", "inference"),
+    (r"\bsuggest", "inference"),
+    (r"\bconsistent with\b", "inference"),
+    (r"\binteract", "advice"),
+    (r"\b(un)?resolved\b", "resolution_claim"),
+    (r"\bneeds? to\b", "advice"),
+    (r"\bmust\b", "advice"),
+    (r"\bdos(e|age|ing) (should|adjust|increase|decrease)", "dosing_advice"),
+]
+
+TOOL_OF_SECTION = {v: k for k, v in SECTION_OF_TOOL.items()}
+
+
+@dataclass
+class VerifyResult:
+    accepted: list[Claim] = field(default_factory=list)
+    rejected: list[dict[str, str]] = field(default_factory=list)
+    rules_applied: list[str] = field(default_factory=list)
+
+    @property
+    def outcome(self) -> str:
+        if self.rejected and self.accepted:
+            return "partial"
+        if self.rejected:
+            return "rejected"
+        return "passed"
+
+
+def _reject(result: VerifyResult, claim: Claim, rule: str, detail: str) -> None:
+    result.rejected.append({"claim_id": claim.id, "rule": rule, "detail": detail[:200]})
+
+
+def _same_day(value: Any, expected: date | None) -> bool:
+    if expected is None or not isinstance(value, str):
+        return False
+    return value[:10] == expected.isoformat()
+
+
+def _in_window(day: date | None, pack: EvidencePack) -> bool:
+    if day is None:
+        return False
+    return (pack.window_since is None or day >= pack.window_since) and (pack.window_until is None or day <= pack.window_until)
+
+
+def verify(claims: list[Claim], pack: EvidencePack) -> VerifyResult:
+    result = VerifyResult(rules_applied=["source_exists", "type_facts", "window", "lexicon", "absence_requires_retrieval"])
+    for claim in claims:
+        try:
+            _verify_one(claim, pack, result)
+        except Exception as exc:  # noqa: BLE001 - fail closed per claim, never display
+            _reject(result, claim, "verifier_exception", exc.__class__.__name__)
+    return result
+
+
+def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
+    for pattern, rule in FORBIDDEN:
+        if re.search(pattern, claim.text, re.IGNORECASE):
+            _reject(result, claim, "lexicon:" + rule, pattern)
+            return
+    records = []
+    for sid in claim.source_ids:
+        rec = pack.records.get(sid)
+        if rec is None:
+            _reject(result, claim, "source_exists", sid)
+            return
+        records.append(rec)
+    if claim.type is not ClaimType.absence and claim.type is not ClaimType.interpretation and not records:
+        _reject(result, claim, "source_exists", "no source ids")
+        return
+    f = claim.facts
+    t = claim.type
+
+    if t is ClaimType.change_event:
+        rec = records[0]
+        kind = f.get("kind")
+        day_map = {
+            "added": (ProblemRecord, "begin"), "ended": (ProblemRecord, "end"),
+            "started": (MedicationRecord, "start"), "stopped": (MedicationRecord, "end"),
+            "resulted": (LabResultRecord, "date"), "noted": (NoteRecord, "date"),
+        }
+        if kind == "added" and isinstance(rec, AllergyRecord):
+            day_map["added"] = (AllergyRecord, "begin")
+        if kind not in day_map or not isinstance(rec, day_map[kind][0]):
+            _reject(result, claim, "type_facts", f"kind {kind} does not match record type")
+            return
+        rec_day = _day(getattr(rec, day_map[kind][1]))
+        if rec_day is None:
+            _reject(result, claim, "window", "undated record cannot be a change event")
+            return
+        if not _same_day(f.get("date"), rec_day) or not _in_window(rec_day, pack):
+            _reject(result, claim, "window", f"date {f.get('date')} vs record {rec_day}")
+            return
+    elif t is ClaimType.medication_status:
+        rec = records[0]
+        if not isinstance(rec, MedicationRecord):
+            _reject(result, claim, "type_facts", "not a medication record")
+            return
+        if rec.status_conflict:
+            _reject(result, claim, "type_facts", "record has a status conflict; use a conflict claim")
+            return
+        if str(f.get("status", "")).lower() != rec.status or str(f.get("name", "")).lower() not in rec.name.lower():
+            _reject(result, claim, "type_facts", "name or status differs from record")
+            return
+    elif t is ClaimType.lab_result:
+        rec = records[0]
+        if not isinstance(rec, LabResultRecord):
+            _reject(result, claim, "type_facts", "not a lab record")
+            return
+        if (
+            str(f.get("value_text", "")).strip() != rec.value_text.strip()
+            or (f.get("unit") or None) != rec.unit
+            or not _same_day(f.get("date"), _day(rec.date))
+            or str(f.get("flag", "")) != rec.flag
+            or str(f.get("analyte", "")).lower() not in rec.analyte.lower()
+        ):
+            _reject(result, claim, "type_facts", "value, unit, date, flag, or analyte differs from record")
+            return
+        if rec.corrected and "correct" not in claim.text.lower():
+            _reject(result, claim, "type_facts", "corrected result not stated as corrected")
+            return
+    elif t is ClaimType.lab_comparison:
+        earlier = pack.records.get(str(f.get("earlier_source_id", "")))
+        later = pack.records.get(str(f.get("later_source_id", "")))
+        if not isinstance(earlier, LabResultRecord) or not isinstance(later, LabResultRecord):
+            _reject(result, claim, "type_facts", "comparison sources are not lab records")
+            return
+        same = (earlier.analyte_code and earlier.analyte_code == later.analyte_code) or earlier.analyte.lower() == later.analyte.lower()
+        if not same or not earlier.comparable or not later.comparable or earlier.unit != later.unit:
+            _reject(result, claim, "lab_rules", "not same analyte, not numeric, or unit mismatch")
+            return
+        if (_day(earlier.date) or date.min) > (_day(later.date) or date.min):
+            _reject(result, claim, "lab_rules", "earlier is not earlier")
+            return
+        direction = "up" if later.numeric_value > earlier.numeric_value else "down" if later.numeric_value < earlier.numeric_value else "same"  # type: ignore[operator]
+        if f.get("direction") != direction:
+            _reject(result, claim, "lab_rules", f"direction is {direction}")
+            return
+    elif t is ClaimType.documented_reference:
+        name = str(f.get("medication_name", "")).lower()
+        if not name:
+            _reject(result, claim, "type_facts", "medication_name missing")
+            return
+        ok = False
+        for rec in records:
+            if isinstance(rec, NoteRecord) and name in rec.text.lower():
+                ok = True
+            elif isinstance(rec, MedicationRecord) and name in rec.name.lower() and (rec.documented_indication or rec.codes):
+                ok = True
+            elif isinstance(rec, ProblemRecord) and name in claim.text.lower():
+                ok = False
+        if not ok:
+            _reject(result, claim, "type_facts", "no cited record mentions the medication")
+            return
+        if re.search(r"\bfor\b|\bindicat", claim.text, re.IGNORECASE):
+            _reject(result, claim, "lexicon:indication_inference", "documented references say 'mentions', never 'for'")
+            return
+    elif t is ClaimType.absence:
+        section = str(f.get("section", ""))
+        tool = TOOL_OF_SECTION.get(section, section)
+        status = pack.status_of(tool)
+        if status not in (ToolStatus.ok.value, ToolStatus.empty.value):
+            _reject(result, claim, "absence_requires_retrieval", f"{tool} status {status}")
+            return
+        resp = pack.responses[tool]
+        state = str(f.get("state", ""))
+        if resp.absence_state is not None:
+            if state != resp.absence_state.value:
+                _reject(result, claim, "type_facts", f"absence state is {resp.absence_state.value}")
+                return
+        elif state != "no_records_in_window" or resp.records:
+            _reject(result, claim, "type_facts", "records exist or state mismatch")
+            return
+    elif t is ClaimType.conflict:
+        has_conflict = any(isinstance(r, MedicationRecord) and r.status_conflict for r in records)
+        if not has_conflict and len(records) < 2:
+            _reject(result, claim, "type_facts", "a conflict cites a conflicting record or two records")
+            return
+    elif t is ClaimType.undated:
+        if not any(getattr(r, "undated", False) for r in records):
+            _reject(result, claim, "type_facts", "no cited record is undated")
+            return
+    elif t is ClaimType.interpretation:
+        pass
+    result.accepted.append(claim)
