@@ -11,7 +11,7 @@
 
 ## Status
 
-The audit is complete (2026-09-14, pending owner review). This document remains
+The audit is complete and owner-reviewed (2026-09-14). This document remains
 the pre-audit hypothesis until it is revised against `AUDIT.md` §8 ("How the
 Audit Changed the Agent Plan"). Facts the audit has already established are
 marked **Audit note** below. Do not represent planned controls as implemented.

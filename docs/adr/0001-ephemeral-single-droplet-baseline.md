@@ -2,7 +2,7 @@
 
 - **Status:** Accepted for baseline smoke testing; externally verified live on
   2026-09-14 (provisioned, TLS-passing, demo data loaded, destroyed after
-  verification). The audit completed 2026-09-14 (pending owner review) and hit the
+  verification). The audit completed 2026-09-14 (owner-reviewed) and hit the
   first revisit trigger: [`AUDIT.md`](../../AUDIT.md) SEC-HIGH-500 and
   SEC-MEDIUM-504 require a Caddy path allowlist, our own image carrying the
   co-pilot module, and a restricted agent container before the evaluator

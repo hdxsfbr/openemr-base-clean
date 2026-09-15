@@ -124,9 +124,9 @@ September 14–20, 2026.
 
 **Gate:** no AI-layer implementation until the audit is complete.
 
-**Status (2026-09-14):** the audit draft covers all five areas. It includes
+**Status (2026-09-14):** the audit covers all five areas. It includes
 live access tests, a public cloud-window probe, and synthetic-cohort
-measurements, and it awaits owner review. The patient-scope authorization
+measurements, and passed owner review on 2026-09-14. The patient-scope authorization
 policy (parity with the chart, ADR-0002) and the integration point
 (in-process module gateway, SMART deferred, ADR-0003) are decided in
 `docs/adr/`. `USERS.md` validation, `KEY_METRICS.md` thresholds, and the
