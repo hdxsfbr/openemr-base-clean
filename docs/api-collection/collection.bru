@@ -1,0 +1,19 @@
+meta {
+  name: AgentForge Clinical Co-Pilot
+}
+
+docs {
+  # AgentForge Clinical Co-Pilot API collection
+
+  Runs the same handshake the panel performs (ARCHITECTURE.md, "Agent HTTP API
+  and the Runnable Collection"): log in to OpenEMR, open a chart, get the
+  co-pilot CSRF token, start a conversation bound to that chart, mint a
+  per-turn ticket, and call the agent. Then the use-case turns, the failure
+  examples, and health and readiness.
+
+  Run in order (folders 1 to 4). The pre-request script on every turn request
+  mints a fresh ticket automatically. Select the `local` or `deployed`
+  environment and set the credentials variables there (never commit them).
+
+  CLI:  bru run docs/api-collection --env deployed --env-var DEMO_PASSWORD=...
+}

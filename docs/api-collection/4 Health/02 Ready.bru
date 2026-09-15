@@ -1,0 +1,26 @@
+meta {
+  name: 02 Ready
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{agent_base}}/ready
+  body: none
+  auth: none
+}
+
+assert {
+  res.body.dependencies: isDefined
+}
+
+tests {
+  test("readiness names every dependency", function () {
+    const names = res.getBody().dependencies.map(d => d.name);
+    ["openemr_gateway", "llm_provider", "tracer", "delegation_secret", "state_store"].forEach(n => expect(names).to.include(n));
+  });
+  test("503 exactly when a dependency fails", function () {
+    const ok = res.getBody().dependencies.every(d => d.ok);
+    expect(res.getStatus()).to.equal(ok ? 200 : 503);
+  });
+}

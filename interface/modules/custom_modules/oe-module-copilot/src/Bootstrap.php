@@ -68,13 +68,17 @@ final class Bootstrap
         return '<link rel="stylesheet" href="' . attr($assets . '/css/copilot.css?v=' . $version) . '">'
             . '<div id="copilot-panel" class="card mb-2" role="region" aria-label="' . attr(xl('Clinical Co-Pilot')) . '"'
             . ' data-api-base="' . attr($webRoot . self::API_BASE) . '"'
+            . ' data-module-path="' . attr($webRoot . self::MODULE_PATH) . '"'
+            . ' data-web-root="' . attr($webRoot) . '"'
             . ' data-correlation-id="' . attr($correlationId) . '"'
             . ' data-version="' . attr($version) . '">'
             . '<div class="card-header py-2"><h6 class="mb-0">' . xlt('Clinical Co-Pilot') . '</h6></div>'
             . '<div class="card-body py-2">'
             . '<p id="copilot-status" class="mb-1 text-muted">' . xlt('Checking the co-pilot service...') . '</p>'
-            . '<p class="small text-muted mb-0">'
-            . xlt('Read-only. Every statement cites a chart record. Nothing is retrieved until you ask.')
+            . '<div id="copilot-controls" class="mb-2"></div>'
+            . '<div id="copilot-body"></div>'
+            . '<p class="small text-muted mb-0 mt-1">'
+            . xlt('Read-only. Every statement cites a chart record. It does not diagnose, recommend, or write to the chart. Access equals what you can open in this chart.')
             . '</p>'
             . '</div></div>'
             . '<script src="' . attr($assets . '/js/copilot.js?v=' . $version) . '" defer></script>';

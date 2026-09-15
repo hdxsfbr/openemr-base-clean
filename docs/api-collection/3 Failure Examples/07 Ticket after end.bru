@@ -1,0 +1,23 @@
+meta {
+  name: 07 Ticket after end
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{openemr_base}}{{module_path}}/api/ticket.php
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "csrf_token": "{{csrf}}",
+    "conversation_id": "{{conversation_id}}"
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq conversation_closed
+}

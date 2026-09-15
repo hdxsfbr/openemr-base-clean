@@ -1,0 +1,20 @@
+meta {
+  name: 05 Conversation State
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{agent_base}}/v1/conversations/{{conversation_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-Copilot-Token: {{ticket}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.turns: isDefined
+}

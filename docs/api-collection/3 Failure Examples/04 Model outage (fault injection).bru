@@ -1,0 +1,49 @@
+meta {
+  name: 04 Model outage (fault injection)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{agent_base}}/v1/conversations/{{conversation_id}}/turns
+  body: json
+  auth: none
+}
+
+headers {
+  X-Copilot-Token: {{ticket}}
+  X-Correlation-Id: {{turn_correlation}}
+  X-Copilot-Fault: model
+}
+
+body:json {
+  {
+    "message": "What changed since the last visit?",
+    "correlation_id": "{{turn_correlation}}",
+    "stream": false
+  }
+}
+
+script:pre-request {
+  const r = await bru.runRequest("1 Session/05 Ticket");
+  bru.setVar("ticket", r.data.token);
+  bru.setVar("turn_correlation", r.data.correlation_id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq fallback
+}
+
+tests {
+  test("deterministic brief still cites sources", function () {
+    const body = res.getBody();
+    expect(body.limitations.some(l => l.kind === "narrative_unavailable")).to.equal(true);
+    body.claims.forEach(c => expect(c.source_ids.length).to.be.greaterThan(0));
+  });
+}
+
+docs {
+  Honored only when COPILOT_FAULT_INJECTION=1 on the target (the demo deployment
+  sets it). The UC-01 first turn must still render the verified record brief.
+}

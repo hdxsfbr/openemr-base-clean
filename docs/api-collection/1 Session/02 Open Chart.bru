@@ -1,0 +1,22 @@
+meta {
+  name: 02 Open Chart
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{openemr_base}}/interface/patient_file/summary/demographics.php?set_pid={{pid_happy_path}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body: contains copilot-panel
+}
+
+docs {
+  Opens the AF-DQ-A2 chart, which sets the session's open patient and writes
+  the same `view` audit event the UI writes. The response must contain the
+  co-pilot panel.
+}

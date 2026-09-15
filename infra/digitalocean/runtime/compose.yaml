@@ -134,8 +134,11 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
+      COPILOT_GATEWAY_BASE_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway
       COPILOT_GATEWAY_PING_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php
       COPILOT_STATE_DIR: /var/lib/copilot
+      # Demo deployment only: honors X-Copilot-Fault for the collection's failure examples.
+      COPILOT_FAULT_INJECTION: ${COPILOT_FAULT_INJECTION:-1}
     secrets:
       - anthropic_api_key
       - copilot_delegation_secret

@@ -1,0 +1,33 @@
+meta {
+  name: 08 Front desk role
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{openemr_base}}/interface/main/main_screen.php?auth=login&site=default
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  new_login_session_management: 1
+  languageChoice: 1
+  authUser: {{frontdesk_user}}
+  clearPass: {{DEMO_PASSWORD}}
+}
+
+settings {
+  followRedirects: false
+}
+
+assert {
+  res.status: eq 302
+}
+
+docs {
+  Re-logs in as audit-frontdesk (Front Office). Re-run folder 1 requests 02-05
+  and folder 2 request 01 as this user: every clinical tool must report
+  `unavailable / forbidden` in the evidence and the response carries no
+  clinical claims (ADR-0002, parity with the chart's section ACLs).
+}

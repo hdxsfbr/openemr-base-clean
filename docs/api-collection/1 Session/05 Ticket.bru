@@ -1,0 +1,34 @@
+meta {
+  name: 05 Ticket
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{openemr_base}}{{module_path}}/api/ticket.php
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "csrf_token": "{{csrf}}",
+    "conversation_id": "{{conversation_id}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.expires_in: eq 90
+}
+
+script:post-response {
+  bru.setVar("ticket", res.body.token);
+  bru.setVar("turn_correlation", res.body.correlation_id);
+}
+
+docs {
+  Per-turn delegation token (ADR-0005): re-checks the session, the user, and
+  that the open chart is still the bound patient. Carries no user or patient
+  identifier. Every turn request below re-runs this in its pre-request script.
+}

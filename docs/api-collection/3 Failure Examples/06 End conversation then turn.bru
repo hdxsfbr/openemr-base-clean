@@ -1,0 +1,29 @@
+meta {
+  name: 06 End conversation then turn
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{openemr_base}}{{module_path}}/api/conversation.php
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "action": "end",
+    "csrf_token": "{{csrf}}",
+    "conversation_id": "{{conversation_id}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.closed: eq true
+}
+
+docs {
+  Closes the binding. The next ticket request (07) must be refused with 409
+  conversation_closed, so no further turns are possible with this conversation.
+}

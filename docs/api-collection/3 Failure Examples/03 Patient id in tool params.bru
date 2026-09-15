@@ -1,0 +1,29 @@
+meta {
+  name: 03 Patient id in tool params
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{openemr_base}}{{module_path}}/gateway/tools.php?tool=encounters&pid=900002
+  body: none
+  auth: none
+}
+
+headers {
+  X-Copilot-Token: {{ticket}}
+}
+
+tests {
+  test("patient id in tool params is rejected everywhere", function () {
+    const status = res.getStatus();
+    expect([400, 404]).to.include(status);
+    if (status === 400) { expect(res.getBody().code).to.equal("invalid_request"); }
+  });
+}
+
+docs {
+  From the internet the gateway path is unrouted (404). On the internal
+  network the same call returns 400 invalid_request: no tool accepts a patient
+  identifier. Run the local environment against the dev stack to see the 400.
+}

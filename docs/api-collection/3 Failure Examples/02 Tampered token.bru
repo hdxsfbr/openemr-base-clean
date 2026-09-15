@@ -1,0 +1,24 @@
+meta {
+  name: 02 Tampered token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{agent_base}}/v1/conversations/{{conversation_id}}/turns
+  body: json
+  auth: none
+}
+
+headers {
+  X-Copilot-Token: {{ticket}}AAAA
+}
+
+body:json {
+  { "message": "What changed since the last visit?" }
+}
+
+assert {
+  res.status: eq 403
+  res.body.code: eq unauthorized
+}

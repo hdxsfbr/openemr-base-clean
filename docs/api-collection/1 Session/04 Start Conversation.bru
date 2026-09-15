@@ -1,0 +1,33 @@
+meta {
+  name: 04 Start Conversation
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{openemr_base}}{{module_path}}/api/conversation.php
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "action": "start",
+    "csrf_token": "{{csrf}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.conversation_id: isDefined
+}
+
+script:post-response {
+  bru.setVar("conversation_id", res.body.conversation_id);
+  bru.setVar("conversation_correlation", res.body.correlation_id);
+}
+
+docs {
+  Binds a conversation to (site, user, open chart) server-side. The client
+  never sends a patient id.
+}

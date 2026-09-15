@@ -1,0 +1,20 @@
+meta {
+  name: 03 Co-Pilot Session
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{openemr_base}}{{module_path}}/api/session.php
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.chart_open: eq true
+}
+
+script:post-response {
+  bru.setVar("csrf", res.body.csrf_token);
+}

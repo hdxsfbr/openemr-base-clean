@@ -1,0 +1,32 @@
+meta {
+  name: 01 Login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{openemr_base}}/interface/main/main_screen.php?auth=login&site=default
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  new_login_session_management: 1
+  languageChoice: 1
+  authUser: {{demo_user}}
+  clearPass: {{DEMO_PASSWORD}}
+}
+
+settings {
+  followRedirects: false
+}
+
+assert {
+  res.status: eq 302
+}
+
+docs {
+  Logs in to OpenEMR as the demo physician. Bruno keeps the session cookie for
+  the rest of the run. A 200 here means the login failed (OpenEMR renders the
+  error page with status 200).
+}

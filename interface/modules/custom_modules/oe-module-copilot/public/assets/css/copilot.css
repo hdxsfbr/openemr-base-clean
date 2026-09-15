@@ -1,3 +1,6 @@
 /* AgentForge Clinical Co-Pilot panel */
 #copilot-panel .card-header { background: transparent; }
 #copilot-panel #copilot-status { font-weight: 500; }
+#copilot-panel .copilot-cite { margin-left: 0.15rem; text-decoration: none; }
+#copilot-panel a.copilot-cite:hover { text-decoration: underline; }
+#copilot-panel #copilot-body li { line-height: 1.35; }

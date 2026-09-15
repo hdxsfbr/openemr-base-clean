@@ -1,0 +1,45 @@
+meta {
+  name: 05 Tool outage (fault injection)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{agent_base}}/v1/conversations/{{conversation_id}}/turns
+  body: json
+  auth: none
+}
+
+headers {
+  X-Copilot-Token: {{ticket}}
+  X-Correlation-Id: {{turn_correlation}}
+  X-Copilot-Fault: tool:lab_results
+}
+
+body:json {
+  {
+    "message": "What changed since the last visit?",
+    "correlation_id": "{{turn_correlation}}",
+    "stream": false
+  }
+}
+
+script:pre-request {
+  const r = await bru.runRequest("1 Session/05 Ticket");
+  bru.setVar("ticket", r.data.token);
+  bru.setVar("turn_correlation", r.data.correlation_id);
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("lab section reported unavailable, never absent", function () {
+    const body = res.getBody();
+    const labs = body.evidence.find(e => e.tool === "lab_results");
+    expect(labs.status).to.equal("unavailable");
+    expect(body.limitations.some(l => l.kind === "unavailable" && l.section === "lab_results")).to.equal(true);
+    body.claims.forEach(c => { if (c.type === "absence") { expect(c.facts.section).to.not.equal("labs"); } });
+  });
+}

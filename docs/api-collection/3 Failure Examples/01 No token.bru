@@ -1,0 +1,20 @@
+meta {
+  name: 01 No token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{agent_base}}/v1/conversations/{{conversation_id}}/turns
+  body: json
+  auth: none
+}
+
+body:json {
+  { "message": "What changed since the last visit?" }
+}
+
+assert {
+  res.status: eq 401
+  res.body.code: eq unauthorized
+}
