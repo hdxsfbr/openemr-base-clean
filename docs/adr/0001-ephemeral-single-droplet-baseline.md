@@ -2,7 +2,12 @@
 
 - **Status:** Accepted for baseline smoke testing; externally verified live on
   2026-09-14 (provisioned, TLS-passing, demo data loaded, destroyed after
-  verification); final topology still pending audit
+  verification). The audit completed 2026-09-14 (pending owner review) and hit the
+  first revisit trigger: [`AUDIT.md`](../../AUDIT.md) SEC-HIGH-500 and
+  SEC-MEDIUM-504 require a Caddy path allowlist, our own image carrying the
+  co-pilot module, and a restricted agent container before the evaluator
+  deployment (OpenEMR container hardening is documented, not changed:
+  `AUDIT.md` §7.3)
 - **Date:** 2026-09-13
 - **Owners:** Project team
 - **Related requirements:** Public deployment, reproducible setup, TLS,
