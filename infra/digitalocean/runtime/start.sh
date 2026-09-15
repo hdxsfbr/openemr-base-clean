@@ -47,6 +47,11 @@ done
 printf 'PUBLIC_HOSTNAME=%s\nTLS_EMAIL=%s\nOPENEMR_IMAGE=%s\nDEMO_ANCHOR=%s\n' \
     "${public_hostname}" "${tls_email}" "${openemr_image}" "$(date +%F)" > .env
 chmod 600 .env secrets/*
+# Compose file secrets are bind mounts that keep the host mode (the `mode`
+# attribute applies to swarm only). The agent runs as uid 10001 and must read
+# these four; the directory itself is 0700, so only this user and root see them.
+chmod 644 secrets/anthropic_api_key secrets/copilot_delegation_secret secrets/langfuse_public_key secrets/langfuse_secret_key
+chmod 700 secrets
 
 if [[ ! -d build/openemr/oe-module-copilot || ! -d build/agent ]]; then
     printf 'Build contexts missing under build/. Run deploy.sh from the repository, which copies them.\n' >&2

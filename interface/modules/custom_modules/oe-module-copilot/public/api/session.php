@@ -14,8 +14,8 @@
 require_once __DIR__ . '/../../../../../globals.php';
 
 use OpenEMR\Common\Csrf\CsrfUtils;
-use OpenEMR\Common\Session\PatientSessionUtil;
 use OpenEMR\Common\Session\SessionWrapperFactory;
+use OpenEMR\Modules\Copilot\Compat;
 use OpenEMR\Modules\Copilot\Http\Json;
 
 $correlationId = Json::correlationId();
@@ -27,7 +27,7 @@ if ($userId <= 0) {
 
 Json::send(200, [
     'csrf_token' => CsrfUtils::collectCsrfToken($session, 'copilot'),
-    'chart_open' => PatientSessionUtil::getPid() > 0,
+    'chart_open' => Compat::openPid() > 0,
     'module_version' => '0.1.0',
     'correlation_id' => $correlationId,
 ], $correlationId);

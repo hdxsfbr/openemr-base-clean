@@ -35,8 +35,10 @@ class ReadinessReport:
 
 
 def _secret_present(path: Path) -> bool:
+    """Readable and non-empty. Existence alone is not enough: a mount the
+    service user cannot read must show as not configured."""
     try:
-        return path.is_file() and path.stat().st_size > 0
+        return bool(path.read_text().strip())
     except OSError:
         return False
 

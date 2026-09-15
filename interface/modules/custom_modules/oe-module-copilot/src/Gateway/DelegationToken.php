@@ -17,7 +17,7 @@ declare(strict_types=1);
 
 namespace OpenEMR\Modules\Copilot\Gateway;
 
-use OpenEMR\Core\OEGlobalsBag;
+use OpenEMR\Modules\Copilot\Compat;
 
 final class DelegationToken
 {
@@ -75,7 +75,7 @@ final class DelegationToken
         $path = getenv('COPILOT_DELEGATION_SECRET_FILE') ?: '/run/secrets/copilot_delegation_secret';
         if (!is_readable($path)) {
             // Development fallback: a per-site secret outside the web root, created once.
-            $dir = OEGlobalsBag::getInstance()->getString('OE_SITE_DIR') . '/documents/copilot';
+            $dir = Compat::siteDir() . '/documents/copilot';
             $path = $dir . '/delegation_secret';
             if (!is_file($path)) {
                 if (!is_dir($dir)) {

@@ -139,6 +139,8 @@ services:
       COPILOT_STATE_DIR: /var/lib/copilot
       # Demo deployment only: honors X-Copilot-Fault for the collection's failure examples.
       COPILOT_FAULT_INJECTION: ${COPILOT_FAULT_INJECTION:-1}
+    # The agent runs as uid 10001; start.sh makes these four host files 0644
+    # (Compose file secrets keep the host mode; `mode` is swarm-only).
     secrets:
       - anthropic_api_key
       - copilot_delegation_secret

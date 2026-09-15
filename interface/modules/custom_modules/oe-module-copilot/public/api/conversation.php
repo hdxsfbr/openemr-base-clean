@@ -18,8 +18,8 @@ require_once __DIR__ . '/../../../../../globals.php';
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Database\QueryUtils;
-use OpenEMR\Common\Session\PatientSessionUtil;
 use OpenEMR\Common\Session\SessionWrapperFactory;
+use OpenEMR\Modules\Copilot\Compat;
 use OpenEMR\Modules\Copilot\Conversation\ConversationRepository;
 use OpenEMR\Modules\Copilot\Gateway\Audit;
 use OpenEMR\Modules\Copilot\Gateway\ContextBuilder;
@@ -46,7 +46,7 @@ $conversations = new ConversationRepository();
 $action = $body['action'] ?? '';
 
 if ($action === 'start') {
-    $pid = PatientSessionUtil::getPid();
+    $pid = Compat::openPid();
     if ($pid <= 0) {
         Json::error(409, 'invalid_request', 'No chart is open.', $correlationId);
     }

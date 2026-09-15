@@ -19,8 +19,8 @@ require_once __DIR__ . '/../../../../../globals.php';
 
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Database\QueryUtils;
-use OpenEMR\Common\Session\PatientSessionUtil;
 use OpenEMR\Common\Session\SessionWrapperFactory;
+use OpenEMR\Modules\Copilot\Compat;
 use OpenEMR\Modules\Copilot\Conversation\ConversationRepository;
 use OpenEMR\Modules\Copilot\Gateway\Audit;
 use OpenEMR\Modules\Copilot\Gateway\ContextBuilder;
@@ -66,7 +66,7 @@ if (ContextBuilder::isBreakGlass($username)) {
     Audit::denied($username, $groupName, $pid, 'breakglass', ['stage' => 'ticket', 'conversation_id' => $conversation['id'], 'correlation_id' => $baseCorrelation]);
     Json::error(403, 'conversation_closed', 'Request denied.', $baseCorrelation);
 }
-if (PatientSessionUtil::getPid() !== $pid) {
+if (Compat::openPid() !== $pid) {
     // SEC-HIGH-002 / ARCH-HIGH-001: the session pid is a request, not a grant.
     $conversations->close($conversation['id'], 'patient_context_changed');
     Audit::denied($username, $groupName, $pid, 'patient_context_changed', ['stage' => 'ticket', 'conversation_id' => $conversation['id'], 'correlation_id' => $baseCorrelation]);
