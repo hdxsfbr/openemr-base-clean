@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-    printf 'Usage: %s <public-hostname> <tls-email> [openemr-image]\n' "$0" >&2
+    printf 'Usage: %s <public-hostname> <tls-email> [openemr-base-image]\n' "$0" >&2
     exit 2
 fi
 
@@ -27,22 +27,43 @@ fi
 
 cd "$(dirname "$0")"
 umask 077
-mkdir -p secrets
+mkdir -p secrets logs
 
-for secret_name in mysql_root_password mysql_password openemr_admin_password; do
+# Generated on the host; never in cloud-init, Terraform state, or the repository.
+for secret_name in mysql_root_password mysql_password openemr_admin_password copilot_delegation_secret; do
     if [[ ! -s "secrets/${secret_name}" ]]; then
         openssl rand -hex 24 > "secrets/${secret_name}"
     fi
 done
 
-printf 'PUBLIC_HOSTNAME=%s\nTLS_EMAIL=%s\nOPENEMR_IMAGE=%s\n' \
-    "${public_hostname}" "${tls_email}" "${openemr_image}" > .env
+# Operator-supplied secrets. Empty placeholders keep Compose happy; the agent's
+# /ready reports "not_configured" until the operator writes the real values.
+for secret_name in anthropic_api_key langfuse_public_key langfuse_secret_key; do
+    if [[ ! -e "secrets/${secret_name}" ]]; then
+        : > "secrets/${secret_name}"
+    fi
+done
+
+printf 'PUBLIC_HOSTNAME=%s\nTLS_EMAIL=%s\nOPENEMR_IMAGE=%s\nDEMO_ANCHOR=%s\n' \
+    "${public_hostname}" "${tls_email}" "${openemr_image}" "$(date +%F)" > .env
 chmod 600 .env secrets/*
 
-docker compose pull
+if [[ ! -d build/openemr/oe-module-copilot || ! -d build/agent ]]; then
+    printf 'Build contexts missing under build/. Run deploy.sh from the repository, which copies them.\n' >&2
+    exit 1
+fi
+
+docker compose pull database caddy
+docker compose build --pull openemr agent
 docker compose up --detach --wait --wait-timeout 600
 
+# Register and enable the co-pilot module (idempotent).
+docker compose --profile setup run --rm copilot-setup | tee "logs/copilot-setup-$(date +%F).log"
+
 printf '\nDeployment started at https://%s\n' "${public_hostname}"
+printf 'Agent health: https://%s/copilot-api/health\n' "${public_hostname}"
 printf 'OpenEMR username: challenge-admin\n'
 printf 'Read the generated password over SSH with:\n'
 printf '  ssh deployer@<droplet-ip> cat /opt/agentforge/secrets/openemr_admin_password\n'
+printf 'Seed the synthetic cohort (demo data only) with:\n'
+printf '  cd /opt/agentforge && docker compose --profile demo run --rm demo-seed | tee logs/demo-seed-$(date +%%F).json\n'

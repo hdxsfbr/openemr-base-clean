@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -lt 3 || $# -gt 4 ]]; then
-    printf 'Usage: %s <droplet-ip> <public-hostname> <tls-email> [openemr-image]\n' "$0" >&2
+    printf 'Usage: %s <droplet-ip> <public-hostname> <tls-email> [openemr-base-image]\n' "$0" >&2
     exit 2
 fi
 
@@ -11,6 +11,7 @@ public_hostname="$2"
 tls_email="$3"
 openemr_image="${4:-openemr/openemr:8.1.1@sha256:796adaa7b3d03c76902e9afd2c1b420afc39f040425a68d4aefdf4ace285fa0b}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
 ssh_target="deployer@${droplet_ip}"
 ssh_options=(-o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
 
@@ -31,7 +32,14 @@ for attempt in $(seq 1 36); do
     sleep 5
 done
 
+# Runtime files, then the build contexts and the demo cohort. The cohort is a
+# read-only bind mount for the one-shot demo-seed job and is never in an image.
+ssh "${ssh_options[@]}" "${ssh_target}" 'mkdir -p /opt/agentforge/build/openemr /opt/agentforge/build/agent /opt/agentforge/demo && rm -rf /opt/agentforge/build/openemr/oe-module-copilot /opt/agentforge/build/agent/* /opt/agentforge/demo/cohort'
 scp "${ssh_options[@]}" -r "${script_dir}/runtime/." "${ssh_target}:/opt/agentforge/"
+scp "${ssh_options[@]}" "${repo_root}/infra/image/openemr.Dockerfile" "${ssh_target}:/opt/agentforge/build/openemr/Dockerfile"
+scp "${ssh_options[@]}" -r "${repo_root}/interface/modules/custom_modules/oe-module-copilot" "${ssh_target}:/opt/agentforge/build/openemr/"
+scp "${ssh_options[@]}" -r "${repo_root}/agent/." "${ssh_target}:/opt/agentforge/build/agent/"
+scp "${ssh_options[@]}" -r "${repo_root}/evals/fixtures/cohort" "${ssh_target}:/opt/agentforge/demo/"
 
 printf -v remote_command 'cd /opt/agentforge && chmod 700 start.sh openemr-entrypoint.sh && ./start.sh %q %q %q' \
     "${public_hostname}" "${tls_email}" "${openemr_image}"

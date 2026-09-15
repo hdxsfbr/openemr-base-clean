@@ -69,3 +69,9 @@ docs/audit/evidence/dependencies/trivy-mariadb-11.8.8-infra.json
 docs/audit/evidence/dependencies/trivy-openemr-8.1.1-infra.json
 docs/audit/evidence/dependencies/trivy-openemr-flex-dev.json
 docs/audit/evidence/dependencies/semgrep-raw.json
+
+# Agent service local environment
+agent/.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/

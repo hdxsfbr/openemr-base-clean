@@ -32,7 +32,13 @@ services:
       retries: 5
 
   openemr:
-    image: ${OPENEMR_IMAGE:-openemr/openemr:8.1.1@sha256:796adaa7b3d03c76902e9afd2c1b420afc39f040425a68d4aefdf4ace285fa0b}
+    # Project image: pinned upstream release plus the co-pilot module (built on the host by start.sh).
+    image: agentforge/openemr:local
+    build:
+      context: ./build/openemr
+      dockerfile: Dockerfile
+      args:
+        OPENEMR_BASE: ${OPENEMR_IMAGE:-openemr/openemr:8.1.1@sha256:796adaa7b3d03c76902e9afd2c1b420afc39f040425a68d4aefdf4ace285fa0b}
     restart: unless-stopped
     entrypoint:
       - /bin/bash
@@ -48,6 +54,7 @@ services:
       - mysql_root_password
       - mysql_password
       - openemr_admin_password
+      - copilot_delegation_secret
     volumes:
       - openemr_sites:/var/www/localhost/htdocs/openemr/sites
       - openemr_logs:/var/log
@@ -74,6 +81,82 @@ services:
       timeout: 5s
       retries: 5
 
+  # One-shot: register and enable the co-pilot module and apply its SQL.
+  # Runs after OpenEMR is healthy: docker compose --profile setup run --rm copilot-setup
+  copilot-setup:
+    image: agentforge/openemr:local
+    profiles:
+      - setup
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - cd /var/www/localhost/htdocs/openemr && su -s /bin/sh apache -c "php interface/modules/custom_modules/oe-module-copilot/bin/register_module.php"
+    volumes:
+      - openemr_sites:/var/www/localhost/htdocs/openemr/sites
+    networks:
+      - backend
+    depends_on:
+      openemr:
+        condition: service_healthy
+
+  # One-shot demo seeding (AUDIT.md section 7.2): synthetic cohort from a read-only
+  # bind mount outside the web root; never inside the image.
+  # docker compose --profile demo run --rm demo-seed
+  demo-seed:
+    image: agentforge/openemr:local
+    profiles:
+      - demo
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - cd /var/www/localhost/htdocs/openemr && su -s /bin/sh apache -c "OPENEMR_ROOT=/var/www/localhost/htdocs/openemr php /opt/copilot-demo/cohort/seed_cohort.php --confirm-dev-data --anchor=${DEMO_ANCHOR:-2026-09-15}"
+    environment:
+      DEMO_ANCHOR: ${DEMO_ANCHOR:-2026-09-15}
+    volumes:
+      - openemr_sites:/var/www/localhost/htdocs/openemr/sites
+      - ./demo/cohort:/opt/copilot-demo/cohort:ro
+    networks:
+      - backend
+    depends_on:
+      openemr:
+        condition: service_healthy
+
+  # Agent service (ADR-0003, ADR-0004): frontend network only, so no route to the
+  # database; the model key and delegation secret are file secrets here.
+  agent:
+    image: agentforge/copilot-agent:local
+    build:
+      context: ./build/agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      COPILOT_GATEWAY_PING_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php
+      COPILOT_STATE_DIR: /var/lib/copilot
+    secrets:
+      - anthropic_api_key
+      - copilot_delegation_secret
+      - langfuse_public_key
+      - langfuse_secret_key
+    volumes:
+      - agent_state:/var/lib/copilot
+    networks:
+      - frontend
+    depends_on:
+      openemr:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).status == 200 else 1)"
+      start_period: 15s
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   caddy:
     image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
     restart: unless-stopped
@@ -92,6 +175,8 @@ services:
     depends_on:
       openemr:
         condition: service_healthy
+      agent:
+        condition: service_started
 
 secrets:
   mysql_root_password:
@@ -100,12 +185,21 @@ secrets:
     file: ./secrets/mysql_password
   openemr_admin_password:
     file: ./secrets/openemr_admin_password
+  copilot_delegation_secret:
+    file: ./secrets/copilot_delegation_secret
+  anthropic_api_key:
+    file: ./secrets/anthropic_api_key
+  langfuse_public_key:
+    file: ./secrets/langfuse_public_key
+  langfuse_secret_key:
+    file: ./secrets/langfuse_secret_key
 
 volumes:
   database_data:
   openemr_sites:
   openemr_logs:
   openemr_ssl:
+  agent_state:
   caddy_data:
   caddy_config:
 

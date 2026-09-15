@@ -1,0 +1,3 @@
+/* AgentForge Clinical Co-Pilot panel */
+#copilot-panel .card-header { background: transparent; }
+#copilot-panel #copilot-status { font-weight: 500; }

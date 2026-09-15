@@ -13,5 +13,27 @@
 		-Server
 	}
 
-	reverse_proxy openemr:80
+	# Co-pilot agent API (ADR-0003). The prefix is stripped; the agent sees /health, /ready, /v1/...
+	handle_path /copilot-api/* {
+		reverse_proxy agent:8080
+	}
+
+	# Internal-only module paths: the tool gateway (called by the agent on the
+	# Docker network) and CLI scripts. Never reachable from the internet.
+	@copilot_internal path /interface/modules/custom_modules/oe-module-copilot/public/gateway/* /interface/modules/custom_modules/oe-module-copilot/bin/*
+	handle @copilot_internal {
+		respond 404
+	}
+
+	# Deny by default (SEC-HIGH-500): only OpenEMR application paths reach Apache.
+	# REST/FHIR/OAuth2 stay disabled and unrouted; the portal is out of scope.
+	# /meta/health/livez is the only probe exposed; readyz is misleading (SEC-MED-007).
+	@openemr path / /index.php /controller.php /acknowledge_license_cert.html /meta/health/livez /interface/* /public/* /library/* /sites/*/images/*
+	handle @openemr {
+		reverse_proxy openemr:80
+	}
+
+	handle {
+		respond 404
+	}
 }

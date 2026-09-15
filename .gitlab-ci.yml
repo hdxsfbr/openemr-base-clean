@@ -1,0 +1,47 @@
+# AgentForge Clinical Co-Pilot: fast deterministic checks on every push.
+# The eval subset joins this pipeline once cases exist (evals/README.md); the
+# Week 2 PR-blocking gate is a threshold change here, not new infrastructure.
+stages:
+  - lint
+  - test
+
+lint:whitespace:
+  stage: lint
+  image: alpine/git:2.47.2
+  script:
+    - git diff-tree --check --root HEAD
+
+lint:php:
+  stage: lint
+  image: php:8.3-cli-alpine
+  script:
+    - find interface/modules/custom_modules/oe-module-copilot -name '*.php' -print0 | xargs -0 -n1 php -l
+
+lint:caddy:
+  stage: lint
+  image: caddy:2.10.2-alpine
+  variables:
+    PUBLIC_HOSTNAME: example.test
+    TLS_EMAIL: ops@example.test
+  script:
+    - caddy validate --config infra/digitalocean/runtime/Caddyfile --adapter caddyfile
+
+lint:compose:
+  stage: lint
+  image: docker:27-cli
+  variables:
+    PUBLIC_HOSTNAME: example.test
+    TLS_EMAIL: ops@example.test
+  script:
+    - cd infra/digitalocean/runtime
+    - mkdir -p secrets build/openemr/oe-module-copilot build/agent demo/cohort
+    - for s in mysql_root_password mysql_password openemr_admin_password copilot_delegation_secret anthropic_api_key langfuse_public_key langfuse_secret_key; do touch "secrets/$s"; done
+    - docker compose config --quiet
+
+test:agent:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - cd agent
+    - pip install --quiet '.[dev]'
+    - pytest -q

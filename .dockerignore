@@ -1,0 +1,6 @@
+# Root build context for infra/image/openemr.Dockerfile: ship only the module.
+# Everything else (evals/, docs/, tests/, docker/, infra/, secrets) stays out
+# of the image (SEC-HIGH-500).
+*
+!interface/modules/custom_modules/oe-module-copilot/
+interface/modules/custom_modules/oe-module-copilot/**/.DS_Store
