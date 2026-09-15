@@ -1,0 +1,349 @@
+{
+    "advisories": {
+        "dompdf/dompdf": [
+            {
+                "advisoryId": "PKSA-cv56-2228-pzr6",
+                "packageName": "dompdf/dompdf",
+                "affectedVersions": "<3.1.6",
+                "title": "Dompdf: Embedded SVG images can leak existence of files and directories within the filesystem",
+                "cve": "CVE-2026-59943",
+                "link": "https://github.com/advisories/GHSA-j8qw-6jw8-r297",
+                "reportedAt": "2026-07-22T22:52:44+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-j8qw-6jw8-r297"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-6r8f-nxsb-67bq",
+                "packageName": "dompdf/dompdf",
+                "affectedVersions": "<3.1.6",
+                "title": "Dompdf: Denial of Service (DoS) via Resource Exhaustion using Oversized Image Bitmaps",
+                "cve": "CVE-2026-59942",
+                "link": "https://github.com/advisories/GHSA-f5gf-2cj8-52g2",
+                "reportedAt": "2026-07-22T22:51:40+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-f5gf-2cj8-52g2"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-gh7h-hhy4-byg7",
+                "packageName": "dompdf/dompdf",
+                "affectedVersions": "<3.1.6",
+                "title": "Dompdf: Uncontrolled resource consumption based on declared BMP dimensions",
+                "cve": "CVE-2026-59941",
+                "link": "https://github.com/advisories/GHSA-8hg6-c449-896m",
+                "reportedAt": "2026-07-22T22:50:34+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-8hg6-c449-896m"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-mwt3-h9tv-kx78",
+                "packageName": "dompdf/dompdf",
+                "affectedVersions": "<3.1.6",
+                "title": "Dompdf: Local file read due to improper file path validation in SVG images encoded as data-URI",
+                "cve": "CVE-2026-56722",
+                "link": "https://github.com/advisories/GHSA-cx96-42px-69fm",
+                "reportedAt": "2026-07-22T21:30:01+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-cx96-42px-69fm"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-hp6n-n4kz-21wk",
+                "packageName": "dompdf/dompdf",
+                "affectedVersions": "<3.1.6",
+                "title": "Dompdf: File existence oracle via font-face stylesheet declaration",
+                "cve": "CVE-2026-55555",
+                "link": "https://github.com/advisories/GHSA-7x2p-4jvh-6384",
+                "reportedAt": "2026-07-22T21:07:07+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-7x2p-4jvh-6384"
+                    }
+                ],
+                "severity": "low"
+            },
+            {
+                "advisoryId": "PKSA-mckv-s5hg-868k",
+                "packageName": "dompdf/dompdf",
+                "affectedVersions": "<3.1.6",
+                "title": "Dompdf: Chroot Validation Bypass",
+                "cve": "CVE-2026-55554",
+                "link": "https://github.com/advisories/GHSA-wvh6-f5jh-8gw4",
+                "reportedAt": "2026-07-22T21:06:48+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-wvh6-f5jh-8gw4"
+                    }
+                ],
+                "severity": "low"
+            }
+        ],
+        "guzzlehttp/guzzle": [
+            {
+                "advisoryId": "PKSA-gcrk-3vtt-1r14",
+                "packageName": "guzzlehttp/guzzle",
+                "affectedVersions": ">=8.0.0,<8.0.1|<7.15.2",
+                "title": "Guzzle: Noncanonical host can bypass host-based checks",
+                "cve": "CVE-2026-69246",
+                "link": "https://github.com/advisories/GHSA-v5mv-p594-2x33",
+                "reportedAt": "2026-08-03T21:07:26+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-v5mv-p594-2x33"
+                    }
+                ],
+                "severity": "high"
+            },
+            {
+                "advisoryId": "PKSA-cnw1-2ytm-cgr8",
+                "packageName": "guzzlehttp/guzzle",
+                "affectedVersions": ">=8.0.0,<8.0.1|<7.15.2",
+                "title": "Guzzle: Noncanonical cookie domain keeps subdomain scope",
+                "cve": "CVE-2026-69245",
+                "link": "https://github.com/advisories/GHSA-f7vp-7xgx-4w4r",
+                "reportedAt": "2026-08-03T21:05:26+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-f7vp-7xgx-4w4r"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-fy2t-3c5f-827y",
+                "packageName": "guzzlehttp/guzzle",
+                "affectedVersions": "<7.15.1",
+                "title": "Guzzle: URI fragments disclosed in redirect Referer headers",
+                "cve": "CVE-2026-67354",
+                "link": "https://github.com/advisories/GHSA-h95v-h523-3mw8",
+                "reportedAt": "2026-07-20T23:28:36+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-h95v-h523-3mw8"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-qxvb-2bpp-dnk6",
+                "packageName": "guzzlehttp/guzzle",
+                "affectedVersions": "<7.15.1",
+                "title": "Guzzle: Host-only cookie scope is not preserved",
+                "cve": "CVE-2026-67355",
+                "link": "https://github.com/advisories/GHSA-wm3w-8rrp-j577",
+                "reportedAt": "2026-07-20T23:27:49+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-wm3w-8rrp-j577"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-bbs6-q5q9-f3t4",
+                "packageName": "guzzlehttp/guzzle",
+                "affectedVersions": "<7.15.1",
+                "title": "Guzzle: Unbounded response cookies risk denial of service",
+                "cve": "CVE-2026-67353",
+                "link": "https://github.com/advisories/GHSA-f283-ghqc-fg79",
+                "reportedAt": "2026-07-20T23:27:02+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-f283-ghqc-fg79"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-bcdd-5xc7-gwfb",
+                "packageName": "guzzlehttp/guzzle",
+                "affectedVersions": "<7.12.3",
+                "title": "Guzzle: Cookie Disclosure and Injection via IP-Address Domains",
+                "cve": "CVE-2026-59883",
+                "link": "https://github.com/advisories/GHSA-g446-98w2-8p5w",
+                "reportedAt": "2026-07-20T22:00:09+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-g446-98w2-8p5w"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-pwsk-hy21-4gby",
+                "packageName": "guzzlehttp/guzzle",
+                "affectedVersions": "<7.14.2",
+                "title": "Guzzle: Proxy-Authorization headers can be sent to origin servers",
+                "cve": "CVE-2026-67339",
+                "link": "https://github.com/advisories/GHSA-94pj-82f3-465w",
+                "reportedAt": "2026-07-20T21:46:02+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-94pj-82f3-465w"
+                    }
+                ],
+                "severity": "medium"
+            }
+        ],
+        "guzzlehttp/psr7": [
+            {
+                "advisoryId": "PKSA-vznr-tgp9-fd7d",
+                "packageName": "guzzlehttp/psr7",
+                "affectedVersions": "<2.12.3",
+                "title": "guzzlehttp/psr7: Host Confusion via Weak URI Host Validation",
+                "cve": "CVE-2026-59882",
+                "link": "https://github.com/advisories/GHSA-c2w2-prh8-qm98",
+                "reportedAt": "2026-07-21T18:35:25+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-c2w2-prh8-qm98"
+                    }
+                ],
+                "severity": "medium"
+            }
+        ],
+        "phpoffice/phpspreadsheet": [
+            {
+                "advisoryId": "PKSA-r22k-87hv-mfk4",
+                "packageName": "phpoffice/phpspreadsheet",
+                "affectedVersions": "<=1.30.5|>=2.0.0,<=2.1.17|>=2.2.0,<=2.4.6|>=3.3.0,<=3.10.6|>=4.0.0,<=5.8.0",
+                "title": "PHPSpreadsheet: XLS/OLE sector-chain self-loop causes memory exhaustion",
+                "cve": "CVE-2026-59933",
+                "link": "https://github.com/advisories/GHSA-xh5m-36r6-47m3",
+                "reportedAt": "2026-07-23T15:01:50+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-xh5m-36r6-47m3"
+                    }
+                ],
+                "severity": "high"
+            },
+            {
+                "advisoryId": "PKSA-m9cr-9614-rsf7",
+                "packageName": "phpoffice/phpspreadsheet",
+                "affectedVersions": "<=1.30.5|>=2.0.0,<=2.1.17|>=2.2.0,<=2.4.6|>=3.3.0,<=3.10.6|>=4.0.0,<=5.8.0",
+                "title": "PHPSpreadsheet: Gnumeric reader unbounded gzip expansion causes memory exhaustion",
+                "cve": "CVE-2026-59932",
+                "link": "https://github.com/advisories/GHSA-2mrg-gjxq-2gvr",
+                "reportedAt": "2026-07-23T15:00:17+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-2mrg-gjxq-2gvr"
+                    }
+                ],
+                "severity": "high"
+            },
+            {
+                "advisoryId": "PKSA-dqzt-yst9-1w9y",
+                "packageName": "phpoffice/phpspreadsheet",
+                "affectedVersions": "<=1.30.5|>=2.0.0,<=2.1.17|>=2.2.0,<=2.4.6|>=3.3.0,<=3.10.6|>=4.0.0,<=5.8.0",
+                "title": "PHPSpreadsheet: SSRF bypass via HTTP redirect in WEBSERVICE() domain whitelist",
+                "cve": "CVE-2026-59931",
+                "link": "https://github.com/advisories/GHSA-6hq5-7373-42rg",
+                "reportedAt": "2026-07-23T14:55:48+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-6hq5-7373-42rg"
+                    }
+                ],
+                "severity": "high"
+            }
+        ],
+        "smarty/smarty": [
+            {
+                "advisoryId": "PKSA-mz8k-7h5s-m8kh",
+                "packageName": "smarty/smarty",
+                "affectedVersions": "<4.5.7|>=5.0.0,<5.8.2",
+                "title": "Smarty: SSRF via redirect bypass of trusted_uri using {fetch}",
+                "cve": "CVE-2026-62993",
+                "link": "https://github.com/advisories/GHSA-cq55-c7wv-pxmq",
+                "reportedAt": "2026-09-01T16:38:22+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-cq55-c7wv-pxmq"
+                    }
+                ],
+                "severity": "medium"
+            },
+            {
+                "advisoryId": "PKSA-zw1q-6h4d-mf1m",
+                "packageName": "smarty/smarty",
+                "affectedVersions": "<4.5.7|>=5.0.0,<5.8.2",
+                "title": "Smarty: Symlink path traversal out of trusted directories",
+                "cve": "CVE-2026-62992",
+                "link": "https://github.com/advisories/GHSA-f6wf-28g6-769x",
+                "reportedAt": "2026-08-07T15:02:39+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-f6wf-28g6-769x"
+                    }
+                ],
+                "severity": "medium"
+            }
+        ],
+        "squizlabs/php_codesniffer": [
+            {
+                "advisoryId": "PKSA-rdkp-vv9z-mjkg",
+                "packageName": "squizlabs/php_codesniffer",
+                "affectedVersions": "<3.13.6|>=4.0.0,<4.0.2",
+                "title": "OS Command injection",
+                "cve": "CVE-2026-67434",
+                "link": "https://github.com/PHPCSStandards/PHP_CodeSniffer/security/advisories/GHSA-hmqg-cxww-wqhq",
+                "reportedAt": "2026-08-05T23:53:11+00:00",
+                "sources": [
+                    {
+                        "name": "GitHub",
+                        "remoteId": "GHSA-hmqg-cxww-wqhq"
+                    },
+                    {
+                        "name": "FriendsOfPHP/security-advisories",
+                        "remoteId": "squizlabs/php_codesniffer/CVE-2026-67434.yaml"
+                    }
+                ],
+                "severity": "high"
+            }
+        ]
+    },
+    "abandoned": {
+        "laminas/laminas-config": null,
+        "laminas/laminas-json": null,
+        "laminas/laminas-loader": null,
+        "php-http/message-factory": "psr/http-factory",
+        "symfony/inflector": "EnglishInflector from the String component",
+        "yubico/u2flib-server": null
+    },
+    "filter": []
+}

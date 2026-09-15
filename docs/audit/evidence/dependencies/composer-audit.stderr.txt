@@ -1,0 +1,6 @@
+The repository at "/app" does not have the correct ownership and git refuses to use it:
+
+fatal: detected dubious ownership in repository at '/app'
+To add an exception for this directory, call:
+
+git config --global --add safe.directory /app

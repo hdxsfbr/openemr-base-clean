@@ -1,0 +1,40 @@
+Evidence COMP-E03: code references for compliance findings (read on 2026-09-14)
+
+AUDIT LOGGING
+- src/Common/Logging/EventAuditLogger.php:36-91   createInstance: separate DBAL connection; sinks = LogTablesSink (+ AtnaSink if enable_atna_audit); AuditConfig from globals (audit_events_lab-order read at :77 but no such global exists in library/globals.inc.php)
+- EventAuditLogger.php:187-219  newEvent(): calls recordLogItem() directly; NO check of enable_auditlog -> login/logout/view/api/access-denied events always written
+- EventAuditLogger.php:405-525  auditSQLEvent(): gated by enable_auditlog; SELECTs skipped unless audit_events_query (:440) and only for mapped tables (:501-505); stores full SQL + bound values in comments (:446-452) -> PHI in log when query/record logging on
+- EventAuditLogger.php:533-556  auditSQLAuditTamper(): records enable/disable of audit settings
+- EventAuditLogger.php:567-626  record/update/delete disclosure in extended_log; deleteDisclosure() hard-deletes rows (:622-626)
+- EventAuditLogger.php:642-695  recordLogItem(): comments base64-encoded; "encryption path removed (#12118/#12120)" (:660-661)
+- EventAuditLogger.php:700-734  logHttpRequest(): SCRIPT_NAME + QUERY_STRING + session pid; called from interface/globals.php:849
+- src/Common/Session/PatientSessionUtil.php:80  newEvent("view", user, provider, 1, '', pid) when a chart's patient is set in session
+- src/Common/Acl/AccessDeniedHelper.php:37-58  logDenial(): PSR-3 warning + audit event 'security-access-denied' success=0
+- src/Common/Logging/Audit/LogTablesSink.php:38-100  insert log; sha3-512 checksum over concatenated row fields (:63); api checksum (:83); insert log_comment_encrypt version 4; insert api_log incl. request_body/response
+- src/RestControllers/Subscriber/ApiResponseLoggerListener.php:39-105  on kernel TERMINATE, non-local API requests: api_log_option 1 -> bodies blanked; 2 -> JSON/FHIR+JSON response body stored in BOTH request_body and response (:84-85); patient_id from session pid
+- src/RestControllers/Subscriber/ApiResponseLoggerListener.php:52-53  local API calls (isLocalApi) are NOT api-logged
+
+TAMPER EVIDENCE / LOG ADMINISTRATION
+- interface/reports/audit_log_tamper_report.php:30  ACL admin/super; :241-265 recomputes checksums on demand and displays mismatches. On-demand only; no scheduler/alert found.
+- Checksums are unkeyed hashes stored in the same DB as the rows -> anyone with DB write can recompute (INFERRED).
+- interface/logview/logview.php:29  ACL admin/users to view logs (logs contain PHI in comments/api bodies).
+- interface/main/backup.php:68 ACL admin/super; :1000-1027 "EventLog Backup" renames log/log_comment_encrypt/api_log to *_backup, creates empty tables, mysqldumps to backup_log_dir; :1103-1107 drops *_backup tables -> admin UI path that removes all online audit rows. :1005-1006 creates dir with chmod 0777. backup_log_dir default /tmp.
+- Documentation/README-Log-Backup.txt:4-11 suggests weekly cron log backup (rotation), no retention period.
+
+ENCRYPTION
+- src/Common/Crypto/CryptoGen.php:8-9  database keys in `keys` table; drive keys in sites/<site>/documents/logs_and_misc/methods/
+- CryptoGen.php:401-433  database keys stored base64 (not wrapped) in `keys` table in same schema
+- CryptoGen.php:448-462  drive keys (non-legacy) are encrypted with the database key -> DB dump + sites volume = all keys
+- library/globals.inc.php:1028-1040  database_encryption / drive_encryption (both default on)
+- src/BC/DatabaseConnectionOptions.php:136-160  DB TLS only when documents/certificates/mysql-ca present
+
+DEPLOYMENT (DigitalOcean)
+- infra/digitalocean/main.tf:21-22  monitoring=true, backups=false
+- infra/digitalocean/runtime/compose.yaml:19-21,51-54,104-115  named local volumes (database_data, openemr_sites, openemr_logs); backend network internal:true; no DB TLS config; no volume encryption
+- infra/digitalocean/runtime/Caddyfile:6-17  public TLS (automatic ACME), HSTS, reverse_proxy openemr:80 (plaintext HTTP on docker frontend network)
+- docs/deployment/digitalocean.md:41-45,148,167-168,206  backups intentionally disabled; "no backup for the disposable cycle"; backup/restore TODO before keeping data
+
+PROJECT RULES
+- AGENTS.md:11, 52-53  no raw PHI/secrets/session IDs/unrestricted prompts in ordinary logs, metrics, fixtures, traces, videos, eval artifacts
+- docs/PROJECT_PLAN.md:56-66  authorization before retrieval; minimum necessary; observability from first request
+- ARCHITECTURE.md:57-60,104,157-163  telemetry without raw PHI; conversation-state retention/deletion TODO; privacy/compliance TODO

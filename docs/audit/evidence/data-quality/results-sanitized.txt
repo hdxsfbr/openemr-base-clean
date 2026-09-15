@@ -1,0 +1,103 @@
+Data-quality audit: sanitized results (aggregates, flags, lengths, formats only)
+Run: 2026-09-14, local easy-development stack, pristine bundled demo dataset
+(SETUP.md: OpenEMR 5.0.0.5 demo dump, upgraded). Query IDs refer to queries.sql.
+No names, DOBs, addresses, titles, or free text were copied. Drug and problem
+titles appear only as character lengths.
+
+Q1 VOLUME
+  patient_data 3 | form_encounter 3 | forms 9 (newpatient 3, soap 3, vitals 3; deleted=0)
+  lists 9 (medical_problem 3 active; medication 4 active + 1 activity=0; allergy 1 active; surgery 0)
+  prescriptions 1 | lists_medication 0 | issue_encounter 0 | drugs 0
+  pnotes 0 | form_clinical_notes 0 | form_soap 3 | form_vitals 3 | documents 0
+  immunizations 0 | procedure_order 0 | procedure_report 0 | procedure_result 0
+  history_data 3 | form_observation 0 | form_care_plan 0 | external_encounters 0
+  openemr_postcalendar_events 11 (3 linked to patients, all dated 2014-01-31)
+  Other non-empty form_* tables: form_eye_mag_prefs only (config, not clinical)
+  MariaDB 11.8.8; @@time_zone=SYSTEM; system tz UTC; PHP date.timezone=UTC
+  sql_mode lacks NO_ZERO_DATE / NO_ZERO_IN_DATE
+
+Q2 LISTS (n=9)
+  begdate NULL: 9/9 | enddate NULL: 9/9 | activity=0 with enddate NULL: 1 (a medication)
+  diagnosis empty: 7/9; 2 coded, both format "ICD9:<code>" (both medical_problem, same patient)
+  verification empty: 9/9 | outcome=0: 9/9 | list_option_id NULL: 9/9 | comments empty: 9/9
+  user empty: 9/9 | uuid present: 9/9 | external_id NULL: 9/9
+  allergy (n=1): reaction empty, severity_al NULL, no code
+  date (entry datetime): all 2014-02-01, same day as the patient's encounter
+  modifydate (TIMESTAMP): all 9 = 2026-09-12 02:51:57 (install/upgrade time, not clinical change)
+  per patient: pid1 5 rows, pid2 4 rows, pid3 0 rows
+
+Q3 DUPLICATES
+  within-patient same-type pairs: 5; normalized-title-equal pairs: 0
+
+Q4 PRESCRIPTIONS (n=1) and overlap with lists
+  active=1, start_date 2014-02-01, end_date NULL, rxnorm_drugcode NULL, drug_id 0 (no drugs row)
+  unit=1, route='1', form=2, interval=9 -> list_option ids (drug_units mg, drug_route Per Oris,
+    drug_form tablet, drug_interval Daily); dosage '1' (varchar), quantity '30', size '20', refills 6
+  txDate = '0000-00-00' | diagnosis NULL | indication NULL | usage_category/request_intent NULL
+  provider_id 1; encounter links to an existing encounter
+  Overlap with lists(type=medication) for same patient: 3 candidate pairs;
+    1 normalized-title exact match, and that lists row has activity=0 while prescription active=1
+    no lists_medication.prescription_id link (lists_medication empty)
+
+Q5 ENCOUNTERS / FORMS / NOTES / VITALS
+  form_encounter: 3 rows, one per patient, all date 2014-02-01 00:00:00 (midnight; time not captured)
+    onset_date '0000-00-00 00:00:00': 3/3 | date_end NULL 3/3 | provider_id 1 (3/3) | class_code AMB
+    pos_code NULL 3/3 | encounter_type_code NULL 3/3 | reason length 3-8 chars
+  distinct encounter days across whole DB: 1
+  forms: provider_id 0 in 9/9; issue_id 0 in 9/9; all authorized=1, user=admin
+  form_soap: user NULL 3/3, authorized 0 3/3; section lengths 3-13 chars (placeholder-scale text)
+  form_vitals: user NULL 3/3; waist_circ 0 in 2/3; oxygen_flow_rate 0 in 3/3; ped_* 0 in 3/3;
+    units not stored per row (global units_of_measurement=1); last_updated all 2026-09-12
+  users id=1 (the encounter provider): authorized, active, no NPI
+  appointments: 3 patient appointments, all 2014-01-31 (no future/next visit)
+
+Q6 PATIENTS / HISTORY
+  3 patients; DOB present 3/3; uuid present 3/3; regdate NULL 3/3
+  language/race/ethnicity populated 2/3
+  history_data: 3 rows; tobacco/alcohol NULL 3/3
+
+Q7 ORPHANS / CONSISTENCY (all counts)
+  forms_no_encounter 0 | soap_no_forms 0 | vitals_no_forms 0 | soap_pid_mismatch 0
+  lists_no_patient 0 | rx_no_patient 0 | rx_no_encounter 0 | enc_no_patient 0
+  enc_provider_missing 0 | enc_newpatient_form_missing 0
+  lists_enddate_past_active 0 | lists_inactive_no_enddate 1 | issue_encounter_rows 0
+  patients_with_gt1_encounter 0 | patients_with_0_encounter 0 | patients_with_0_lists 1
+
+Q8 LISTS_TOUCH ("reviewed" marker per patient/type)
+  pid1: allergy, medical_problem, medication | pid2: medical_problem, medication | pid3: none
+  patients with no allergy rows AND no allergy touch: 2 of 3
+
+Q9 SCHEMA TYPES
+  lists.begdate/enddate/date DATETIME; lists.modifydate TIMESTAMP
+  prescriptions.start_date/end_date DATE; date_added/date_modified DATETIME; txDate DATE NOT NULL
+  prescriptions.unit INT, form INT, interval INT, route VARCHAR, dosage VARCHAR
+  form_encounter.date/onset_date/date_end DATETIME; last_update TIMESTAMP
+  form_clinical_notes.date DATE (no time); code VARCHAR; clinical_notes_type VARCHAR
+  procedure_result.result VARCHAR NOT NULL DEFAULT ''; units VARCHAR DEFAULT ''; range VARCHAR DEFAULT '';
+    abnormal VARCHAR DEFAULT ''; result_code VARCHAR DEFAULT ''; result_data_type CHAR DEFAULT 'S';
+    date DATETIME
+  procedure_report.date_collected/date_report DATETIME; procedure_order.date_collected DATETIME
+  immunizations.administered_date DATETIME; cvx_code VARCHAR
+  TIMESTAMP-typed (UTC-normalized) columns in the 11 core clinical tables: 3, all audit/modify columns
+
+Q10 TERMINOLOGY / GLOBALS
+  codes table: 246 rows (code_type 100: 231, 112: 15)
+  active code types: CPT4, CVX, HCPCS, ICD10, LOINC, NCI-CONCEPT-ID, OID, PHIN Questions, VALUESET
+  RxNorm (rxn*) tables: absent | SNOMED (sct*) tables: absent | valueset tables present
+  icd10_dx_order_code active rows 93,831 | icd9_dx_code active rows 14,567
+  globals: gbl_time_zone '' | units_of_measurement 1 | erx_enable '' | date_display_format 0
+    allow_issue_duplicates: no row
+
+CODE / TOOLING (file references, not SQL)
+  interface/patient_file/summary/stats.php getListData(): active issue = enddate NULL or zero-date; activity ignored
+  interface/patient_file/summary/stats_full.php: status "Active" when enddate NULL; activity ignored
+  src/Services/PatientIssuesService.php getActiveIssues(): enddate missing OR enddate > now
+  src/Services/PrescriptionService.php getBaseSql(): UNION prescriptions + lists(type=medication,
+    no lists_medication.prescription_id); status active/completed/stopped derived from activity/active + end_date;
+    lists rows get rxnorm NULL, unit/route/dosage NULL, provider via users.username = lists.user
+  library/lists.inc.php disappearList(): sets activity=0 without touching enddate
+  bin/console openemr:ccda-newpatient-import --document=<file.xml> (src/Common/Command/CcdaNewpatientImport.php)
+  bin/console openemr:ccda-import / openemr:ccda-newpatient (document-table based)
+  contrib/util/ccda_import/import_ccda.php (batch; guarded by exit; isDev bypasses audit tables)
+  docker/*/utilities/devtoolsLibrary.source importRandomPatients(): downloads Synthea
+    master-branch-latest jar, no seed flag, requires Java; `java` not present in openemr container

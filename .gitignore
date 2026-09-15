@@ -60,3 +60,12 @@ docker/development-easy-redis/docker-compose.override.yml
 compose.override.yml
 tmp/
 .webpack-cache/
+
+# Raw scanner output from the 2026-09-14 audit (~9.5 MB). Generated; regenerate
+# with docs/audit/evidence/dependencies/COMMANDS.txt against the pinned digests.
+docs/audit/evidence/dependencies/trivy-caddy-2.10.2-infra.json
+docs/audit/evidence/dependencies/trivy-mariadb-11.8.8-dev.json
+docs/audit/evidence/dependencies/trivy-mariadb-11.8.8-infra.json
+docs/audit/evidence/dependencies/trivy-openemr-8.1.1-infra.json
+docs/audit/evidence/dependencies/trivy-openemr-flex-dev.json
+docs/audit/evidence/dependencies/semgrep-raw.json

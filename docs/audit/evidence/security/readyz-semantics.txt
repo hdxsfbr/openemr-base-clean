@@ -1,0 +1,18 @@
+# PRE-003 readiness semantics — captured 2026-09-14T22:53:24Z, commit fc95374, local development-easy stack
+
+$ curl -s -w "\nHTTP %{http_code}\n" http://localhost:8300/meta/health/readyz
+{"status":"setup_required","checks":{"installed":false,"database":true,"filesystem":true,"session":true,"oauth_keys":true,"cache":true}}
+HTTP 200
+
+$ curl -s -w "\nHTTP %{http_code}\n" http://localhost:8300/meta/health/livez
+{"status":"alive"}
+HTTP 200
+
+$ docker exec development-easy-openemr-1 grep -n "^\$config" .../sites/default/sqlconf.php
+23:$config = 1; /////////////
+
+# Code path
+meta/health/index.php: require sqlconf.php -> $config === 1 -> require interface/globals.php
+59:    $config = DatabaseConnectionOptions::forSite($GLOBALS['OE_SITE_DIR']);
+42:            if ($config !== 1) {
+92:    // Even on error, return 200 with error details in body

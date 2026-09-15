@@ -1,0 +1,39 @@
+Evidence COMP-E01: current audit / encryption / API globals in local DB
+Captured: 2026-09-14, local docker/development-easy stack, container development-easy-mysql-1
+Method: read-only SELECT via `docker exec ... mariadb -uroot openemr -e "SELECT gl_name, gl_value FROM globals WHERE gl_name IN (...)"`
+(root password taken from compose env at runtime via MYSQL_PWD; not recorded here)
+
+gl_name                                gl_value   code default (library/globals.inc.php)
+api_log_option                         2          '2' Full (line 2893-2902) -> request+response bodies stored
+audit_events_backup                    1          '1' (2818)
+audit_events_cdr                       (empty)    '0' (2839)
+audit_events_http-request              1          '1' (2845)
+audit_events_lab-results               1          '1' (2805)
+audit_events_lab-order                 (no row)   no global defined in globals.inc.php; read at EventAuditLogger.php:77 -> evaluates false
+audit_events_order                     1          '1' (2799)
+audit_events_other                     1          '1' (2825)
+audit_events_patient-record            1          '1' (2785)
+audit_events_query                     (empty)    '1' (2832)  <-- DIFFERS from code default: SELECT query logging OFF
+audit_events_scheduling                1          '1' (2792)
+audit_events_security-administration   1          '1' (2811)
+backup_log_dir                         /tmp       '/tmp' (2969)
+couchdb_encryption                     1          unused (1043)
+database_encryption                    1          '1' (1028)
+drive_encryption                       1          '1' (1035)
+enable_atna_audit                      (empty)    '0' (2858)
+enable_auditlog                        1          '1' (2778)
+gbl_force_log_breakglass               1          '1' (2851)
+gbl_ldap_enabled                       0
+gbl_print_log_option                   0          '2' (2914)  <-- DIFFERS: print logging disabled
+hide_document_encryption               1
+password_expiration_days               0
+portal_onsite_two_enable               1
+rest_api                               1
+rest_fhir_api                          1
+rest_portal_api                        1
+secure_password                        (empty)
+system_error_logging                   WARNING
+timeout                                7200       (seconds; 2 h idle session timeout)
+
+NOTE: These are the LOCAL dev values. The DigitalOcean deployment uses the upstream
+openemr/openemr:8.1.1 image and fresh install, whose values were NOT queried (environment destroyed).

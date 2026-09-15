@@ -1,0 +1,76 @@
+Dependencies & Secrets audit - command log (2026-09-14, host: local dev workstation)
+All output sanitized: no secret values recorded. Token-like strings are described by shape and
+a truncated SHA-256 fingerprint only (first 8 hex chars of sha256 of the decoded value).
+
+Tool versions / images
+- composer:2        docker.io composer@sha256:d8f6343d3fae98107426bc49163ccad46ef85aabd4a27d80a74401fab4aba332
+- aquasec/trivy     0.69.3@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
+- semgrep           semgrep/semgrep:latest (resolved 1.176.1; run-semgrep.sh does NOT pin a digest)
+- npm 11.9.0 / node v24.14.0 (host)
+
+1. Composer
+   docker run --rm -v "$PWD":/app:ro -w /app composer:2 composer audit --locked --no-interaction --format=json
+   -> composer-audit.json (exit 1 = advisories found). stderr: git "dubious ownership" warning only.
+
+2. npm
+   npm audit --omit=dev --json > npm-audit-omit-dev.json   (exit 1)
+   npm audit --json            > npm-audit-full.json       (exit 1)
+
+3. Trivy images (remote pull by digest, linux/amd64, scanners vuln,secret,misconfig)
+   trivy image --image-src remote --platform linux/amd64 --scanners vuln,secret,misconfig --format json <ref>
+   refs:
+     openemr/openemr:8.1.1@sha256:796adaa7...fa0b   (infra/digitalocean/runtime/compose.yaml:35)  -> trivy-openemr-8.1.1-infra.json
+     openemr/openemr:flex@sha256:1d2c8345...482e    (docker/development-easy/docker-compose.yml:29) -> trivy-openemr-flex-dev.json
+     mariadb:11.8.8@sha256:24e76fce...f5a9c         (infra compose:5)  -> trivy-mariadb-11.8.8-infra.json
+     mariadb:11.8.8@sha256:be1ef4fe...2a61          (dev compose:4)    -> trivy-mariadb-11.8.8-dev.json
+     caddy:2.10.2-alpine@sha256:4c6e91c6...530d     (infra compose:78) -> trivy-caddy-2.10.2-infra.json
+   trivy config /infra (infra/digitalocean) -> trivy-config-infra.json
+   trivy config /dev-easy                   -> trivy-config-dev-easy.json (no compose checks in trivy; 0 results)
+   Post-processing: every Secrets[].Match and Secrets[].Code field replaced with "<redacted by auditor>"
+   (84 fields in the 8.1.1 report, 4 in the flex report). A residual scan for key bodies / ghp_ shapes
+   returned 0 hits (one 6-char substring match was a xmldom commit hash URL, not a credential).
+
+4. Semgrep
+   ./run-semgrep.sh --output-format json --output-file docs/audit/evidence/dependencies/semgrep-raw.json
+   -> 594 results, 6 errors (4 timeouts in swagger/*.js bundles, 2 partial parses), 5730 paths, 72 s.
+   The "lines" field is "requires login" for all results (no code snippets embedded).
+
+5. Secrets inventory (values never printed)
+   git grep -l -E -e "-----BEGIN ([A-Z]+ )?PRIVATE KEY-----" -- ':!vendor' ':!node_modules'   -> 21 files
+   git grep cloud-token prefixes (ghp_, github_pat_, AKIA, AIza, xox?, sk-, sk-ant-, dop_v1_, glpat-) -> 0 literal hits
+   git grep -i "(token|secret|api_key|client_secret) = <32+ hex>" -> 9 locations (file:line only in report)
+   python classifier over GITHUB_COMPOSER_TOKEN* lines (decodes base64 / decimal-ASCII in memory, prints shape + sha256[:8])
+     dev-easy, dev-easy-light, dev-easy-redis, dev-insane compose files: identical three values in each
+       GITHUB_COMPOSER_TOKEN                  raw        40 lowercase hex             fp ae8ed247
+       GITHUB_COMPOSER_TOKEN_ENCODED          base64     ghp_-prefixed, 40 chars      fp fafe95dc
+       GITHUB_COMPOSER_TOKEN_ENCODED_ALTERNATE dec-ASCII ghp_-prefixed, 40 chars      fp be8fa6f1
+   sites/default/sqlconf.php: login and pass equal the upstream default placeholder (boolean check), $config = 0
+   infra/digitalocean terraform.tfstate(.backup): sensitive_attributes [] ; user_data contains no "password"/"PRIVATE KEY"
+   deploy.tfplan (zip): only markers are ssh-ed25519 public key and sshd_config text "PasswordAuthentication no"/"prohibit-password"
+
+6. Runtime / exposure
+   docker ps --format '{{.Names}} {{.Image}} {{.Ports}}'           (dev stack bindings)
+   ss -ltnp | grep dev ports                                        -> all on 0.0.0.0 and [::]
+   curl status-only (body discarded) against dev stack 127.0.0.1:8310 (pma) 200, :8025 mailpit API 200,
+     :5984/_all_dbs 401, :4444/status 200
+   docker exec development-easy-openemr-1 php -i | grep xdebug     -> xdebug.mode => debug,profile ; start_with_request => trigger;
+     client_host host.docker.internal ; output_dir /tmp            (read-only exec, no changes)
+   curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1:9300/<path>   (dev stack, status only)
+     docker/library/sql-ssl-certs-keys/easy/server-key.pem 200
+     tests/Tests/data/Unit/Common/Auth/Grant/openemr-rsa384-private.key 200
+     docker/development-easy/docker-compose.yml 200 ; composer.lock 200 ; ci/phpinfo.php 200 (script dies with guard message)
+     sites/default/documents/ 403
+   Deployed image, disposable container, --network none, httpd only, temporary self-signed cert generated inside
+   the throwaway container so Apache would start; curl status-only on http://localhost (the port Caddy proxies to):
+     docker/library/sql-ssl-certs-keys/easy/server-key.pem 200
+     tests/Tests/data/Unit/Common/Auth/Grant/openemr-rsa384-private.key 200
+     docker/development-easy/docker-compose.yml 200 (file contains 3 GITHUB_COMPOSER_TOKEN lines)
+     composer.lock 200 ; ci/phpinfo.php 200 (guarded) ; sites/default/documents/ 403 ; bin/ 500
+   Same disposable container: php -m has no xdebug; /etc/apache2/conf.d/openemr.conf only denies sites/*/documents and bin;
+     webroot vendor twig/twig v3.24.0 (repo composer.lock has v3.27.1); sql_upgrade.php/acl_upgrade.php/setup.php present
+     before first boot.
+
+Not run / not possible
+- Host firewall state (ufw/nft) - requires sudo password; not attempted further.
+- No credential was tested against GitHub or any external service (by rule).
+- Trivy has no docker-compose misconfiguration checks; compose hardening was reviewed manually.

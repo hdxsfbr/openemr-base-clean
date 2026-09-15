@@ -1,0 +1,201 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "dompurify": {
+      "name": "dompurify",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1124022,
+          "name": "dompurify",
+          "dependency": "dompurify",
+          "title": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+          "url": "https://github.com/advisories/GHSA-c2j3-45gr-mqc4",
+          "severity": "low",
+          "cwe": [
+            "CWE-79",
+            "CWE-184",
+            "CWE-693"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=3.4.11"
+        },
+        {
+          "source": 1138538,
+          "name": "dompurify",
+          "dependency": "dompurify",
+          "title": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+          "url": "https://github.com/advisories/GHSA-55q2-fjhq-7xh7",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=3.4.12"
+        }
+      ],
+      "effects": [],
+      "range": "<=3.4.12",
+      "nodes": [
+        "node_modules/dompurify"
+      ],
+      "fixAvailable": {
+        "name": "dompurify",
+        "version": "3.4.15",
+        "isSemVerMajor": false
+      }
+    },
+    "dwv": {
+      "name": "dwv",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "jszip"
+      ],
+      "effects": [],
+      "range": "0.20.0 - 0.31.4",
+      "nodes": [
+        "node_modules/dwv"
+      ],
+      "fixAvailable": {
+        "name": "dwv",
+        "version": "0.36.4",
+        "isSemVerMajor": true
+      }
+    },
+    "fflate": {
+      "name": "fflate",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1164782,
+          "name": "fflate",
+          "dependency": "fflate",
+          "title": "fflate unzipSync can enter an infinite loop when parsing malformed ZIP64 archives",
+          "url": "https://github.com/advisories/GHSA-px8p-9vwx-vf98",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-400"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=0.8.0 <0.8.3"
+        }
+      ],
+      "effects": [],
+      "range": "0.8.0 - 0.8.2",
+      "nodes": [
+        "node_modules/fflate"
+      ],
+      "fixAvailable": true
+    },
+    "jszip": {
+      "name": "jszip",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1094051,
+          "name": "jszip",
+          "dependency": "jszip",
+          "title": "jszip Vulnerable to Prototype Pollution",
+          "url": "https://github.com/advisories/GHSA-jg8v-48h5-wgxg",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": ">=3.0.0 <3.7.0"
+        },
+        {
+          "source": 1100538,
+          "name": "jszip",
+          "dependency": "jszip",
+          "title": "JSZip contains Path Traversal via loadAsync",
+          "url": "https://github.com/advisories/GHSA-36fh-84j7-cv5h",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 7.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L"
+          },
+          "range": "<3.8.0"
+        }
+      ],
+      "effects": [
+        "dwv"
+      ],
+      "range": "<=3.7.1",
+      "nodes": [
+        "node_modules/dwv/node_modules/jszip"
+      ],
+      "fixAvailable": {
+        "name": "dwv",
+        "version": "0.36.4",
+        "isSemVerMajor": true
+      }
+    },
+    "validate.js": {
+      "name": "validate.js",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1100267,
+          "name": "validate.js",
+          "dependency": "validate.js",
+          "title": "validate.js Regular Expression Denial of Service vulnerability",
+          "url": "https://github.com/advisories/GHSA-rv73-9c8w-jp4c",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-1333"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=0.13.1"
+        }
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/validate.js"
+      ],
+      "fixAvailable": false
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 5,
+      "high": 0,
+      "critical": 0,
+      "total": 5
+    },
+    "dependencies": {
+      "prod": 247,
+      "dev": 922,
+      "optional": 32,
+      "peer": 3,
+      "peerOptional": 0,
+      "total": 1186
+    }
+  }
+}

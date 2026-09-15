@@ -1,0 +1,47 @@
+Evidence COMP-E02: audit log tables - schema, counts, privileges, DB transport/at-rest settings
+Captured: 2026-09-14, local development-easy MariaDB 11.8.8. Read-only. No comment/patient values selected.
+
+-- Row counts
+log                   11927 rows (date range 2014-02-01 .. 2026-09-14; 2014 rows come from bundled demo dump)
+log_comment_encrypt    9930 rows (all encrypt='No'; versions present: 0 and 4)
+api_log                   1 row  (GET version; request_body non-empty; response length 96 bytes)
+extended_log              0 rows (disclosures)
+keys                      4 rows (database key material; values NOT read)
+
+-- Event distribution (SELECT event, COUNT(*) FROM log GROUP BY event ORDER BY 2 DESC)
+http-request-update 7264 | http-request-select 2494 | other-delete 990 | other-insert 846
+other-update 52 | patient-record-insert 50 | patient-record-update 44 | security-administration-update 30
+patient-record-delete 27 | logout 26 | login 26 | security-administration-delete 18
+security-administration-insert 16 | view 12 | scheduling-insert 11 | order-delete 6
+patient-record-replace 6 | security-administration-replace 3 | oauth2 1 | security-access-denied 1
+api 1 | order-replace 1 | scheduling-update 1 | uuid 1
+patient-record-select*: 0 rows   (consistent with audit_events_query off)
+view events: 12 rows across 2 distinct patient_id values
+http-request* rows with non-zero patient_id: 7274
+
+-- Schema (SHOW CREATE TABLE, abridged)
+log: id bigint AI, date, event, user, groupname, comments longtext (base64), user_notes, patient_id,
+     success, checksum longtext (legacy, unused since 6.0), crt_user, log_from, menu_item_id, ccda_doc_id, category
+log_comment_encrypt: id, log_id, encrypt enum('Yes','No'), checksum longtext, version tinyint, checksum_api longtext
+api_log: id, user_id, patient_id, ip_address, method, request, request_url text,
+         request_body longtext, response longtext, created_time, log_id
+No triggers, no append-only engine, no partitioning, no retention column. All InnoDB in the same schema as clinical data.
+
+-- Privileges
+SHOW GRANTS FOR 'openemr'@'%':
+  GRANT USAGE ON *.* ...  (password hash omitted)
+  GRANT ALL PRIVILEGES ON `openemr`.* TO `openemr`@`%`
+  => the application account can UPDATE/DELETE/DROP/RENAME log, log_comment_encrypt, api_log.
+mysql.user ssl_type for openemr@%: '' (no REQUIRE SSL/X509)
+
+-- Transport / at-rest (server variables)
+have_ssl=YES  require_secure_transport=OFF
+innodb_encrypt_tables=OFF innodb_encrypt_log=OFF innodb_encrypt_temporary_tables=OFF
+log_bin=OFF general_log=OFF
+Ssl_cipher for the auditor's docker-exec CLI session = TLS_AES_256_GCM_SHA384 (client default; says nothing about app connections)
+
+-- Application-side DB TLS
+src/BC/DatabaseConnectionOptions.php:136-160 enables client TLS only if sites/<site>/documents/certificates/mysql-ca exists.
+`ls sites/default/documents/certificates` inside development-easy-openemr-1: README.md, oaprivate.key, oapublic.key
+  => no mysql-ca => application DB connections are not configured for TLS (INFERRED from code + file absence).
+sites/default/documents/logs_and_misc/methods: 3 files (drive key material; names/values not recorded)

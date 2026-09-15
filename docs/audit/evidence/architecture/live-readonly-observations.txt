@@ -1,0 +1,62 @@
+Architecture audit - live read-only observations (sanitized)
+Date: 2026-09-14   Commit: fc95374   Environment: docker/development-easy (local)
+No credentials, tokens, session IDs, or patient data values are recorded here.
+No writes were made. No load was generated (one SELECT batch, a few `docker exec` inspections).
+
+== 1. Running containers (docker ps, names/images/ports only) ==
+development-easy-openemr-1     openemr/openemr:flex     0.0.0.0:8300->80, 0.0.0.0:9300->443
+development-easy-mysql-1       mariadb:11.8.8           0.0.0.0:8320->3306
+development-easy-phpmyadmin-1  phpmyadmin:5.2.3         0.0.0.0:8310->80
+development-easy-selenium-1    selenium/standalone-chromium  0.0.0.0:4444, 0.0.0.0:7900
+development-easy-couchdb-1     couchdb:3.5.2            0.0.0.0:5984, 0.0.0.0:6984
+development-easy-openldap-1    openemr/dev-ldap:easy    (not published)
+development-easy-mailpit-1     axllent/mailpit          0.0.0.0:1025, 0.0.0.0:8025
+
+== 2. OpenEMR container runtime (docker exec development-easy-openemr-1 ...) ==
+$ echo SESSION_STORAGE_MODE=${SESSION_STORAGE_MODE:-unset}
+SESSION_STORAGE_MODE=unset                 -> file-based PHP sessions (HttpSessionFactory.php:87-104)
+$ php -v | head -1
+PHP 8.5.6 (cli)
+$ httpd -M | grep -i mpm
+ mpm_prefork_module (shared)
+$ grep MaxRequestWorkers (prefork block) /etc/apache2/conf.d/mpm.conf
+    MaxRequestWorkers      250
+$ php -i | grep session.save_handler ; grep php.ini
+session.save_handler => files
+max_execution_time = 60                     (php.ini; CLI reports 0)
+session.gc_maxlifetime => 1440
+$ ls /var/www/localhost/htdocs/openemr/sites
+default  docker-leader                      -> multisite: two site directories present
+$ grep Directory /etc/apache2/conf.d/openemr.conf (excerpt)
+<Directory "/var/www/localhost/htdocs/openemr/sites/*/documents">  Require all denied
+
+== 3. Database (read-only SELECT against openemr schema; values are config flags, not PHI) ==
+SELECT mod_directory, type, mod_active, mod_ui_active FROM modules;
+Immunization            1  1  0
+Syndromicsurveillance   1  1  0
+Documents               1  1  0
+Ccr                     1  1  0
+Carecoordination        1  1  0
+-> Only Laminas (type=1) modules are registered. None of the 8 custom modules in
+   interface/modules/custom_modules/ is registered or enabled in this dev DB.
+
+SELECT gl_name, gl_value FROM globals WHERE gl_name IN (...);
+api_log_option                          2      (2 = log request/response bodies; ApiResponseLoggerListener.php:56-85)
+audit_events_http-request               1
+audit_events_patient-record             1
+audit_events_query                      (empty -> SELECT auditing off)
+enable_auditlog                         1
+enable_auditlog_encryption              (empty)
+gbl_force_log_breakglass                1
+oauth_ehr_launch_authorization_flow_skip 1
+restrict_user_facility                  (empty)
+rest_api                                1
+rest_fhir_api                           1
+rest_portal_api                         1
+timeout                                 7200   (seconds, session inactivity)
+
+== 4. Deployment topology source (infra/digitalocean, static read) ==
+runtime/compose.yaml: services database (mariadb:11.8.8, network backend internal:true, no ports),
+  openemr (openemr/openemr:8.1.1 pinned digest, networks frontend+backend, volume openemr_sites),
+  caddy (caddy:2.10.2-alpine, ports 80/443, network frontend, reverse_proxy openemr:80).
+main.tf: Cloud Firewall inbound 22 (var.allowed_ssh_cidrs), 80 and 443 (0.0.0.0/0, ::/0) (main.tf:36-51).
