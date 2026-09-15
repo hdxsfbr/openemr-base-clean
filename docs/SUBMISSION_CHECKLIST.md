@@ -43,12 +43,14 @@ it's GitHub, push the final state there before submitting.
       synthetic cohort and demo users only. Owned hostname pending.)*
 - [x] Clinical Co-Pilot is embedded in the patient workflow. *(`v0.2.0-slice`:
       panel on the dashboard runs a full UC-01 turn on the deployment.)*
-- [ ] Multi-turn follow-up and tool chaining work in the live environment.
+- [x] Multi-turn follow-up and tool chaining work in the live environment.
+      *(2026-09-15: follow-up planned a note search and cited two notes.)*
 - [x] Authorization is enforced for every retrieval. *(Parity gateway per
       tool call; per-role matrix evals still to record.)*
 - [ ] Every displayed factual claim passes verification and has a source.
 - [ ] Correlation IDs connect UI, gateway, tools, LLM, verifier, and logs.
-- [ ] Observability records order, latency, failures, tokens, and cost.
+- [x] Observability records order, latency, failures, tokens, and cost.
+      *(Langfuse traces per turn, verified 2026-09-15.)*
 - [ ] Dashboard shows all PRD-required metrics.
 - [ ] Eval suite includes boundary, invariant, and regression cases.
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.

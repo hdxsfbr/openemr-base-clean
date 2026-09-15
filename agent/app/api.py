@@ -22,7 +22,7 @@ from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
 from .settings import settings
 from .state_store import get_pack
-from .telemetry import callback_handler
+from .telemetry import finish_turn_trace, trace_config, turn_trace
 
 router = APIRouter(prefix="/v1")
 
@@ -140,19 +140,20 @@ async def post_turn(
 
     graph = request.app.state.graph
     config: dict[str, Any] = {"configurable": {"thread_id": conversation_id}}
-    handler = callback_handler("copilot.turn", correlation_id, conversation_id, "pending")
-    if handler is not None:
-        config["callbacks"] = [handler]
+    config.update(trace_config(correlation_id, conversation_id, "turn"))
     turn_input = _turn_input(auth, req, correlation_id, _fault(request))
     started = time.perf_counter()
     stream = req.stream or (accept or "").startswith("text/event-stream")
 
     if not stream:
-        try:
-            final = await asyncio.wait_for(graph.ainvoke(turn_input, config), timeout=settings.turn_wall_clock_seconds)
-        except asyncio.TimeoutError:
-            metrics.turn("failed", (time.perf_counter() - started) * 1000, {})
-            return _error(504, "dependency_unavailable", "The turn exceeded its time budget.", correlation_id)
+        with turn_trace(correlation_id, conversation_id) as span:
+            try:
+                final = await asyncio.wait_for(graph.ainvoke(turn_input, config), timeout=settings.turn_wall_clock_seconds)
+            except asyncio.TimeoutError:
+                metrics.turn("failed", (time.perf_counter() - started) * 1000, {})
+                finish_turn_trace(span, {"status": "timeout"})
+                return _error(504, "dependency_unavailable", "The turn exceeded its time budget.", correlation_id)
+            finish_turn_trace(span, final)
         response = _response_from_state(final, correlation_id)
         metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final.get("usage") or {}), final.get("evidence") or [], final.get("rejected") or [])
         status_code = 403 if response.status == "denied" else 200
@@ -161,13 +162,15 @@ async def post_turn(
     async def events():
         final_state: dict[str, Any] = dict(turn_input)
         try:
-            async for update in graph.astream(turn_input, config, stream_mode="updates"):
-                for node, delta in update.items():
-                    final_state.update(delta or {})
-                    if node == "retrieve":
-                        yield f"event: evidence\ndata: {json.dumps({'evidence': delta.get('evidence', []), 'window_since': delta.get('window_since'), 'correlation_id': correlation_id})}\n\n"
-                    elif node in ("verify", "repair"):
-                        yield f"event: progress\ndata: {json.dumps({'node': node})}\n\n"
+            with turn_trace(correlation_id, conversation_id) as span:
+                async for update in graph.astream(turn_input, config, stream_mode="updates"):
+                    for node, delta in update.items():
+                        final_state.update(delta or {})
+                        if node == "retrieve":
+                            yield f"event: evidence\ndata: {json.dumps({'evidence': delta.get('evidence', []), 'window_since': delta.get('window_since'), 'correlation_id': correlation_id})}\n\n"
+                        elif node in ("verify", "repair"):
+                            yield f"event: progress\ndata: {json.dumps({'node': node})}\n\n"
+                finish_turn_trace(span, final_state)
             response = _response_from_state(final_state, correlation_id)
             metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final_state.get("usage") or {}), final_state.get("evidence") or [], final_state.get("rejected") or [])
             yield f"event: claims\ndata: {json.dumps(response.model_dump(mode='json'))}\n\n"

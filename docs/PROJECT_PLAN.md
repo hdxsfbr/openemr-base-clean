@@ -167,11 +167,12 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
       (`v0.2.0-slice`, 2026-09-15): the UC-01 turn runs live on the
       deployment through panel, ticket, agent, gateway, verifier; without the
       model key it renders the deterministic source-cited brief.
-- [ ] Wire traces and the operational dashboard (blocked on the Langfuse
-      keys; `/metrics` and JSON logs exist).
+- [x] Wire traces (Langfuse, PHI-free, verified 2026-09-15); the dashboard
+      panels and alert job remain.
 - [x] Deploy and smoke-test the vertical slice (Bruno collection 20/20
       against the deployment).
-- [ ] First live model turn (blocked on the Anthropic key file).
+- [x] First live model turns (2026-09-15, Sonnet 5): UC-01, a planned
+      follow-up, UC-02, UC-03 on the note-versus-list fixture.
 
 ### Wednesday, September 16: early submission
 

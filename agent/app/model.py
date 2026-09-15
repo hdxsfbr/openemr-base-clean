@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from .contracts import LabsParams, NotesParams, TurnClaims, WindowParams
 from .model_output import ModelTurnClaims, to_claims
 from .settings import settings
+from .telemetry import generation, record_usage
 
 log = logging.getLogger("copilot.model")
 
@@ -226,22 +227,29 @@ class AnthropicModel:
         `output_format` path was measured at 45 s+ even for two claims
         (2026-09-15), so the model writes JSON and the contract is enforced
         after parsing; one re-ask on malformed JSON."""
-        user = f"EVIDENCE PACK:\n{pack_text}\n\nPHYSICIAN QUESTION: {question}\n\n{OUTPUT_INSTRUCTIONS}"
+        # The evidence pack is the stable prefix within a turn (narrate, repair) and across
+        # turns on the same window, so the cache breakpoint sits after it; the system prompt
+        # alone is below the model's minimum cacheable prefix.
+        pack_block = {"type": "text", "text": f"EVIDENCE PACK:\n{pack_text}", "cache_control": {"type": "ephemeral"}}
+        tail = f"\n\nPHYSICIAN QUESTION: {question}\n\n{OUTPUT_INSTRUCTIONS}"
         if rejections:
-            user += "\n\nYour previous claims were rejected by the verifier for these reasons; emit only claims that can pass, and fewer of them:\n" + json.dumps(rejections)
-        messages: list[dict[str, Any]] = [{"role": "user", "content": user}]
+            tail += "\n\nYour previous claims were rejected by the verifier for these reasons; emit only claims that can pass, and fewer of them:\n" + json.dumps(rejections)
+        messages: list[dict[str, Any]] = [{"role": "user", "content": [pack_block, {"type": "text", "text": tail}]}]
         usage = Usage()
         for attempt in range(2):
-            response = await self._guarded(
-                lambda: self.client.messages.create(
-                    model=settings.model_id,
-                    max_tokens=settings.max_output_tokens,
-                    system=self._system(),
-                    messages=messages,
-                    output_config={"effort": effort},
+            with generation("repair" if rejections else "narrate", settings.model_id) as gen:
+                response = await self._guarded(
+                    lambda: self.client.messages.create(
+                        model=settings.model_id,
+                        max_tokens=settings.max_output_tokens,
+                        system=self._system(),
+                        messages=messages,
+                        output_config={"effort": effort},
+                    )
                 )
-            )
-            usage.add(_usage_of(response))
+                call_usage = _usage_of(response)
+                record_usage(gen, call_usage, effort=effort, attempt=attempt, stop_reason=getattr(response, "stop_reason", None))
+            usage.add(call_usage)
             if getattr(response, "stop_reason", None) == "refusal":
                 return NarrateResult(None, usage, "refusal")
             text = "".join(block.text for block in response.content if block.type == "text")
@@ -265,17 +273,19 @@ class AnthropicModel:
             "Call the tools needed to answer from the chart (no patient identifier exists; the chart is fixed). "
             "If the pack already answers the question, call no tool."
         )
-        response = await self._guarded(
-            lambda: self.client.messages.create(
-                model=settings.model_id,
-                max_tokens=1500,
-                system=self._system(),
-                messages=[{"role": "user", "content": user}],
-                tools=tool_definitions(),
-                tool_choice={"type": "auto"},
-                output_config={"effort": settings.effort_followup},
+        with generation("plan", settings.model_id) as gen:
+            response = await self._guarded(
+                lambda: self.client.messages.create(
+                    model=settings.model_id,
+                    max_tokens=1500,
+                    system=self._system(),
+                    messages=[{"role": "user", "content": user}],
+                    tools=tool_definitions(),
+                    tool_choice={"type": "auto"},
+                    output_config={"effort": settings.effort_followup},
+                )
             )
-        )
+            record_usage(gen, _usage_of(response), effort=settings.effort_followup, tool_calls=sum(1 for b in response.content if b.type == "tool_use"))
         calls: list[tuple[str, dict[str, Any]]] = []
         text = ""
         for block in response.content:

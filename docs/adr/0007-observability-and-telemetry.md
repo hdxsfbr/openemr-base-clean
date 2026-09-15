@@ -100,6 +100,16 @@ cohort saw tracer rate limits stall requests.
 
 ## Verification
 
+- **Observed 2026-09-15 on the deployment:** one Langfuse trace per turn
+  (`copilot.turn`, session id = conversation id, correlation id in
+  metadata) holding the eight node spans in order, a generation span per
+  model call with model id, input/output/cache tokens, per-call cost, and
+  latency (a UC-01 turn: $0.033, 17.1 s), and every input and output
+  replaced by a digest. A read-back of the trace found none of the fixture
+  names, values, or note text. Two integration facts learned: the Langfuse
+  v4 LangChain handler takes no trace name or metadata arguments (they go in
+  the run config), and generation spans nest only when the agent opens the
+  turn's root span itself.
 - Export grep eval: no fixture names, values, or note text in any span.
 - Correlation eval: a turn reconstructed from logs alone lists tool order,
   latencies, model calls, tokens, verification outcome.
