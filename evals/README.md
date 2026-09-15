@@ -19,6 +19,12 @@ evals/
 Directories should be added with the implementation that defines their format;
 we will not preserve empty directory placeholders.
 
+`fixtures/cohort/` now exists: the deterministic synthetic cohort
+`af-cohort-v1`, 26 fictional patients mapped to the missing-data,
+conflicting, lab-constraint, untrusted-content, orphan-row, and authorization
+categories below. See [`fixtures/cohort/README.md`](fixtures/cohort/README.md).
+Case, rubric, and result formats are still to be defined.
+
 ## Required Case Metadata
 
 Every case must record:
