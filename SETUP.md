@@ -14,6 +14,10 @@ The bundled database provides a baseline for learning OpenEMR. On September 14,
 consecutive loads produced identical row checksums. See
 [Load the Synthetic Cohort](#load-the-synthetic-cohort).
 
+The co-pilot module (`interface/modules/custom_modules/oe-module-copilot/`)
+is registered in the local stack with the CLI script below; the panel then
+renders at the top of every patient dashboard.
+
 ## Prerequisites
 
 - Git
@@ -108,6 +112,27 @@ docker compose -f docker/development-easy/docker-compose.yml exec -T mysql \
   "SELECT u.username, g.name AS acl_group FROM users u JOIN gacl_aro a ON a.value = u.username JOIN gacl_groups_aro_map m ON m.aro_id = a.id JOIN gacl_aro_groups g ON g.id = m.group_id WHERE u.username LIKE 'audit-%';"
 ```
 
+## Enable the Co-Pilot Module
+
+The module ships with the repository (bind-mounted into the dev container).
+Register and enable it, and create its table, without the Module Manager UI:
+
+```bash
+docker exec development-easy-openemr-1 sh -c 'cd /var/www/localhost/htdocs/openemr && su -s /bin/sh apache -c "php interface/modules/custom_modules/oe-module-copilot/bin/register_module.php"'
+```
+
+The script is idempotent and returns 404 over HTTP. Reload a patient
+dashboard to see the "Clinical Co-Pilot" card; locally there is no edge, so
+its status line reports the agent as unreachable until the agent runs and a
+proxy publishes it at `/copilot-api`.
+
+On a fresh local database without the audit users, create them with the same
+script the deployment uses (the password file is never printed):
+
+```bash
+docker exec development-easy-openemr-1 sh -c 'cd /var/www/localhost/htdocs/openemr && printf "%s" "choose-a-local-password" > /tmp/demo_pw && su -s /bin/sh apache -c "DEMO_USER_PASSWORD_FILE=/tmp/demo_pw php evals/fixtures/cohort/seed_users.php --confirm-dev-data"; rm -f /tmp/demo_pw'
+```
+
 ## Load the Synthetic Cohort
 
 After the demo database is loaded and the audit test users exist, load the
@@ -186,8 +211,10 @@ The easy-development stack is not suitable for public deployment:
 - [ ] Add an automated smoke test for login and required dependencies.
 - [x] Select and document the initial DigitalOcean deployment environment.
 - [x] Create a production-oriented Compose and Terraform configuration.
-- [ ] Add secret management, real TLS, restricted networks, backups, and
-      rollback instructions.
+- [x] Add secret management, real TLS, and restricted networks (file secrets,
+      Let's Encrypt via Caddy, internal database network, agent on the
+      frontend network only). Backups and rollback instructions remain.
+- [ ] Add backups and rollback instructions.
 - [ ] Fold the final concise setup path into the root `README.md`.
 
 ## Public Deployment Baseline

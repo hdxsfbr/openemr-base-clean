@@ -65,6 +65,15 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
 
 - **PRD**: the assignment brief (`PRD.pdf`).
 - **UC-01/02/03**: the three use cases in `USERS.md`.
+- **CAP-01..08**: the eight required agent capabilities in `ARCHITECTURE.md`
+  (chart-bound conversation, tool chaining, reference window, reference
+  resolution, per-claim citation, absence/conflict states, deterministic
+  verification, deterministic fallback). Metrics map to these: explicit
+  uncertainty recall proves CAP-06, safe degradation proves CAP-08.
+- **DQ-* / PERF-MED-001**: audit-finding IDs (`docs/audit/data-quality.md`,
+  `docs/audit/performance.md`) for specific OpenEMR defects found during the
+  audit, e.g. `DQ-CRITICAL-001`, `PERF-MED-001` (broken lab retrieval via
+  `ProcedureService::getAll()`).
 - **Gateway**: the module code between the agent and OpenEMR's services; it
   does authorization, audit, and data shaping.
 - **Agent service**: the separate container that runs orchestration and model
@@ -85,7 +94,12 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   documents in `docs/adr/`.
 - **Eval**: an automated test of the agent's behavior against fixtures.
 - **Cohort / fixtures**: the synthetic `AF-*` patients in
-  `evals/fixtures/cohort/`.
+  `evals/fixtures/cohort/`. **`AF-HEAVY`**: the 5-year chronic patient (20
+  encounters, ~120 lab results, 39 notes) used as the worst-case fixture for
+  latency, token, and cost budgets. **`AF-DQ-*`**: patients seeded with a
+  specific data-quality defect (missing date, conflicting record, undated
+  entry) for uncertainty and absence-handling evals. **`AF-ACL-*`**: patients
+  used for authorization/scope evals.
 - **Verifier**: the deterministic step that checks every claim against
   retrieved records before display.
 - **Correlation ID**: the identifier carried through one request end to end.

@@ -124,20 +124,63 @@ the disposable test; use an owned hostname for the evaluator deployment.
 Set `KEEP_INFRA=1` only when intentionally retaining the environment for
 debugging. It remains billable until `./destroy.sh --yes` succeeds.
 
+## Current Deployment (2026-09-15)
+
+Tag `v0.1.0-skeleton` is live at `https://openemr-137-184-4-22.sslip.io`
+(Droplet `137.184.4.22`, kept up during build days at about $0.86/day):
+project OpenEMR image with the co-pilot module, the agent service
+(`/copilot-api/health` 200, `/copilot-api/ready` 503 until the model and
+tracer keys are supplied), deny-by-default edge (probe evidence:
+`docs/audit/evidence/security/cloud-probe-2026-09-15-allowlist.txt`), demo
+users and the 26-patient cohort seeded, and the panel rendering on cohort
+charts for `audit-physician`. The `sslip.io` hostname is still the disposable
+one; an owned hostname is a pre-submission task.
+
 ## Manual Cycle
 
 To inspect each stage:
 
 ```bash
 ./tf.sh init
-./tf.sh plan -out=smoke.tfplan
-./tf.sh apply smoke.tfplan
+./tf.sh plan -out=deploy.tfplan
+./tf.sh apply deploy.tfplan
 
 DROPLET_IP="$(./tf.sh output -raw ipv4_address)"
 PUBLIC_HOSTNAME="$(./tf.sh output -raw smoke_hostname)"
 
 ./deploy.sh "$DROPLET_IP" "$PUBLIC_HOSTNAME" you@example.com
 ./smoke.sh "$PUBLIC_HOSTNAME"
+```
+
+`deploy.sh` copies the runtime files, then the build contexts (the module
+under `build/openemr/`, the agent under `build/agent/`) and the synthetic
+cohort under `demo/cohort/` (a read-only bind mount, never in an image).
+`start.sh` builds the two project images on the host, starts the stack, and
+runs the one-shot `copilot-setup` job that registers and enables the module.
+Re-running `deploy.sh` is idempotent.
+
+Seed the demo users (`physician`, `audit-physician`, `audit-nurse`,
+`audit-frontdesk`) and the synthetic cohort in one job, and keep its manifest
+in the deploy log:
+
+```bash
+ssh "deployer@$DROPLET_IP" 'cd /opt/agentforge && docker compose --profile demo run --rm demo-seed | tee "logs/demo-seed-$(date +%F).log"'
+```
+
+The job exits non-zero if any post-load check fails. The shared demo
+clinician password is generated on the host; read it only over SSH:
+
+```bash
+ssh "deployer@$DROPLET_IP" cat /opt/agentforge/secrets/demo_user_password
+```
+
+Operator-supplied secrets (`anthropic_api_key`, `langfuse_public_key`,
+`langfuse_secret_key`) are empty placeholders until written into
+`/opt/agentforge/secrets/`; the agent's `/ready` reports each as
+`not_configured` until then. After writing them:
+
+```bash
+ssh "deployer@$DROPLET_IP" 'cd /opt/agentforge && docker compose up -d --force-recreate agent'
 ```
 
 Retrieve the generated demo administrator password only over SSH:
@@ -167,8 +210,13 @@ Droplet billing.
 - One restricted DigitalOcean Cloud Firewall.
 - One ephemeral project and SSH key record.
 - Docker, Compose, and a non-password `deployer` user installed by cloud-init.
-- Caddy, OpenEMR, and MariaDB containers with pinned image digests.
-- Droplet-local named volumes and randomly generated demo credentials.
+- Caddy and MariaDB containers with pinned image digests; the project OpenEMR
+  image (pinned upstream release plus the co-pilot module) and the agent
+  service image, both built on the Droplet from contexts `deploy.sh` copies.
+- Two one-shot jobs behind Compose profiles: `copilot-setup` (module
+  registration) and `demo-seed` (demo users and synthetic cohort).
+- Droplet-local named volumes (database, sites, logs, TLS, agent state, Caddy)
+  and randomly generated demo credentials.
 
 Terraform state remains local and ignored by Git. Application secrets are
 generated on the Droplet, stored with owner-only permissions, and are not
@@ -186,6 +234,18 @@ placed in cloud-init or Terraform state.
   There is intentionally no backup for the disposable cycle.
 
 ## Known Gotchas From the First Live Run (2026-09-14)
+
+**cloud-init reports `error` on Ubuntu 24.04 (found 2026-09-15).** The last
+`runcmd` step, `systemctl reload ssh`, fails because ssh is socket-activated
+and not running until the first connection; everything before it (Docker,
+Compose, the `deployer` user, `/opt/agentforge`) completes. The template now
+uses `try-reload-or-restart`, and `deploy.sh` proceeds on an `error` status
+when Docker is present rather than timing out.
+
+**The demo-data workaround below is no longer needed.** The synthetic cohort
+and demo users load through the `demo-seed` job against the release image's
+own schema without the upgrade tooling; the paragraph is kept for the
+bundled 5.0.0.5 demo dump only, which the deployment no longer uses.
 
 **Upgrade tooling is stripped from the running image.** Both the pinned
 release image and newer `:flex` tags remove `sql_upgrade.php` and
@@ -220,34 +280,29 @@ Worth a `start.sh` follow-up to check for and recover from this automatically.
 The audit (`AUDIT.md` §7.2) scopes what this project changes here. It plans
 the co-pilot; it does not repair OpenEMR.
 
-**Required before deploying the agent:**
+**Required before deploying the agent** (status as of 2026-09-15):
 
-- **Caddy deny-by-default path allowlist.** The bare `reverse_proxy openemr:80`
-  forwards every path, and the upstream image publicly serves private keys and
-  the dev compose file (SEC-HIGH-500). Rerun `docs/audit/scripts/cloud-probe.sh`
-  and expect 404/403 for sensitive paths.
-- **Our own image** carrying the co-pilot module, with a `.dockerignore` that
-  excludes `docker/`, `tests/`, `evals/`, `docs/`, and Terraform files. The
-  image never contains the synthetic cohort or any seed tooling.
-- **Demo seeding job** (`AUDIT.md` §7.2): a one-shot Compose service
-  `demo-seed` under profile `demo`. It uses the same OpenEMR image, publishes no
-  ports, bind-mounts `evals/fixtures/cohort/` read-only at
-  `/opt/copilot-demo/cohort`, and runs
-  `php /opt/copilot-demo/cohort/seed_cohort.php --confirm-dev-data --anchor=<deploy date>`
-  as `apache` with `OPENEMR_ROOT=/var/www/localhost/htdocs/openemr`. `start.sh`
-  runs `docker compose --profile demo run --rm demo-seed` once, after the
-  schema upgrade and before Caddy starts, and saves the printed manifest to the
-  deploy log. The job must exit non-zero, and the deploy must stop, if any
-  post-load check fails. Synthetic data only; never a copy of a real database,
-  sanitized or not.
-- **Agent container:** the LLM key is a file secret mounted only there, and
-  egress is limited to the LLM and tracing endpoints.
-- **Keep REST/FHIR disabled**, as deployed (SEC-MED-005).
-- **Readiness:** do not gate on OpenEMR `/meta/health/readyz`. It returns 200
-  `setup_required` on a working install (SEC-MED-007). Use the agent's own
-  `/ready`.
-- Use an owned hostname and point DNS to the Droplet before starting Caddy.
-  Rotate deployment credentials.
+- [x] **Caddy deny-by-default path allowlist** (`runtime/Caddyfile`): only
+  OpenEMR application paths and `/meta/health/livez` reach Apache;
+  `/copilot-api/*` goes to the agent; the module's gateway and CLI paths
+  are unrouted. Probe evidence:
+  `docs/audit/evidence/security/cloud-probe-2026-09-15-allowlist.txt`
+  (20 sensitive paths at 404).
+- [x] **Our own image** (`infra/image/openemr.Dockerfile`, root
+  `.dockerignore`): the pinned release plus the module only. Verified the
+  built image has no `evals/`.
+- [x] **Demo seeding job** `demo-seed` (profile `demo`): read-only bind mount
+  outside the web root; runs `seed_users.php` then `seed_cohort.php`; exits
+  non-zero on a failed check. It is run explicitly after `start.sh`, not
+  inside it, so a seeding failure never blocks the application start.
+- [x] **Agent container** on the `frontend` network only with file secrets.
+  [ ] Egress restriction to the model and tracer endpoints is not in place;
+  recorded as residual risk until done.
+- [x] **REST/FHIR** stay disabled and are unrouted at the edge (`/apis/*`,
+  `/oauth2/*` 404).
+- [x] **Readiness** from the agent's `/ready`; OpenEMR `readyz` is unrouted.
+- [ ] Use an owned hostname and point DNS to the Droplet before the
+  evaluator deployment; rotate deployment credentials.
 
 **Documented, not changed here** (`AUDIT.md` §7.3; these are what a real
 deployment would need): patched images and a vulnerability-scan gate

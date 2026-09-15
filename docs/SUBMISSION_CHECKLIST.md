@@ -38,7 +38,9 @@ it's GitHub, push the final state there before submitting.
 
 ### Product and engineering
 
-- [ ] Deployed OpenEMR is accessible and contains demo data only.
+- [x] Deployed OpenEMR is accessible and contains demo data only.
+      *(2026-09-15: `v0.1.0-skeleton` on a disposable `sslip.io` hostname;
+      synthetic cohort and demo users only. Owned hostname pending.)*
 - [ ] Clinical Co-Pilot is embedded in the patient workflow.
 - [ ] Multi-turn follow-up and tool chaining work in the live environment.
 - [ ] Authorization is enforced for every retrieval.

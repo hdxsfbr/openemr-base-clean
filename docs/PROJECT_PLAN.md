@@ -153,10 +153,13 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
 
 ### Tuesday, September 15: complete one vertical slice
 
-- Embed the co-pilot shell in the patient dashboard.
-- Implement authenticated, typed patient-data tools.
-- Scaffold the LangGraph turn graph with the checkpointer and the GitLab CI
-  skeleton before the first model call.
+- [x] Deploy the skeleton before features (`v0.1.0-skeleton`, 2026-09-15):
+      module panel, agent `/health` and `/ready`, deny-by-default edge,
+      project image, demo seed, CI skeleton.
+- [x] Embed the co-pilot shell in the patient dashboard.
+- [ ] Implement authenticated, typed patient-data tools.
+- [ ] Scaffold the LangGraph turn graph with the checkpointer before the
+      first model call.
 - Propagate a correlation ID through the UI, gateway, tools, LLM, verifier, and
   logs.
 - Implement one end-to-end question with structured output, citations, and
