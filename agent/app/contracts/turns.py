@@ -38,11 +38,36 @@ class LimitationKind(StrEnum):
     model_budget_exhausted = "model_budget_exhausted"
 
 
+class ClaimFacts(StrictModel):
+    """Typed facts the verifier checks field by field. Flat so structured
+    output can emit it reliably; each claim type uses its own subset."""
+
+    section: str | None = Field(default=None, max_length=32, description="change_event, absence, undated")
+    kind: str | None = Field(default=None, max_length=32, description="change_event: added|ended|started|stopped|resulted|noted; conflict: status_conflict|note_vs_list|duplicate_sources")
+    date: str | None = Field(default=None, max_length=10, description="YYYY-MM-DD for change_event and lab_result")
+    name: str | None = Field(default=None, max_length=255, description="medication_status: medication name")
+    status: str | None = Field(default=None, max_length=32, description="medication_status: active|inactive|unknown")
+    analyte: str | None = Field(default=None, max_length=255, description="lab_result, lab_comparison")
+    value_text: str | None = Field(default=None, max_length=255, description="lab_result: exactly as in the pack")
+    unit: str | None = Field(default=None, max_length=64, description="lab_result: exactly as in the pack, null if missing")
+    flag: str | None = Field(default=None, max_length=16, description="lab_result: abnormal|normal|unknown")
+    earlier_source_id: str | None = Field(default=None, max_length=240, description="lab_comparison")
+    later_source_id: str | None = Field(default=None, max_length=240, description="lab_comparison")
+    direction: str | None = Field(default=None, max_length=8, description="lab_comparison: up|down|same")
+    medication_name: str | None = Field(default=None, max_length=255, description="documented_reference")
+    mention: str | None = Field(default=None, max_length=300, description="documented_reference: short quote from the cited note")
+    state: str | None = Field(default=None, max_length=32, description="absence: not_documented|reviewed_none|no_records_in_window")
+    reading: str | None = Field(default=None, max_length=300, description="interpretation: your reading of an ambiguous reference")
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default) if getattr(self, key, None) is not None else default
+
+
 class Claim(StrictModel):
     id: str = Field(pattern=r"^c[0-9]{1,3}$")
     type: ClaimType
     text: str = Field(min_length=1, max_length=400)
-    facts: dict[str, Any] = Field(default_factory=dict, description="Typed per claim type; checked field-by-field by the verifier")
+    facts: ClaimFacts = Field(default_factory=ClaimFacts)
     source_ids: list[SourceId] = Field(default_factory=list, max_length=8)
     section: str | None = Field(default=None, max_length=32)
 
@@ -51,7 +76,6 @@ class TurnClaims(StrictModel):
     """The model's structured output. Nothing here is displayed until verified."""
 
     claims: list[Claim] = Field(default_factory=list, max_length=40)
-    limitations_restated: list[str] = Field(default_factory=list, max_length=20)
 
 
 class Limitation(StrictModel):

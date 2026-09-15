@@ -4,6 +4,7 @@ returned in state (`route`) so it appears in the trace."""
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import time
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from ..settings import settings
 from ..state_store import get_pack, put_pack
 from ..verifier import verify
 from .state import TurnState
+
+log = logging.getLogger("copilot.graph")
 
 UC01_PATTERNS = [r"what (has )?changed", r"changes? since", r"since (the |my )?last visit", r"pre-?visit brief", r"^brief$"]
 PARAM_MODELS = {"clinical_notes": NotesParams, "lab_results": LabsParams}
@@ -53,6 +56,30 @@ def _turn_tokens(state: TurnState) -> int:
 # ---------------------------------------------------------------- nodes
 
 
+def _timed(name: str, fn: Callable) -> Callable:
+    """Record each node's wall time in state so the trace and the response show where a turn's time went."""
+
+    async def wrapped(state: TurnState) -> dict[str, Any]:
+        t0 = time.perf_counter()
+        try:
+            out = await fn(state)
+        finally:
+            duration = round((time.perf_counter() - t0) * 1000, 1)
+            log.info("node", extra={"component": name, "duration_ms": duration, "correlation_id": state.get("correlation_id")})
+        timings = dict(state.get("timings_ms") or {})
+        timings[name] = round(timings.get(name, 0.0) + duration, 1)
+        out["timings_ms"] = timings
+        out.setdefault("route", state.get("route", ""))
+        return out
+
+    return wrapped
+
+
+def _elapsed(state: TurnState) -> float:
+    started = float(state.get("started_at") or 0.0)
+    return time.time() - started if started else 0.0
+
+
 def make_nodes(rt: Runtime) -> dict[str, Callable]:
     async def authorize(state: TurnState) -> dict[str, Any]:
         if state.get("closed"):
@@ -60,7 +87,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         limit = budget.check(0, int(state.get("conversation_tokens") or 0))
         if state.get("fault") == "budget":
             limit = "model_budget_exhausted"
-        return {"budget_limit": limit, "route": "classify"}
+        return {"budget_limit": limit, "started_at": state.get("started_at") or time.time(), "route": "classify"}
 
     async def classify(state: TurnState) -> dict[str, Any]:
         q = state["question"].strip().lower()
@@ -163,6 +190,9 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         pack = get_pack(state["turn_id"]) or EvidencePack()
         claims = [Claim.model_validate(c) for c in (state.get("raw_claims") or [])]
         result = verify(claims, pack)
+        # Repair only when it can still finish inside the turn's wall clock; otherwise withhold and render.
+        time_left = settings.turn_wall_clock_seconds - _elapsed(state)
+        can_repair = rt.model is not None and time_left > settings.model_timeout_seconds * 0.6
         # After a repair, a first-round rejection that the repair did not resurrect stays withheld.
         rejected = list(result.rejected)
         if state.get("repair_attempted"):
@@ -171,7 +201,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             for prior in state.get("rejected") or []:
                 if prior["claim_id"] not in accepted_ids and (prior["claim_id"], prior["rule"]) not in seen:
                     rejected.append(prior)
-        route = "repair" if result.rejected and not state.get("repair_attempted") and rt.model is not None else "render"
+        route = "repair" if result.rejected and not state.get("repair_attempted") and can_repair else "render"
         return {"accepted": [c.model_dump(mode="json") for c in result.accepted], "rejected": rejected, "rules": result.rules_applied, "route": route}
 
     async def repair(state: TurnState) -> dict[str, Any]:
@@ -235,7 +265,8 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             "route": "end",
         }
 
-    return {"authorize": authorize, "classify": classify, "plan": plan, "retrieve": retrieve, "narrate": narrate, "verify": verify_node, "repair": repair, "render": render_node}
+    nodes = {"authorize": authorize, "classify": classify, "plan": plan, "retrieve": retrieve, "narrate": narrate, "verify": verify_node, "repair": repair, "render": render_node}
+    return {name: _timed(name, fn) for name, fn in nodes.items()}
 
 
 # ---------------------------------------------------------------- helpers

@@ -137,6 +137,10 @@ services:
       COPILOT_GATEWAY_BASE_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway
       COPILOT_GATEWAY_PING_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php
       COPILOT_STATE_DIR: /var/lib/copilot
+      # Model for narration and planning. Code default is claude-opus-5 (ADR-0004); measured
+      # 2026-09-15 on the UC-01 evidence pack: Opus 5 16 s to >120 s per narration, Sonnet 5
+      # about 11 s. The deployment runs Sonnet 5 until the owner confirms or reverts.
+      COPILOT_MODEL_ID: ${COPILOT_MODEL_ID:-claude-sonnet-5}
       # Demo deployment only: honors X-Copilot-Fault for the collection's failure examples.
       COPILOT_FAULT_INJECTION: ${COPILOT_FAULT_INJECTION:-1}
     # The agent runs as uid 10001; start.sh makes these four host files 0644

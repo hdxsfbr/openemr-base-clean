@@ -25,6 +25,7 @@ from .tools import (
 )
 from .turns import (
     Claim,
+    ClaimFacts,
     ClaimType,
     ErrorCode,
     ErrorEnvelope,
@@ -60,6 +61,7 @@ __all__ = [
     "Window",
     "WindowParams",
     "Claim",
+    "ClaimFacts",
     "ClaimType",
     "ErrorCode",
     "ErrorEnvelope",

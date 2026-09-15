@@ -33,6 +33,8 @@ class TurnState(TypedDict, total=False):
     limitations: list[dict[str, Any]]
     sources: list[dict[str, Any]]
     usage: dict[str, int | float]
+    timings_ms: dict[str, float]
+    started_at: float
     status: str
     route: str
     # conversation (checkpointed)
@@ -61,6 +63,8 @@ PER_TURN_DEFAULTS: dict[str, Any] = {
     "limitations": [],
     "sources": [],
     "usage": {},
+    "timings_ms": {},
+    "started_at": 0.0,
     "status": "complete",
     "route": "",
 }

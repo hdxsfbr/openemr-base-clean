@@ -109,7 +109,7 @@ def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResp
             rejected=state.get("rejected") or [],
             repair_attempted=bool(state.get("repair_attempted")),
         ).model_dump(mode="json"),
-        "usage": state.get("usage") or {},
+        "usage": {**(state.get("usage") or {}), **{f"{k}_ms": v for k, v in (state.get("timings_ms") or {}).items()}},
         "correlation_id": correlation_id,
         "contract_version": CONTRACT_VERSION,
     })

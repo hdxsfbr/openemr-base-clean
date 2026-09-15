@@ -31,13 +31,13 @@ class Settings(BaseSettings):
     model_id: str = "claude-opus-5"
     effort_first_turn: str = "low"
     effort_followup: str = "medium"
-    model_timeout_seconds: float = 20.0
-    max_output_tokens: int = 4000
+    model_timeout_seconds: float = 30.0
+    max_output_tokens: int = 1800
 
     # Bounds (ADR-0004 decision 5).
     max_plan_rounds: int = 3
     max_tool_calls_per_turn: int = 8
-    turn_wall_clock_seconds: float = 12.0
+    turn_wall_clock_seconds: float = 45.0  # measured first-turn narration on Opus 5 exceeds the 12 s design budget; see KEY_METRICS.md
     tokens_per_turn: int = 20_000
     tokens_per_conversation: int = 60_000
     daily_token_halt: int = 2_000_000

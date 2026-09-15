@@ -15,6 +15,7 @@ from typing import Any, Protocol
 from pydantic import ValidationError
 
 from .contracts import LabsParams, NotesParams, TurnClaims, WindowParams
+from .model_output import ModelTurnClaims, to_claims
 from .settings import settings
 
 log = logging.getLogger("copilot.model")
@@ -27,39 +28,83 @@ Rules that never change:
 - Do not diagnose, recommend treatment, give dosing, adherence, interaction, or discontinuation advice, or state causes. Do not say a result is resolved: say "no later result and no documented follow-up found in the chart".
 - Restate every absence, conflict, undated, truncated, and unavailable state the pack marks, using the pack's own status words.
 - Refuse (as a limitation, not a claim) anything outside the open chart: other patients, the schedule, general medical knowledge.
-- Claims are short, one fact each, with typed `facts` matching the claim type:
-  change_event: {section, kind: added|ended|started|stopped|resulted|noted, date: YYYY-MM-DD}
-  medication_status: {name, status}
-  lab_result: {analyte, value_text, unit, date: YYYY-MM-DD, flag}
-  lab_comparison: {analyte, earlier_source_id, later_source_id, direction: up|down|same}
-  documented_reference: {medication_name, mention: short quote}
-  absence: {section, state: not_documented|reviewed_none|no_records_in_window}
-  conflict: {kind: status_conflict|note_vs_list|duplicate_sources}
-  undated: {section}
-  interpretation: {reading} (your reading of an ambiguous reference; the physician can correct it)
+- At most 10 claims per answer, each under 20 words, one fact each, no preamble; prefer the most recent and the flagged items. The pack's limitation lines are rendered separately; do not repeat them as claims. Do not duplicate a fact across claim types: a new result is ONE change_event, not also a lab_result.
+- `undated` only for records the pack marks UNDATED. An unknown end date on an active record is not undated.
+- Every claim carries `facts` with the fields its type needs (leave the others out):
+  change_event: section (problems|medications|allergies|labs|notes), kind (added|ended|started|stopped|resulted|noted), date YYYY-MM-DD, one source id
+  medication_status: name, status (active|inactive|unknown) — not allowed for a record marked STATUS_CONFLICT (use conflict)
+  lab_result: analyte, value_text, unit, date, flag, exactly as the pack shows them
+  lab_comparison: analyte, earlier_source_id, later_source_id, direction (up|down|same); same analyte and unit only
+  documented_reference: medication_name, mention (short quote from the cited note); say "mentions", never "for"
+  absence: section, state (not_documented|reviewed_none|no_records_in_window); only when the section's tool status is ok or empty
+  conflict: kind (status_conflict|note_vs_list|duplicate_sources), cite every record involved
+  undated: section, cite the UNDATED record
+  interpretation: reading (your reading of an ambiguous reference; the physician can correct it)
 """
 
 TOOL_DESCRIPTIONS = {
-    "encounters": "Encounters (visits) for the open chart, newest first. Params: since, until (YYYY-MM-DD), limit.",
-    "clinical_notes": "Clinical notes for the open chart with optional substring term search. Params: since, until, term, limit (max 20).",
-    "problems": "Problem list with codes as written and begin/end dates. Params: since, until, limit.",
-    "medications": "Medications from both the medication list and prescriptions, with status basis and conflict flags. Params: since, until, limit.",
-    "allergies": "Allergies with an explicit absence state. Params: since, until, limit.",
-    "lab_results": "Laboratory results with value, unit, range, flag, and optional same-analyte filter. Params: since, until, analyte, limit.",
+    "encounters": "Encounters (visits) for the open chart, newest first. Params: since, until (YYYY-MM-DD or null).",
+    "clinical_notes": "Clinical notes for the open chart with optional substring term search (term, or null). Params: since, until, term.",
+    "problems": "Problem list with codes as written and begin/end dates. Params: since, until.",
+    "medications": "Medications from both the medication list and prescriptions, with status basis and conflict flags. Params: since, until.",
+    "allergies": "Allergies with an explicit absence state. Params: since, until.",
+    "lab_results": "Laboratory results with value, unit, range, flag, and optional same-analyte filter (analyte, or null). Params: since, until, analyte.",
 }
 
 PARAM_MODELS = {"clinical_notes": NotesParams, "lab_results": LabsParams}
 
 
+OUTPUT_INSTRUCTIONS = (
+    "Reply with ONLY one JSON object, no prose and no code fence, of the form "
+    '{"claims": [{"type": "<claim type>", "text": "<under 20 words>", "source_ids": ["openemr:..."], '
+    '"facts": {<only the fields the claim type needs>}}]}. '
+    "Omit facts fields you do not use. At most 10 claims."
+)
+
+
+def parse_model_json(text: str) -> ModelTurnClaims | None:
+    """Extract and validate the JSON object from model text; None when it is not usable."""
+    candidate = text.strip()
+    if candidate.startswith("```"):
+        candidate = candidate.strip("`")
+        if candidate.lower().startswith("json"):
+            candidate = candidate[4:]
+    start, end = candidate.find("{"), candidate.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        return ModelTurnClaims.model_validate(json.loads(candidate[start : end + 1]))
+    except (ValueError, ValidationError):
+        return None
+
+
+MODEL_HIDDEN_PARAMS = ("limit", "cursor")  # bounds and paging belong to the agent and gateway, not the model
+UNSUPPORTED_IN_STRICT = ("minimum", "maximum", "default", "title", "exclusiveMinimum", "exclusiveMaximum")
+
+
 def tool_definitions() -> list[dict[str, Any]]:
+    """Strict tool schemas derived from the parameter contracts. Strict mode
+    rejects numeric bounds and defaults, so those keywords are stripped; the
+    gateway still validates every parameter against the full contract."""
     defs = []
     for name, description in TOOL_DESCRIPTIONS.items():
         schema = PARAM_MODELS.get(name, WindowParams).model_json_schema()
-        schema.pop("title", None)
-        schema["additionalProperties"] = False
-        schema["required"] = sorted(schema.get("properties", {}).keys())
-        defs.append({"name": name, "description": description, "strict": True, "input_schema": schema})
+        props = {k: _strip(v) for k, v in schema.get("properties", {}).items() if k not in MODEL_HIDDEN_PARAMS}
+        defs.append({
+            "name": name,
+            "description": description,
+            "strict": True,
+            "input_schema": {"type": "object", "properties": props, "required": sorted(props.keys()), "additionalProperties": False},
+        })
     return defs
+
+
+def _strip(node: Any) -> Any:
+    if isinstance(node, dict):
+        return {k: _strip(v) for k, v in node.items() if k not in UNSUPPORTED_IN_STRICT}
+    if isinstance(node, list):
+        return [_strip(v) for v in node]
+    return node
 
 
 @dataclass
@@ -177,29 +222,41 @@ class AnthropicModel:
         return response
 
     async def narrate(self, question: str, pack_text: str, effort: str, rejections: list[dict[str, str]] | None = None) -> NarrateResult:
-        user = f"EVIDENCE PACK:\n{pack_text}\n\nPHYSICIAN QUESTION: {question}\n\nProduce claims and restate the pack's limitations."
+        """JSON-as-text output validated by us. The grammar-constrained
+        `output_format` path was measured at 45 s+ even for two claims
+        (2026-09-15), so the model writes JSON and the contract is enforced
+        after parsing; one re-ask on malformed JSON."""
+        user = f"EVIDENCE PACK:\n{pack_text}\n\nPHYSICIAN QUESTION: {question}\n\n{OUTPUT_INSTRUCTIONS}"
         if rejections:
-            user += "\n\nYour previous claims were rejected by the verifier for these reasons; emit only claims that can pass:\n" + json.dumps(rejections)
-        response = await self._guarded(
-            lambda: self.client.messages.parse(
-                model=settings.model_id,
-                max_tokens=settings.max_output_tokens,
-                system=self._system(),
-                messages=[{"role": "user", "content": user}],
-                output_format=TurnClaims,
-                output_config={"effort": effort},
+            user += "\n\nYour previous claims were rejected by the verifier for these reasons; emit only claims that can pass, and fewer of them:\n" + json.dumps(rejections)
+        messages: list[dict[str, Any]] = [{"role": "user", "content": user}]
+        usage = Usage()
+        for attempt in range(2):
+            response = await self._guarded(
+                lambda: self.client.messages.create(
+                    model=settings.model_id,
+                    max_tokens=settings.max_output_tokens,
+                    system=self._system(),
+                    messages=messages,
+                    output_config={"effort": effort},
+                )
             )
-        )
-        usage = _usage_of(response)
-        if getattr(response, "stop_reason", None) == "refusal":
-            return NarrateResult(None, usage, "refusal")
-        parsed = getattr(response, "parsed_output", None)
-        if parsed is None:
-            return NarrateResult(None, usage, "malformed_output")
-        try:
-            return NarrateResult(TurnClaims.model_validate(parsed.model_dump() if hasattr(parsed, "model_dump") else parsed), usage)
-        except ValidationError:
-            return NarrateResult(None, usage, "malformed_output")
+            usage.add(_usage_of(response))
+            if getattr(response, "stop_reason", None) == "refusal":
+                return NarrateResult(None, usage, "refusal")
+            text = "".join(block.text for block in response.content if block.type == "text")
+            output = parse_model_json(text)
+            if output is not None:
+                claims, dropped = to_claims(output)
+                if dropped:
+                    log.info("claims dropped by contract", extra={"component": "model", "duration_ms": len(dropped)})
+                return NarrateResult(TurnClaims(claims=claims), usage)
+            if attempt == 0:
+                messages = messages + [
+                    {"role": "assistant", "content": text[:4000] or "(empty)"},
+                    {"role": "user", "content": "That was not a single valid JSON object matching the schema. Reply with only the JSON object, no prose, no code fence."},
+                ]
+        return NarrateResult(None, usage, "malformed_output")
 
     async def plan(self, question: str, pack_text: str, prior_calls: list[tuple[str, dict[str, Any]]]) -> PlanResult:
         user = (

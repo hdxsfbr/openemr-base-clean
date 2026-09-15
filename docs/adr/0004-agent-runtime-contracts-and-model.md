@@ -60,10 +60,18 @@ cache-friendly regardless of orchestration.
    module JS and the Bruno assertions are generated from the same files;
    tool definitions for the model derive from the same models with
    `strict: true`. No hand-written parallel definitions.
-4. **Model:** `claude-opus-5`, adaptive thinking, `output_config.effort`
+4. **Model:** `claude-opus-5` in code, adaptive thinking, `output_config.effort`
    `low` for the fixed-shape first-turn narration and `medium` for
-   tool-selecting follow-ups; `output_config.format` bound to `TurnClaims`;
-   prompt caching on the stable system prompt and evidence-pack prefix.
+   tool-selecting follow-ups; prompt caching on the stable system prompt and
+   evidence-pack prefix. **Measured 2026-09-15** on the UC-01 evidence pack
+   (about 1,150 tokens): Opus 5 narrates in 15 to 17 s, Sonnet 5 in about
+   10.5 s, with comparable verifier acceptance (8/10 vs 6/7). Neither meets
+   the 8 s complete-response budget yet; the deployment runs
+   `COPILOT_MODEL_ID=claude-sonnet-5` as an explicit environment setting
+   until the owner confirms or reverts. **Output format:** claims are
+   returned as JSON text and validated by the agent (`app/model_output.py`);
+   the grammar-constrained `output_config.format` path was measured at 45 s
+   or a timeout even for a two-claim schema and is not used.
    Retry once on 429 or 5xx with jitter; none on timeout. A small circuit
    breaker around the model client (open after 3 consecutive failures for
    60 s) routes turns to the deterministic fallback. Sonnet 5 is measured as
