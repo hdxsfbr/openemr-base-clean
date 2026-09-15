@@ -493,9 +493,10 @@ size the Droplet; the first fallback is the 8 GiB size (ADR-0001).
 
 ## Observability
 
-**Decided (ADR-0007).** OpenTelemetry instrumentation in the agent
-service, exported to a Langfuse project over OTLP with input and output
-capture disabled and a span-attribute allowlist enforced by a processor:
+**Decided (ADR-0007).** Langfuse's native LangGraph callback handler in
+the agent service, with a client-side `mask` function that replaces every
+input and output payload with a PHI-free digest, and trace metadata limited
+to an allowlist:
 correlation and conversation ids, user id hash, tool names, statuses, record
 counts, latency per stage, model id, tokens, cost, verification outcome and
 rule ids, error class. No prompt, response, record text, name, or date of

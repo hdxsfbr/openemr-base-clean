@@ -30,16 +30,25 @@ cohort saw tracer rate limits stall requests.
    to OpenEMR's audit log via `EventAuditLogger::newEvent` (`copilot-*`
    events, identifiers only, `docs/audit/compliance.md` §5). Operational
    telemetry goes to OpenTelemetry spans and structured JSON logs.
-2. **PHI-free by construction.** The agent's exporter runs a span processor
-   with an attribute allowlist: correlation and conversation ids, hashed
-   user id, tool names, statuses, record counts, stage latencies, model id,
-   token counts, cost, verification outcome and rule ids, error class.
-   Input and output capture is disabled. Prompts, responses, record text,
-   names, and dates of birth are never attributes. An eval greps an export
-   for fixture PHI on every release run.
-3. **Backend.** A hosted Langfuse project over OTLP for the real-time
-   dashboard, acceptable because the spans are verifiably PHI-free
-   (compliance §4 row 7). Self-hosted Langfuse is the real-deployment path.
+2. **PHI-free by construction.** Integration is Langfuse's native LangGraph
+   callback handler (one handler passed in the graph config), chosen on
+   2026-09-15 over hand-rolled OpenTelemetry export for ease of integration.
+   The Langfuse client is configured with a `mask` function that replaces
+   every input and output payload with a PHI-free digest (record counts,
+   source ids, status flags, claim ids, byte length), and trace metadata is
+   limited to an allowlist: correlation and conversation ids, hashed user
+   id, tool names, statuses, record counts, stage latencies, model id, token
+   counts, cost, verification outcome and rule ids, error class. Prompts,
+   responses, record text, names, and dates of birth never leave the
+   process. An eval greps an export for fixture PHI on every release run,
+   and a startup check refuses to run if the mask is not installed or if any
+   LangSmith tracing variable is set.
+3. **Backend.** A hosted Langfuse project (free tier for the week) for the
+   real-time dashboard, acceptable because the traces are verifiably
+   PHI-free (compliance §4 row 7). Self-hosted Langfuse is the
+   real-deployment path. LangSmith was considered equally PRD-compliant and
+   marginally easier to enable, but has a smaller free quota for the load
+   tests and no self-hosting path outside an enterprise tier.
 4. **Correlation.** `{conversation}.{turn}` minted by the module, carried in
    `X-Correlation-Id`, in every audit comment, span, log line, and response.
 5. **Non-blocking.** Batch export with a bounded queue; drop on backpressure;
