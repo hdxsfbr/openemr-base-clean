@@ -1,0 +1,324 @@
+{
+  "$defs": {
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "additionalProperties": true,
+          "description": "Typed per claim type; checked field-by-field by the verifier",
+          "title": "Facts",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^c[0-9]{1,3}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "source_ids": {
+          "items": {
+            "maxLength": 240,
+            "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ClaimType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "text"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "ClaimType": {
+      "enum": [
+        "change_event",
+        "medication_status",
+        "lab_result",
+        "lab_comparison",
+        "documented_reference",
+        "absence",
+        "conflict",
+        "undated",
+        "interpretation"
+      ],
+      "title": "ClaimType",
+      "type": "string"
+    },
+    "EvidenceSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "absence_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Absence State"
+        },
+        "record_count": {
+          "title": "Record Count",
+          "type": "integer"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tool",
+        "status",
+        "record_count"
+      ],
+      "title": "EvidenceSummary",
+      "type": "object"
+    },
+    "Limitation": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "maxLength": 300,
+          "title": "Detail",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/LimitationKind"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "source_ids": {
+          "items": {
+            "maxLength": 240,
+            "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "detail"
+      ],
+      "title": "Limitation",
+      "type": "object"
+    },
+    "LimitationKind": {
+      "enum": [
+        "not_documented",
+        "reviewed_none",
+        "unavailable",
+        "truncated",
+        "conflict",
+        "undated",
+        "withheld",
+        "out_of_scope",
+        "narrative_unavailable",
+        "model_budget_exhausted"
+      ],
+      "title": "LimitationKind",
+      "type": "string"
+    },
+    "Verification": {
+      "additionalProperties": false,
+      "properties": {
+        "outcome": {
+          "pattern": "^(passed|partial|rejected|not_run|failed_closed)$",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "rejected": {
+          "description": "{claim_id, rule, detail}",
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Rejected",
+          "type": "array"
+        },
+        "repair_attempted": {
+          "default": false,
+          "title": "Repair Attempted",
+          "type": "boolean"
+        },
+        "rules_applied": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rules Applied",
+          "type": "array"
+        }
+      },
+      "required": [
+        "outcome"
+      ],
+      "title": "Verification",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "contract_version": {
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "conversation_id": {
+      "title": "Conversation Id",
+      "type": "string"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceSummary"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "$ref": "#/$defs/Limitation"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "reference_encounter_source_id": {
+      "anyOf": [
+        {
+          "maxLength": 240,
+          "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reference Encounter Source Id"
+    },
+    "status": {
+      "pattern": "^(complete|partial|fallback|denied|failed)$",
+      "title": "Status",
+      "type": "string"
+    },
+    "turn_id": {
+      "title": "Turn Id",
+      "type": "string"
+    },
+    "turn_type": {
+      "pattern": "^(uc01_first|followup)$",
+      "title": "Turn Type",
+      "type": "string"
+    },
+    "usage": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          }
+        ]
+      },
+      "title": "Usage",
+      "type": "object"
+    },
+    "verification": {
+      "$ref": "#/$defs/Verification"
+    },
+    "window_since": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Window Since"
+    },
+    "withheld_count": {
+      "default": 0,
+      "title": "Withheld Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "turn_id",
+    "conversation_id",
+    "turn_type",
+    "status",
+    "verification",
+    "correlation_id",
+    "contract_version"
+  ],
+  "title": "TurnResponse",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

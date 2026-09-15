@@ -1,0 +1,98 @@
+{
+  "$defs": {
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "additionalProperties": true,
+          "description": "Typed per claim type; checked field-by-field by the verifier",
+          "title": "Facts",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^c[0-9]{1,3}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "source_ids": {
+          "items": {
+            "maxLength": 240,
+            "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ClaimType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "text"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "ClaimType": {
+      "enum": [
+        "change_event",
+        "medication_status",
+        "lab_result",
+        "lab_comparison",
+        "documented_reference",
+        "absence",
+        "conflict",
+        "undated",
+        "interpretation"
+      ],
+      "title": "ClaimType",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The model's structured output. Nothing here is displayed until verified.",
+  "properties": {
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "maxItems": 40,
+      "title": "Claims",
+      "type": "array"
+    },
+    "limitations_restated": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Limitations Restated",
+      "type": "array"
+    }
+  },
+  "title": "TurnClaims",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

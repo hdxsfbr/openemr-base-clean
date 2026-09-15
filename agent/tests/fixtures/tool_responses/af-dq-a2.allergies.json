@@ -1,0 +1,39 @@
+{
+ "absence_state": "documented",
+ "contract_version": "1.0.0",
+ "correlation_id": "fixture-allergies",
+ "counts": {
+  "reviewed_marker": 1
+ },
+ "latency_ms": 10.8,
+ "omitted_count": 0,
+ "reason": null,
+ "records": [
+  {
+   "begin": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2025-12-18T09:00:00"
+   },
+   "reaction": "Hives",
+   "severity": "moderate",
+   "source": {
+    "id": 9000007,
+    "source_id": "openemr:lists:9000007:a2bfa267-d646-4a23-845e-b174fd6126e3",
+    "table": "lists",
+    "uuid": "a2bfa267-d646-4a23-845e-b174fd6126e3"
+   },
+   "status": "active",
+   "substance": "Sulfa drugs",
+   "undated": false
+  }
+ ],
+ "status": "ok",
+ "tool": "allergies",
+ "tool_version": "1.0.0",
+ "truncated": false,
+ "window": {
+  "since": null,
+  "until": null
+ }
+}

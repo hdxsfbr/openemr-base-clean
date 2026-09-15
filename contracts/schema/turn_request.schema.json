@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "correlation_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correlation Id"
+    },
+    "message": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "stream": {
+      "default": false,
+      "title": "Stream",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "message"
+  ],
+  "title": "TurnRequest",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

@@ -1,0 +1,124 @@
+{
+ "absence_state": null,
+ "contract_version": "1.0.0",
+ "correlation_id": "fixture-problems",
+ "counts": {},
+ "latency_ms": 5,
+ "omitted_count": 0,
+ "reason": null,
+ "records": [
+  {
+   "author": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "begin": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-08-31T09:00:00"
+   },
+   "codes": [
+    {
+     "as_written": "http://hl7.org/fhir/sid/icd-10:E78.5",
+     "code": "E78.5",
+     "system": "http://hl7.org/fhir/sid/icd-10"
+    }
+   ],
+   "end": {
+    "basis": "unknown",
+    "precision": "unknown",
+    "value": null
+   },
+   "linked_encounter_count": 0,
+   "source": {
+    "id": 9000003,
+    "source_id": "openemr:lists:9000003:a2bfa267-d103-4be7-a4c2-a3699fdea462",
+    "table": "lists",
+    "uuid": "a2bfa267-d103-4be7-a4c2-a3699fdea462"
+   },
+   "status": "active",
+   "title": "Hyperlipidemia",
+   "undated": false,
+   "verification": "confirmed"
+  },
+  {
+   "author": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "begin": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-03-18T09:00:00"
+   },
+   "codes": [
+    {
+     "as_written": "http://hl7.org/fhir/sid/icd-10:E11.9",
+     "code": "E11.9",
+     "system": "http://hl7.org/fhir/sid/icd-10"
+    }
+   ],
+   "end": {
+    "basis": "unknown",
+    "precision": "unknown",
+    "value": null
+   },
+   "linked_encounter_count": 2,
+   "source": {
+    "id": 9000002,
+    "source_id": "openemr:lists:9000002:a2bfa267-cfc9-4c72-aacb-d47f908c3f66",
+    "table": "lists",
+    "uuid": "a2bfa267-cfc9-4c72-aacb-d47f908c3f66"
+   },
+   "status": "active",
+   "title": "Type 2 diabetes mellitus without complications",
+   "undated": false,
+   "verification": "confirmed"
+  },
+  {
+   "author": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "begin": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2025-12-18T09:00:00"
+   },
+   "codes": [
+    {
+     "as_written": "http://hl7.org/fhir/sid/icd-10:I10",
+     "code": "I10",
+     "system": "http://hl7.org/fhir/sid/icd-10"
+    }
+   ],
+   "end": {
+    "basis": "unknown",
+    "precision": "unknown",
+    "value": null
+   },
+   "linked_encounter_count": 2,
+   "source": {
+    "id": 9000001,
+    "source_id": "openemr:lists:9000001:a2bfa267-cec6-4277-bd56-093500afd394",
+    "table": "lists",
+    "uuid": "a2bfa267-cec6-4277-bd56-093500afd394"
+   },
+   "status": "active",
+   "title": "Essential hypertension",
+   "undated": false,
+   "verification": "confirmed"
+  }
+ ],
+ "status": "ok",
+ "tool": "problems",
+ "tool_version": "1.0.0",
+ "truncated": false,
+ "window": {
+  "since": null,
+  "until": null
+ }
+}

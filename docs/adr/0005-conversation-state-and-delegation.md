@@ -33,10 +33,10 @@ memory.
    re-checks session validity, `users.active`, session `pid` equals the bound
    `pid`, and break-glass membership, then mints an HMAC-signed token
    `{cid, jti, iat, exp = iat + 90 s, v}`. The token carries no user or
-   patient identifier. The agent forwards it on every gateway call; the
-   gateway validates signature, expiry, single use of `jti` within its
-   window, and conversation state, then re-runs section ACL and squad for the
-   bound username. A mismatch closes the conversation with
+   patient identifier. The agent forwards it on every gateway call of that
+   turn (one ticket, several tool calls); the gateway validates signature,
+   expiry, and conversation state, then re-runs section ACL and squad for
+   the bound username. A mismatch closes the conversation with
    `patient_context_changed`.
 3. **Transcript is the LangGraph checkpoint.** `langgraph-checkpoint-sqlite`
    on a named volume, `thread_id` = conversation id (ADR-0004). The graph

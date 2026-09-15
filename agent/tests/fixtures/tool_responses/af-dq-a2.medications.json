@@ -1,0 +1,130 @@
+{
+ "absence_state": null,
+ "contract_version": "1.0.0",
+ "correlation_id": "fixture-medications",
+ "counts": {
+  "lists": 3,
+  "prescriptions": 0
+ },
+ "latency_ms": 5.9,
+ "omitted_count": 0,
+ "reason": null,
+ "records": [
+  {
+   "codes": [
+    {
+     "as_written": "ICD10:E11.9",
+     "code": "E11.9",
+     "system": "ICD10"
+    }
+   ],
+   "documented_indication": null,
+   "dose_text": "500 mg by mouth twice daily",
+   "end": {
+    "basis": "unknown",
+    "precision": "unknown",
+    "value": null
+   },
+   "name": "Metformin 500 mg tablet",
+   "prescriber": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "provenance": "lists",
+   "source": {
+    "id": 9000006,
+    "source_id": "openemr:lists:9000006:a2bfa267-d463-4eb1-a9e8-74774bc1d5f7",
+    "table": "lists",
+    "uuid": "a2bfa267-d463-4eb1-a9e8-74774bc1d5f7"
+   },
+   "start": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-08-25T09:00:00"
+   },
+   "status": "active",
+   "status_basis": "activity",
+   "status_conflict": false,
+   "undated": false
+  },
+  {
+   "codes": [],
+   "documented_indication": null,
+   "dose_text": "5 mg by mouth daily",
+   "end": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-08-25T09:00:00"
+   },
+   "name": "Amlodipine 5 mg tablet",
+   "prescriber": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "provenance": "lists",
+   "source": {
+    "id": 9000005,
+    "source_id": "openemr:lists:9000005:a2bfa267-d34b-4339-9d9a-a3d5357f4ff8",
+    "table": "lists",
+    "uuid": "a2bfa267-d34b-4339-9d9a-a3d5357f4ff8"
+   },
+   "start": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2025-12-18T09:00:00"
+   },
+   "status": "active",
+   "status_basis": "activity",
+   "status_conflict": true,
+   "undated": false
+  },
+  {
+   "codes": [
+    {
+     "as_written": "ICD10:I10",
+     "code": "I10",
+     "system": "ICD10"
+    }
+   ],
+   "documented_indication": null,
+   "dose_text": "10 mg by mouth daily",
+   "end": {
+    "basis": "unknown",
+    "precision": "unknown",
+    "value": null
+   },
+   "name": "Lisinopril 10 mg tablet",
+   "prescriber": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "provenance": "lists",
+   "source": {
+    "id": 9000004,
+    "source_id": "openemr:lists:9000004:a2bfa267-d225-474a-b24e-a5e2e3144461",
+    "table": "lists",
+    "uuid": "a2bfa267-d225-474a-b24e-a5e2e3144461"
+   },
+   "start": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2025-12-18T09:00:00"
+   },
+   "status": "active",
+   "status_basis": "activity",
+   "status_conflict": false,
+   "undated": false
+  }
+ ],
+ "status": "ok",
+ "tool": "medications",
+ "tool_version": "1.0.0",
+ "truncated": false,
+ "window": {
+  "since": null,
+  "until": null
+ }
+}

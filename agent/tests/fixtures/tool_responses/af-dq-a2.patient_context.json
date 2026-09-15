@@ -1,0 +1,35 @@
+{
+ "absence_state": null,
+ "contract_version": "1.0.0",
+ "correlation_id": "fixture-patient_context",
+ "counts": {},
+ "latency_ms": 7.7,
+ "omitted_count": 0,
+ "reason": null,
+ "records": [
+  {
+   "age_band": "60-69",
+   "counts": {
+    "allergies": 1,
+    "encounters": 3,
+    "medications": 3,
+    "problems": 3
+   },
+   "sex": "Female",
+   "source": {
+    "id": 900001,
+    "source_id": "openemr:patient_data:900001:a2bfa267-ca2a-4585-83ce-517e2c292764",
+    "table": "patient_data",
+    "uuid": "a2bfa267-ca2a-4585-83ce-517e2c292764"
+   }
+  }
+ ],
+ "status": "ok",
+ "tool": "patient_context",
+ "tool_version": "1.0.0",
+ "truncated": false,
+ "window": {
+  "since": null,
+  "until": null
+ }
+}

@@ -1,0 +1,71 @@
+"""Canonical contracts (ADR-0004): the single source of truth for tool and turn
+shapes. JSON Schema is exported from these models to contracts/schema/ at the
+repository root; the PHP gateway, the module JS, the Bruno collection, and the
+evals consume that export. No hand-written parallel definitions.
+"""
+
+from .common import CONTRACT_VERSION, ClinicalDate, DatePrecision, DateBasis, SourceRef
+from .tools import (
+    TOOL_NAMES,
+    AbsenceState,
+    AllergyRecord,
+    EncounterRecord,
+    LabResultRecord,
+    LabsParams,
+    MedicationRecord,
+    NoteRecord,
+    NotesParams,
+    PatientContextRecord,
+    ProblemRecord,
+    ToolRequest,
+    ToolResponse,
+    ToolStatus,
+    Window,
+    WindowParams,
+)
+from .turns import (
+    Claim,
+    ClaimType,
+    ErrorCode,
+    ErrorEnvelope,
+    Limitation,
+    LimitationKind,
+    TurnClaims,
+    TurnRequest,
+    TurnResponse,
+    Verification,
+)
+
+__all__ = [
+    "CONTRACT_VERSION",
+    "ClinicalDate",
+    "DatePrecision",
+    "DateBasis",
+    "SourceRef",
+    "TOOL_NAMES",
+    "AbsenceState",
+    "AllergyRecord",
+    "EncounterRecord",
+    "LabResultRecord",
+    "LabsParams",
+    "MedicationRecord",
+    "NoteRecord",
+    "NotesParams",
+    "PatientContextRecord",
+    "ProblemRecord",
+    "ToolRequest",
+    "ToolResponse",
+    "ToolStatus",
+    "Window",
+    "WindowParams",
+    "Claim",
+    "ClaimType",
+    "ErrorCode",
+    "ErrorEnvelope",
+    "Limitation",
+    "LimitationKind",
+    "TurnClaims",
+    "TurnRequest",
+    "TurnResponse",
+    "Verification",
+]

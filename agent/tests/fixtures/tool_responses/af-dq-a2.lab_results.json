@@ -1,0 +1,125 @@
+{
+ "absence_state": null,
+ "contract_version": "1.0.0",
+ "correlation_id": "fixture-lab_results",
+ "counts": {
+  "orders": 3
+ },
+ "latency_ms": 22.2,
+ "omitted_count": 0,
+ "reason": null,
+ "records": [
+  {
+   "analyte": "Hemoglobin A1c",
+   "analyte_code": "4548-4",
+   "comparable": true,
+   "corrected": false,
+   "date": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-08-31T16:30:00"
+   },
+   "flag": "abnormal",
+   "flag_as_recorded": "high",
+   "numeric_value": 6.8,
+   "order_id": 9000003,
+   "range_text": "4.0-5.6",
+   "report_id": 9000003,
+   "result_status": "final",
+   "source": {
+    "id": 9000003,
+    "source_id": "openemr:procedure_result:9000003:a2bfa267-ec71-4353-9c11-3657a2f525f8",
+    "table": "procedure_result",
+    "uuid": "a2bfa267-ec71-4353-9c11-3657a2f525f8"
+   },
+   "unit": "%",
+   "value_text": "6.8"
+  },
+  {
+   "analyte": "LDL cholesterol (calculated)",
+   "analyte_code": "13457-7",
+   "comparable": true,
+   "corrected": false,
+   "date": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-08-31T16:30:00"
+   },
+   "flag": "abnormal",
+   "flag_as_recorded": "high",
+   "numeric_value": 162,
+   "order_id": 9000003,
+   "range_text": "0-99",
+   "report_id": 9000003,
+   "result_status": "final",
+   "source": {
+    "id": 9000004,
+    "source_id": "openemr:procedure_result:9000004:a2bfa267-ed5e-44b1-af3d-379c7f90fcbe",
+    "table": "procedure_result",
+    "uuid": "a2bfa267-ed5e-44b1-af3d-379c7f90fcbe"
+   },
+   "unit": "mg/dL",
+   "value_text": "162"
+  },
+  {
+   "analyte": "Hemoglobin A1c",
+   "analyte_code": "4548-4",
+   "comparable": true,
+   "corrected": false,
+   "date": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-06-16T16:30:00"
+   },
+   "flag": "abnormal",
+   "flag_as_recorded": "high",
+   "numeric_value": 7.4,
+   "order_id": 9000002,
+   "range_text": "4.0-5.6",
+   "report_id": 9000002,
+   "result_status": "final",
+   "source": {
+    "id": 9000002,
+    "source_id": "openemr:procedure_result:9000002:a2bfa267-e9a2-4a8b-be86-b843aa2e33f7",
+    "table": "procedure_result",
+    "uuid": "a2bfa267-e9a2-4a8b-be86-b843aa2e33f7"
+   },
+   "unit": "%",
+   "value_text": "7.4"
+  },
+  {
+   "analyte": "Hemoglobin A1c",
+   "analyte_code": "4548-4",
+   "comparable": true,
+   "corrected": false,
+   "date": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-03-18T16:30:00"
+   },
+   "flag": "abnormal",
+   "flag_as_recorded": "high",
+   "numeric_value": 7.9,
+   "order_id": 9000001,
+   "range_text": "4.0-5.6",
+   "report_id": 9000001,
+   "result_status": "final",
+   "source": {
+    "id": 9000001,
+    "source_id": "openemr:procedure_result:9000001:a2bfa267-e676-486b-88f1-bced341e2fca",
+    "table": "procedure_result",
+    "uuid": "a2bfa267-e676-486b-88f1-bced341e2fca"
+   },
+   "unit": "%",
+   "value_text": "7.9"
+  }
+ ],
+ "status": "ok",
+ "tool": "lab_results",
+ "tool_version": "1.0.0",
+ "truncated": false,
+ "window": {
+  "since": null,
+  "until": null
+ }
+}

@@ -1,0 +1,91 @@
+{
+ "absence_state": null,
+ "contract_version": "1.0.0",
+ "correlation_id": "fixture-encounters",
+ "counts": {},
+ "latency_ms": 7.6,
+ "omitted_count": 0,
+ "reason": null,
+ "records": [
+  {
+   "category": "Office Visit",
+   "class_code": "AMB",
+   "date": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-06-16T09:00:00"
+   },
+   "encounter_id": 9000003,
+   "is_clinical_visit": true,
+   "provider": {
+    "display": null,
+    "unknown": true,
+    "username": null
+   },
+   "reason": "Diabetes follow-up",
+   "sensitivity": "normal",
+   "source": {
+    "id": 9000003,
+    "source_id": "openemr:form_encounter:9000003:a2bfa267-cdc7-4be8-9cb3-5e7e19cb07c4",
+    "table": "form_encounter",
+    "uuid": "a2bfa267-cdc7-4be8-9cb3-5e7e19cb07c4"
+   }
+  },
+  {
+   "category": "Office Visit",
+   "class_code": "AMB",
+   "date": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2026-03-18T09:00:00"
+   },
+   "encounter_id": 9000002,
+   "is_clinical_visit": true,
+   "provider": {
+    "display": null,
+    "unknown": true,
+    "username": null
+   },
+   "reason": "Follow-up hypertension; elevated glucose",
+   "sensitivity": "normal",
+   "source": {
+    "id": 9000002,
+    "source_id": "openemr:form_encounter:9000002:a2bfa267-cc66-4ac8-a370-62af82283fb4",
+    "table": "form_encounter",
+    "uuid": "a2bfa267-cc66-4ac8-a370-62af82283fb4"
+   }
+  },
+  {
+   "category": "Office Visit",
+   "class_code": "AMB",
+   "date": {
+    "basis": "clinical",
+    "precision": "datetime",
+    "value": "2025-12-18T09:00:00"
+   },
+   "encounter_id": 9000001,
+   "is_clinical_visit": true,
+   "provider": {
+    "display": null,
+    "unknown": true,
+    "username": null
+   },
+   "reason": "Establish care: hypertension",
+   "sensitivity": "normal",
+   "source": {
+    "id": 9000001,
+    "source_id": "openemr:form_encounter:9000001:a2bfa267-cb4f-48b5-8dab-54c704e9a4ab",
+    "table": "form_encounter",
+    "uuid": "a2bfa267-cb4f-48b5-8dab-54c704e9a4ab"
+   }
+  }
+ ],
+ "status": "ok",
+ "tool": "encounters",
+ "tool_version": "1.0.0",
+ "truncated": false,
+ "window": {
+  "since": null,
+  "until": null
+ }
+}

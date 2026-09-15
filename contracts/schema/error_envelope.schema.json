@@ -1,0 +1,43 @@
+{
+  "$defs": {
+    "ErrorCode": {
+      "enum": [
+        "unauthorized",
+        "conversation_closed",
+        "patient_context_changed",
+        "rate_limited",
+        "dependency_unavailable",
+        "invalid_request",
+        "internal_error"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "$ref": "#/$defs/ErrorCode"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "message": {
+      "description": "Generic; specifics go to the audit log",
+      "maxLength": 200,
+      "title": "Message",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "message",
+    "correlation_id"
+  ],
+  "title": "ErrorEnvelope",
+  "type": "object",
+  "x-contract-version": "1.0.0"
+}

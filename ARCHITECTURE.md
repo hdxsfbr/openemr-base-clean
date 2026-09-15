@@ -177,7 +177,7 @@ binding row. A mismatch denies, closes the conversation with
 
 | Check | Source | On failure |
 | --- | --- | --- |
-| Signature, expiry, `jti` unused within its window | Shared secret; in-memory nonce set | 403, `copilot-denied reason=bad_token`, no data |
+| Signature and expiry; one ticket per turn, reused by that turn's tool calls within its 90 s | Shared secret | 403, `copilot-denied reason=bad_token`, no data |
 | Conversation open and `last_turn_at` within 30 min | `copilot_conversation` | 403, `reason=conversation_closed` |
 | User `active = 1` | `users` | 403, `reason=user_inactive`; conversation closed |
 | Not in `Emergency Login` | ACL group membership by username | 403, `reason=breakglass`; conversation closed |
@@ -196,7 +196,7 @@ can be fed from a SMART token later.
 | Boundary | Crossing | Control |
 | --- | --- | --- |
 | Browser to module | Session cookie, CSRF token | OpenEMR `authCheckSession`; `CsrfUtils::verifyCsrfToken`; no `pid` accepted from the client |
-| Browser to agent API | Delegation token in `Authorization: Bearer` | Signature, expiry, nonce; rate limit per conversation (10 turns per minute) |
+| Browser to agent API | Delegation token in `X-Copilot-Token` (Apache strips `Authorization` for mod_php, so the gateway reads this header; `Authorization: Bearer` is accepted where it arrives) | Signature, expiry; rate limit per conversation (10 turns per minute) |
 | Agent to gateway | Same delegation token; internal Docker network only | Table above; the gateway endpoint is not on the Caddy allowlist |
 | Agent to Claude API | HTTPS; key as file secret in the agent container only | Minimum-necessary evidence pack; provider under the PRD's assumed BAA; no direct identifiers where avoidable (age band, initials not needed: "the patient") |
 | Agent to tracer | HTTPS | Attribute allowlist; input and output capture disabled; eval greps exports for fixture PHI |

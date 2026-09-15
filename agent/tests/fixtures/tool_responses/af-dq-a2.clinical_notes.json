@@ -1,0 +1,90 @@
+{
+ "absence_state": null,
+ "contract_version": "1.0.0",
+ "correlation_id": "fixture-clinical_notes",
+ "counts": {
+  "form_types_covered": 1
+ },
+ "latency_ms": 4.3,
+ "omitted_count": 0,
+ "reason": null,
+ "records": [
+  {
+   "author": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "date": {
+    "basis": "clinical",
+    "precision": "day",
+    "value": "2026-06-16"
+   },
+   "encounter_id": 9000003,
+   "note_type": "progress_note",
+   "source": {
+    "id": 9000003,
+    "source_id": "openemr:form_clinical_notes:9000003:a2bfa267-e1c5-4c6f-ac42-c1d0d260cac1",
+    "table": "form_clinical_notes",
+    "uuid": "a2bfa267-e1c5-4c6f-ac42-c1d0d260cac1"
+   },
+   "term_matched": null,
+   "text": "A1c 7.4%, still above goal. Discussed options; patient prefers continued lifestyle changes for now. Blood pressure 132/82 on lisinopril and amlodipine.",
+   "truncated": false
+  },
+  {
+   "author": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "date": {
+    "basis": "clinical",
+    "precision": "day",
+    "value": "2026-03-18"
+   },
+   "encounter_id": 9000002,
+   "note_type": "progress_note",
+   "source": {
+    "id": 9000002,
+    "source_id": "openemr:form_clinical_notes:9000002:a2bfa267-e0c1-4336-8bd6-c155309f7df8",
+    "table": "form_clinical_notes",
+    "uuid": "a2bfa267-e0c1-4336-8bd6-c155309f7df8"
+   },
+   "term_matched": null,
+   "text": "Blood pressure improved to 138/86. Hemoglobin A1c 7.9%. Diagnosed type 2 diabetes; lifestyle counseling provided. Recheck A1c in 3 months.",
+   "truncated": false
+  },
+  {
+   "author": {
+    "display": null,
+    "unknown": false,
+    "username": "audit-physician"
+   },
+   "date": {
+    "basis": "clinical",
+    "precision": "day",
+    "value": "2025-12-18"
+   },
+   "encounter_id": 9000001,
+   "note_type": "progress_note",
+   "source": {
+    "id": 9000001,
+    "source_id": "openemr:form_clinical_notes:9000001:a2bfa267-dfa9-46d4-ab08-bb23c5d5386f",
+    "table": "form_clinical_notes",
+    "uuid": "a2bfa267-dfa9-46d4-ab08-bb23c5d5386f"
+   },
+   "term_matched": null,
+   "text": "New patient establishing care. Blood pressure elevated at 152/94. Started lisinopril 10 mg daily and continued amlodipine 5 mg daily from prior clinician. Sulfa allergy (hives) confirmed. Return in 3 months.",
+   "truncated": false
+  }
+ ],
+ "status": "ok",
+ "tool": "clinical_notes",
+ "tool_version": "1.0.0",
+ "truncated": false,
+ "window": {
+  "since": null,
+  "until": null
+ }
+}
