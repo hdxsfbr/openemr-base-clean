@@ -8,9 +8,11 @@ administrator credentials, and OpenEMR, phpMyAdmin, and Mailpit returned HTTP
 200 responses. The bundled OpenEMR demo database was also loaded and upgraded
 successfully to OpenEMR 8.2.0-dev (database revision 541 and ACL revision 13).
 
-The bundled database provides a baseline for learning OpenEMR, but the
-deterministic challenge-specific cohort is not yet loaded. Stage 1 of the PRD
-remains incomplete until that cohort and its repeatable seed process are added.
+The bundled database provides a baseline for learning OpenEMR. On September 14,
+2026 the deterministic synthetic cohort `af-cohort-v1` was added on top of it:
+26 fictional patients, 50 encounters, 134 lab results, and 67 notes. Two
+consecutive loads produced identical row checksums. See
+[Load the Synthetic Cohort](#load-the-synthetic-cohort).
 
 ## Prerequisites
 
@@ -81,6 +83,46 @@ The verified September 11, 2026 load produced 3 patients, 3 encounters, and 11
 calendar events. These counts describe the pinned development image's bundled
 baseline, not the final challenge evaluation dataset.
 
+## Create the Audit Test Users
+
+The access-control tests and the synthetic cohort expect three low-privilege
+accounts in addition to the bundled `physician` user. Create them in the UI as
+`admin`: **Admin → Users → Add User**.
+
+| Username | Access Control group | Provider |
+| --- | --- | --- |
+| `audit-physician` | Physicians | checked |
+| `audit-nurse` | Clinicians | unchecked |
+| `audit-frontdesk` | Front Office | unchecked |
+
+Use unique local passwords and never commit them. If you script user creation
+instead of using the form, also set `groupname=Default`. Without it OpenEMR
+rejects the login with "user not found in a group"
+(`src/Common/Auth/AuthUtils.php:350-359`).
+
+Verify:
+
+```bash
+docker compose -f docker/development-easy/docker-compose.yml exec -T mysql \
+  mariadb -uopenemr -popenemr openemr -e \
+  "SELECT u.username, g.name AS acl_group FROM users u JOIN gacl_aro a ON a.value = u.username JOIN gacl_groups_aro_map m ON m.aro_id = a.id JOIN gacl_aro_groups g ON g.id = m.group_id WHERE u.username LIKE 'audit-%';"
+```
+
+## Load the Synthetic Cohort
+
+After the demo database is loaded and the audit test users exist, load the
+deterministic synthetic cohort used by the audit and evals. It writes only
+fictional patients (pids `900001–900099`, `pubpid` `AF-*`) and is safe to
+re-run; each run replaces the previous cohort.
+
+```bash
+docker exec development-easy-openemr-1 sh -c 'cd /var/www/localhost/htdocs/openemr && su -s /bin/sh apache -c "php evals/fixtures/cohort/seed_cohort.php --confirm-dev-data --anchor=2026-09-14"'
+```
+
+The command prints a JSON manifest and exits non-zero if a post-load check
+fails. Patient scenarios, guarantees, and side effects are documented in
+[`evals/fixtures/cohort/README.md`](evals/fixtures/cohort/README.md).
+
 ## Local Services
 
 | Service | URL or address | Development credentials |
@@ -127,16 +169,20 @@ The easy-development stack is not suitable for public deployment:
 - It enables development tooling, Xdebug, and profiling.
 - It contains token-like credentials in compose configuration that must not be
   reused in deployed infrastructure.
-- The existing readiness endpoint returns `setup_required` in its body after a
-  successful installation, while the Docker health check accepts the HTTP 200
-  response. This must be recorded in the audit and corrected or replaced for
-  the agent deployment.
+- `/meta/health/readyz` returns HTTP 200 with `setup_required` on a working
+  install, because `library/sql.inc.php:59` overwrites the global `$config`
+  that `InstallationCheck` reads. Exceptions also return 200 with their
+  message. This was confirmed locally and on the public deployment
+  (`AUDIT.md` SEC-MED-007). Do not use it as a readiness gate.
+- The repository is the web root. Any file in it, including `docker/`, `tests/`,
+  `evals/`, and `docs/`, is served over HTTP unless blocked (`AUDIT.md`
+  SEC-HIGH-500). The audit and seed PHP scripts return 404 to web requests.
 
 ## Remaining Setup Work
 
 - [x] Load and verify OpenEMR's bundled demo database for application discovery.
-- [ ] Define and seed realistic demo patients covering happy, incomplete,
-      conflicting, and access-controlled scenarios.
+- [x] Define and seed realistic demo patients covering happy, incomplete,
+      conflicting, and access-controlled scenarios (`evals/fixtures/cohort/`).
 - [ ] Add an automated smoke test for login and required dependencies.
 - [x] Select and document the initial DigitalOcean deployment environment.
 - [x] Create a production-oriented Compose and Terraform configuration.
@@ -148,6 +194,10 @@ The easy-development stack is not suitable for public deployment:
 
 The initial DigitalOcean topology, cost-controlled smoke cycle, teardown rules,
 and known limitations are documented in
-[`docs/deployment/digitalocean.md`](docs/deployment/digitalocean.md). The
-configuration has not yet been provisioned; keep the public-deployment
-requirement in progress until an external smoke test supplies evidence.
+[`docs/deployment/digitalocean.md`](docs/deployment/digitalocean.md). It was
+provisioned and externally verified on September 14, 2026 (public TLS smoke
+test, demo data loaded). It was re-provisioned the same evening for the
+audit's public probe, and both environments were destroyed afterwards to
+control cost. Re-provision before each demo, interview, or submission. Before
+the evaluator deployment, the audit requires our own image carrying the co-pilot module and a Caddy
+path allowlist (`AUDIT.md` SEC-HIGH-500).

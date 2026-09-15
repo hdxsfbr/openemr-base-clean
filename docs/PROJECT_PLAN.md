@@ -84,8 +84,17 @@ structured response made of claims and source identifiers. A deterministic
 verifier will ensure cited records exist, enforce supported clinical rules, and
 withhold claims that cannot be validated.
 
-This architecture is a starting hypothesis. `AUDIT.md` must be completed before
-the final architecture is approved or AI implementation begins.
+This was the pre-audit hypothesis. The audit is complete (2026-09-14, pending
+owner review), and `AUDIT.md` §8 records where it changed this shape:
+- an explicit gateway patient-scope policy, because OpenEMR has no
+  patient-level authorization;
+- server-bound conversations;
+- in-process, projected, deduplicated tools;
+- PHI-free telemetry;
+- the co-pilot module in our own image, behind a deny-by-default edge; OpenEMR
+  issues documented, not fixed (`AUDIT.md` §7.3).
+
+`ARCHITECTURE.md` must reflect those decisions before AI implementation begins.
 
 ## Schedule
 
@@ -96,10 +105,12 @@ September 14–20, 2026.
 
 - [x] Run the base OpenEMR stack locally.
 - [x] Verify the application, database, login, and supporting services.
-- [ ] Load or design realistic demo patient data.
+- [x] Load or design realistic demo patient data (bundled demo dataset, plus
+      synthetic cohort `af-cohort-v1` in `evals/fixtures/cohort/`).
 - [x] Establish the public deployment path without deploying the development
       compose stack as-is.
-- [ ] Inventory relevant OpenEMR modules, services, ACLs, APIs, and audit logs.
+- [x] Inventory relevant OpenEMR modules, services, ACLs, APIs, and audit logs
+      (`AUDIT.md`, `docs/audit/`).
 
 ### Monday, September 14: understand before building
 
@@ -113,13 +124,23 @@ September 14–20, 2026.
 
 **Gate:** no AI-layer implementation until the audit is complete.
 
+**Status (2026-09-14):** the audit draft covers all five areas. It includes
+live access tests, a public cloud-window probe, and synthetic-cohort
+measurements, and it awaits owner review. The patient-scope authorization
+policy (parity with the chart, ADR-0002) and the integration point
+(in-process module gateway, SMART deferred, ADR-0003) are decided in
+`docs/adr/`. `USERS.md` validation, `KEY_METRICS.md` thresholds, and the
+audit-driven `ARCHITECTURE.md` revision remain.
+
 The reproducible DigitalOcean/Compose path under `infra/digitalocean` was
 externally verified on 2026-09-14: provisioned, public TLS smoke test passed,
 demo data loaded (3 patients / 3 encounters / 11 appointments, schema upgraded
 to current), and torn down again afterward to control cost. Re-provisioning is
 a single `tf.sh apply` + `deploy.sh` cycle (~4 minutes) before each demo,
 interview, or submission checkpoint. See `docs/deployment/digitalocean.md` for
-the runbook and known gotchas found during this run.
+the runbook and known gotchas found during this run. A second 8-minute window
+the same evening re-provisioned from reviewed saved plans for the audit's
+public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
 
 ### Tuesday, September 15: complete one vertical slice
 

@@ -22,7 +22,8 @@ it's GitHub, push the final state there before submitting.
 - [ ] `README.md` contains deployed URL, setup, architecture overview, demo
       credentials, test commands, and limitations.
 - [ ] `AUDIT.md` begins with an approximately 500-word key-findings summary and
-      covers all five required audit areas.
+      covers all five required audit areas. *(Draft complete 2026-09-14; tick
+      after owner review.)*
 - [ ] `USERS.md` defines the target user, workflow, and agent rationale for every
       use case; `USER.md` points to it.
 - [ ] `ARCHITECTURE.md` begins with an approximately 500-word summary and traces

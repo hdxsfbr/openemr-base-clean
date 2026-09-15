@@ -8,7 +8,11 @@ through the TLS proxy were validated on September 13, 2026. It was provisioned
 and externally verified for real on September 14, 2026: a live Droplet, valid
 public TLS, and the bundled OpenEMR demo dataset (3 patients, 3 encounters, 11
 appointments; schema upgraded to current) all confirmed reachable at a
-`sslip.io` hostname, then destroyed again to stop billing. It still does not
+`sslip.io` hostname, then destroyed again to stop billing. A second window
+(23:34–23:42 UTC) re-provisioned from reviewed saved Terraform plans for the
+audit's unauthenticated public probe and read-only configuration dump, then
+destroyed. See `docs/audit/evidence/security/cloud-probe-2026-09-14.txt` and
+`cloud-runtime-2026-09-14.md`. It still does not
 make the application suitable for real patient data — see "Before the
 Evaluator Deployment" below.
 
@@ -184,9 +188,9 @@ into the running container, invoke `upgradeOpenEMR` and
 `run_php_as_apache`), then delete both files again afterward to restore the
 hardened state. This is safe because it uses the exact same source the local
 dev stack already runs, but it is a manual step, not something `deploy.sh`
-does today. Before the evaluator deployment, bake the demo cohort into a
-project-owned image at *build* time instead, so no runtime container ever
-carries upgrade tooling.
+does today. Before the evaluator deployment, replace it with the `demo-seed`
+job described below, so no long-running container ever carries upgrade
+tooling or `evals/`.
 
 **Caddy can get stuck in `Created` state.** Its `depends_on: condition:
 service_healthy` on `openemr` sometimes resolves after `docker compose up
@@ -199,11 +203,40 @@ Worth a `start.sh` follow-up to check for and recover from this automatically.
 
 ## Before the Evaluator Deployment
 
-- Build and pin a project-owned production image rather than the upstream
-  baseline image.
+The audit (`AUDIT.md` §7.2) scopes what this project changes here. It plans
+the co-pilot; it does not repair OpenEMR.
+
+**Required before deploying the agent:**
+
+- **Caddy deny-by-default path allowlist.** The bare `reverse_proxy openemr:80`
+  forwards every path, and the upstream image publicly serves private keys and
+  the dev compose file (SEC-HIGH-500). Rerun `docs/audit/scripts/cloud-probe.sh`
+  and expect 404/403 for sensitive paths.
+- **Our own image** carrying the co-pilot module, with a `.dockerignore` that
+  excludes `docker/`, `tests/`, `evals/`, `docs/`, and Terraform files. The
+  image never contains the synthetic cohort or any seed tooling.
+- **Demo seeding job** (`AUDIT.md` §7.2): a one-shot Compose service
+  `demo-seed` under profile `demo`. It uses the same OpenEMR image, publishes no
+  ports, bind-mounts `evals/fixtures/cohort/` read-only at
+  `/opt/copilot-demo/cohort`, and runs
+  `php /opt/copilot-demo/cohort/seed_cohort.php --confirm-dev-data --anchor=<deploy date>`
+  as `apache` with `OPENEMR_ROOT=/var/www/localhost/htdocs/openemr`. `start.sh`
+  runs `docker compose --profile demo run --rm demo-seed` once, after the
+  schema upgrade and before Caddy starts, and saves the printed manifest to the
+  deploy log. The job must exit non-zero, and the deploy must stop, if any
+  post-load check fails. Synthetic data only; never a copy of a real database,
+  sanitized or not.
+- **Agent container:** the LLM key is a file secret mounted only there, and
+  egress is limited to the LLM and tracing endpoints.
+- **Keep REST/FHIR disabled**, as deployed (SEC-MED-005).
+- **Readiness:** do not gate on OpenEMR `/meta/health/readyz`. It returns 200
+  `setup_required` on a working install (SEC-MED-007). Use the agent's own
+  `/ready`.
 - Use an owned hostname and point DNS to the Droplet before starting Caddy.
-- Complete the audit and revisit this topology against its findings.
-- Add tested backup/restore and rollback procedures before keeping data.
-- Add meaningful readiness checks; the current upstream readiness semantics are
-  a known audit item.
-- Load only deterministic synthetic/demo data and rotate deployment credentials.
+  Rotate deployment credentials.
+
+**Documented, not changed here** (`AUDIT.md` §7.3; these are what a real
+deployment would need): patched images and a vulnerability-scan gate
+(SEC-HIGH-502); OpenEMR container hardening and removing `MYSQL_ROOT_PASS` from
+its environment (SEC-MEDIUM-503); tested backup/restore and rollback
+(COMP-MED-005).

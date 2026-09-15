@@ -1,11 +1,16 @@
 # AgentForge Clinical Co-Pilot — Challenge Submission
 
-**Deployment:** infrastructure is proven (provisioned, TLS-verified, demo data
-loaded, and torn down again on 2026-09-14 to control cost between uses — see
-[docs/deployment/digitalocean.md](docs/deployment/digitalocean.md)). Currently
-destroyed; re-provision with `infra/digitalocean/tf.sh apply` +
-`infra/digitalocean/deploy.sh` before a demo, interview, or submission and put
-the resulting URL here.
+**Deployment:** infrastructure is proven. On 2026-09-14 it was provisioned,
+TLS-verified, and loaded with demo data, then re-provisioned for the audit's
+public probe, and torn down after each run to control cost (see
+[docs/deployment/digitalocean.md](docs/deployment/digitalocean.md)). It is
+currently destroyed. Re-provision with `infra/digitalocean/tf.sh apply` and
+`infra/digitalocean/deploy.sh` before a demo, interview, or submission, and put
+the resulting URL here. The audit requires our own image carrying the co-pilot module and a Caddy
+path allowlist before the evaluator deployment.
+
+**Setup:** see [SETUP.md](SETUP.md) for the local stack, demo data, audit test
+users, and the synthetic cohort (`evals/fixtures/cohort/`).
 
 ## Submission Deliverables
 

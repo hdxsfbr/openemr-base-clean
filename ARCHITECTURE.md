@@ -11,8 +11,10 @@
 
 ## Status
 
-This document is an architecture hypothesis until the audit is completed and
-the decisions are recorded. Do not represent planned controls as implemented.
+The audit is complete (2026-09-14, pending owner review). This document remains
+the pre-audit hypothesis until it is revised against `AUDIT.md` §8 ("How the
+Audit Changed the Agent Plan"). Facts the audit has already established are
+marked **Audit note** below. Do not represent planned controls as implemented.
 
 ## Goals and Constraints
 
@@ -39,12 +41,36 @@ active patient, applies ACL checks for every tool call, emits audit events, and
 returns minimum-necessary typed data. It is the only agent component allowed to
 access OpenEMR clinical services.
 
+**Audit note:**
+- OpenEMR has no patient-level authorization (SEC-HIGH-001, confirmed live),
+  and its services enforce no ACL (ARCH-HIGH-002). The gateway must make the
+  authorization decision itself on every tool call; nothing below it will.
+- The session `pid` is a single mutable value set before authorization
+  (SEC-HIGH-002). Treat it as a request, and bind each conversation to
+  (site, user, pid) server-side.
+- Decided (ADR-0002): **parity with the chart.** The gateway binds each
+  conversation to the open chart, re-runs the chart's section ACLs per tool,
+  denies break-glass, audits every read, and never lets the model choose a
+  patient. Isolation therefore equals OpenEMR's, stated as a limitation; a
+  stricter care-relationship policy is designed and deferred.
+- Decided (ADR-0003): **in-process module gateway** plus a separate agent
+  service with its own header-authenticated HTTP API, joined by a short-lived
+  delegation token. SMART on FHIR is the deferred product-grade integration.
+  The identity and authorization TODOs below are resolved by those two
+  records and will be folded into this document in the audit-driven revision.
+
 ### Agent service
 
 A separately deployable orchestration service with strict request/tool schemas,
 conversation state, bounded tool selection, structured LLM output, retries, and
 timeouts. It receives neither database credentials nor unrestricted patient
 access.
+
+**Audit note:**
+- Apache prefork with a 60 s PHP limit cannot host model calls
+  (ARCH-MEDIUM-006), so orchestration runs outside PHP.
+- Do not use the OAuth password grant or system scopes (SEC-MED-005). A
+  service token would discard user identity.
 
 ### Verification layer
 
@@ -86,14 +112,18 @@ branches.
 
 Candidate read-only tools:
 
-| Tool | OpenEMR service candidate | Use cases | Key failure states |
+| Tool | OpenEMR service candidate (audit-verified behavior) | Use cases | Key failure states (audit finding) |
 | --- | --- | --- | --- |
-| Get encounter timeline | `EncounterService`, `ClinicalNotesService` | UC-01, UC-02, UC-03 | No prior encounter, unavailable note, malformed date |
-| Get medications | `MedicationPatientIssueService` | UC-01, UC-03 | Conflicting status, missing dates, free-text name |
-| Get problems | `ConditionService`, `PatientIssuesService` | UC-01, UC-03 | Duplicate/inactive issue, uncoded text |
-| Get allergies | `AllergyIntoleranceService` | UC-01 | Missing reaction/status |
-| Get lab observations | `ObservationLabService`, `ObservationService` | UC-01, UC-02 | Missing range/unit, incompatible units |
-| Get patient context | `PatientService` | All | Wrong patient, insufficient ACL |
+| Get encounter timeline | `EncounterService::getEncountersForPatientByPid`, `ClinicalNotesService::getClinicalNotesForPatient` (Clinical Notes form only) | UC-01, UC-02, UC-03 | No prior encounter (DQ-CRITICAL-001); empty note author (DQ-MEDIUM-008); zero-dates (DQ-MEDIUM-006) |
+| Get medications | `PrescriptionService` (UNION of `prescriptions` and `lists`/`lists_medication`), `MedicationPatientIssueService` | UC-01, UC-03 | Two unlinked, conflicting sources (DQ-HIGH-003); `activity` vs `enddate` status conflict (DQ-HIGH-002); option-id dose fields (DQ-MEDIUM-010) |
+| Get problems | `ConditionService` (returns one row per linked encounter; dedupe by `condition_uuid`), `PatientIssuesService::getActiveIssues` | UC-01, UC-03 | Duplicate rows (DQ-MEDIUM-014); NULL `begdate` (DQ-HIGH-004); ICD-9/uncoded text (DQ-HIGH-005) |
+| Get allergies | `AllergyIntoleranceService` plus the `lists_touch` review marker | UC-01 | "Not documented" vs "reviewed, none" (DQ-MEDIUM-007); missing reaction/severity |
+| Get lab observations | `ProcedureService::search()` with a `puuid` token (verified on synthetic data). **Not** `ProcedureService::getAll()`, which emits invalid SQL (PERF-MED-001). `ObservationLabService` not yet exercised | UC-01, UC-02 | Text/qualified values, missing unit/range/flag, corrected results (DQ-MEDIUM-009) |
+| Get patient context | `PatientService::findByPid` | All | Wrong patient; no patient-level authorization in OpenEMR (SEC-HIGH-001) |
+
+**Audit note:** raw service output for a five-year synthetic patient is about
+169 KB, roughly 42K tokens (PERF-MED-005). Tools must project fields, apply a
+time window, cap rows, and report truncation.
 
 Each tool must define its authorization requirement, latency budget, timeout,
 retry safety, source-reference format, audit event, and user-visible degradation
@@ -139,6 +169,13 @@ behavior, and what remains vulnerable to semantic misinterpretation.
 - TODO: Define cache isolation and invalidation before enabling caching.
 - TODO: Add measured 10- and 50-user baselines and scaling implications.
 
+**Audit note** (`docs/audit/performance.md`):
+- Measured single-request baselines: clinical services 1–25 ms in-process,
+  including a 5-year synthetic chart; dashboard render ≈360 ms and ≈1,045 SQL
+  statements; public FHIR `metadata` p95 ≈1 s.
+- Proposed budget: gateway ≤50 ms, tool fan-out ≤300 ms, LLM ≤4 s,
+  verification ≤150 ms.
+
 ## Deployment and Operations
 
 - The accepted smoke-test baseline is recorded in
@@ -154,6 +191,12 @@ behavior, and what remains vulnerable to semantic misinterpretation.
 - TODO: Define `/health` and meaningful `/ready` dependency semantics.
 - TODO: Link alert definitions and the on-call runbook.
 
+**Audit note:** the upstream image publicly serves private keys and the dev
+compose file (SEC-HIGH-500, confirmed live), containers are unhardened, and the
+DB root password sits in the web process environment (SEC-MEDIUM-503).
+OpenEMR `readyz` is unusable as a readiness gate (SEC-MED-007). See
+`docs/deployment/digitalocean.md`, "Before the Evaluator Deployment".
+
 ## Privacy and Compliance
 
 - TODO: Create the PHI data-flow inventory.
@@ -161,6 +204,13 @@ behavior, and what remains vulnerable to semantic misinterpretation.
 - TODO: Define audit events, retention, access review, incident response, and
   deletion behavior.
 - TODO: State why the demo is not authorization for real clinical use.
+
+**Audit note:** `docs/audit/compliance.md` already contains:
+- the PHI data-flow inventory (§4);
+- BAA implications, including that an LLM BAA does not cover hosted
+  LangSmith/Langfuse (§4);
+- proposed `copilot-*` audit events (§5);
+- retention, breach-notification, and deletion procedures, demo vs real (§2, §6).
 
 ## Evaluation Strategy
 
