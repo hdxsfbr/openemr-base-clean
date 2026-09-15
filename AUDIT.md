@@ -744,10 +744,16 @@ None of these shows up on a three-patient, one-visit dataset.
 - **Patient isolation equals OpenEMR's, by decision (ADR-0002).** Any
   clinician can summarize any chart they could open. Our gateway must
   replicate the chart's checks faithfully, since the services enforce
-  nothing; a missed section check is a leak the chart would not have. Until
-  adversarial evals pass for every role, patient switch, and tab scenario,
-  cross-patient disclosure is the highest-impact risk. The squad-restricted
-  and direct-API (bearer token) cases were not live-tested.
+  nothing; a missed section check is a leak the chart would not have. This
+  happened once: on 2026-09-15 the first live role test showed
+  `AclMain::aclCheckIssue()` allowing every user when the issue-type table is
+  not loaded at page scope (true in the gateway's session-less request), so
+  Front Office briefly received problems and allergies through the co-pilot.
+  Fixed the same day by reading `issue_types.aco_spec` directly and failing
+  closed; the per-role matrix is now a CLI artifact and a collection test.
+  Until adversarial evals pass for every role, patient switch, and tab
+  scenario, cross-patient disclosure is the highest-impact risk. The
+  squad-restricted and direct-API (bearer token) cases were not live-tested.
 - **Public deployment was probed briefly and unauthenticated.** File exposure,
   readiness, cookies, TLS, API surface, and unauthenticated latency are
   verified. Authenticated flows, dashboard latency on the Droplet, and load

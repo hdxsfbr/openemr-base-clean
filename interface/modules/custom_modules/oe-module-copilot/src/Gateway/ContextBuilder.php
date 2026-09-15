@@ -88,19 +88,49 @@ final class ContextBuilder
         );
     }
 
-    /** @return array<string, bool> the chart's own checks (demographics.php, encounters.php), by username */
+    /**
+     * The chart's own checks (demographics.php, encounters.php), by username.
+     *
+     * Issue sections are NOT checked through AclMain::aclCheckIssue(): that
+     * helper returns true whenever the $ISSUE_TYPES table is not loaded at
+     * global scope, which is the case in this session-less gateway request
+     * (observed 2026-09-15: Front Office was granted problems and allergies).
+     * The gateway reads the same `issue_types.aco_spec` the chart uses and
+     * fails closed when a spec is missing.
+     *
+     * @return array<string, bool>
+     */
     public static function sectionMatrix(string $username): array
     {
+        $specs = self::issueAcoSpecs();
+        $issue = static function (string $type) use ($specs, $username): bool {
+            $spec = $specs[$type] ?? '';
+            if ($spec === '' || !str_contains($spec, '|')) {
+                error_log('oe-module-copilot: no aco_spec for issue type ' . $type . '; denying (fail closed)');
+                return false;
+            }
+            return (bool) AclMain::aclCheckAcoSpec($spec, $username);
+        };
         return [
             'demo' => (bool) AclMain::aclCheckCore('patients', 'demo', $username),
             'encounters' => (bool) AclMain::aclCheckCore('encounters', 'notes', $username),
             'notes' => (bool) AclMain::aclCheckCore('encounters', 'notes', $username),
-            'problems' => (bool) AclMain::aclCheckIssue('medical_problem', $username),
-            'medications' => (bool) AclMain::aclCheckIssue('medication', $username),
+            'problems' => $issue('medical_problem'),
+            'medications' => $issue('medication'),
             'prescriptions' => (bool) AclMain::aclCheckCore('patients', 'rx', $username),
-            'allergies' => (bool) AclMain::aclCheckIssue('allergy', $username),
+            'allergies' => $issue('allergy'),
             'labs' => (bool) AclMain::aclCheckCore('patients', 'lab', $username),
         ];
+    }
+
+    /** @return array<string, string> issue type => aco_spec, from the table the chart's $ISSUE_TYPES is built from */
+    private static function issueAcoSpecs(): array
+    {
+        $out = [];
+        foreach (QueryUtils::fetchRecords("SELECT type, aco_spec FROM issue_types WHERE type IN ('medical_problem', 'medication', 'allergy')") as $row) {
+            $out[(string) $row['type']] = (string) ($row['aco_spec'] ?? '');
+        }
+        return $out;
     }
 
     public static function isBreakGlass(string $username): bool

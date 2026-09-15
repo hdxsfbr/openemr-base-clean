@@ -1,0 +1,59 @@
+meta {
+  name: 09 Front desk turn
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{agent_base}}/v1/conversations/{{conversation_id}}/turns
+  body: json
+  auth: none
+}
+
+headers {
+  X-Copilot-Token: {{ticket}}
+  X-Correlation-Id: {{turn_correlation}}
+}
+
+body:json {
+  {
+    "message": "What changed since the last visit?",
+    "correlation_id": "{{turn_correlation}}",
+    "stream": false
+  }
+}
+
+script:pre-request {
+  // Logged in as the Front Office user by request 08: open the chart, bind a new
+  // conversation, and mint a ticket for it.
+  await bru.runRequest("1 Session/02 Open Chart");
+  const s = await bru.runRequest("1 Session/03 Co-Pilot Session");
+  bru.setVar("csrf", s.data.csrf_token);
+  const c = await bru.runRequest("1 Session/04 Start Conversation");
+  bru.setVar("conversation_id", c.data.conversation_id);
+  const t = await bru.runRequest("1 Session/05 Ticket");
+  bru.setVar("ticket", t.data.token);
+  bru.setVar("turn_correlation", t.data.correlation_id);
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("every clinical tool is forbidden for Front Office; demographics allowed", function () {
+    const body = res.getBody();
+    const byTool = Object.fromEntries(body.evidence.map(e => [e.tool, e.status]));
+    ["encounters", "clinical_notes", "problems", "medications", "allergies", "lab_results"].forEach(t => expect(byTool[t]).to.equal("unavailable"));
+    expect(byTool["patient_context"]).to.equal("ok");
+  });
+  test("no clinical claims reach a Front Office user", function () {
+    expect(res.getBody().claims.length).to.equal(0);
+  });
+}
+
+docs {
+  ADR-0002 parity: the co-pilot answers with exactly what this role could open
+  in the chart. Front Office sees demographics only, so every clinical section
+  is `unavailable / forbidden` and the response carries no clinical claim.
+}

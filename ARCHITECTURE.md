@@ -674,7 +674,11 @@ now, no orchestration rewrite in Week 2).
 
 ## Known Limitations
 
-- Any clinician can summarize any chart they could open (ADR-0002).
+- Any clinician can summarize any chart they could open (ADR-0002). The
+  gateway re-implements the chart's checks; one OpenEMR helper
+  (`aclCheckIssue`) fails open outside a page context and is bypassed in
+  favor of the issue-type ACL specs read directly (found and fixed
+  2026-09-15). Every role must stay covered by a live negative test.
 - Note coverage: Clinical Notes and SOAP forms; other encounter form types
   are reported as "not covered", not absent.
 - Terminology: codes and titles as written; no ICD-9 to ICD-10 or RxNorm

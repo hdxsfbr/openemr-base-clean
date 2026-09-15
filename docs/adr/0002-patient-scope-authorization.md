@@ -173,6 +173,16 @@ the deferred path.
 
 ## Verification
 
+- **Found by the first live role test (2026-09-15):** `AclMain::aclCheckIssue()`
+  returns true for every user when `$ISSUE_TYPES` is not loaded at global
+  scope, which is the case in the session-less gateway request; Front Office
+  was granted problems and allergies through the co-pilot while the chart
+  hides them. The gateway now reads `issue_types.aco_spec` itself and fails
+  closed on a missing spec (`ContextBuilder::sectionMatrix`). The
+  `bin/acl_matrix.php` CLI prints the effective matrix per user, and the
+  Bruno collection's Front Office turn asserts every clinical section is
+  `unavailable`. This is the "a missed check is a leak the chart would not
+  have" risk realized once and closed; it stays a listed negative test.
 - Negative tests per role and per tool: `audit-frontdesk` receives
   `unavailable/forbidden` on every clinical tool, with no service call and no
   model call (assert on audit event order and tracer spans).
