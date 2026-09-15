@@ -180,15 +180,18 @@ ssh "deployer@$DROPLET_IP" cat /opt/agentforge/secrets/demo_user_password
 ```
 
 Operator-supplied secrets (`anthropic_api_key`, `langfuse_public_key`,
-`langfuse_secret_key`) are empty placeholders until written into
-`/opt/agentforge/secrets/`; the agent's `/ready` reports each as
-`not_configured` until then. Keep them mode 0644 (start.sh sets this): Compose
-file secrets keep the host file's mode and the agent runs as uid 10001; the
-secrets directory itself is 0700. After writing them:
+`langfuse_secret_key`) live on the operator's machine as one file each in
+`~/.config/agentforge/`, next to `do.env`, and are never committed. Push
+whichever exist and restart the agent with:
 
 ```bash
-ssh "deployer@$DROPLET_IP" 'cd /opt/agentforge && docker compose up -d --force-recreate agent'
+./push-secrets.sh "$DROPLET_IP"
 ```
+
+`deploy.sh` runs the same push before `start.sh`, so a redeploy keeps them.
+On the Droplet they are mode 0644 inside the 0700 secrets directory (Compose
+file secrets keep the host mode and the agent runs as uid 10001). Until they
+exist the agent's `/ready` reports each as `not_configured`.
 
 Retrieve the generated demo administrator password only over SSH:
 

@@ -56,6 +56,9 @@ tar -C "${repo_root}/agent" -cf - --exclude='.venv' --exclude='__pycache__' --ex
 tar -C "${repo_root}/evals/fixtures" -cf - cohort \
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/demo -xf -'
 
+# Operator secrets from ~/.config/agentforge/ (skipped when absent), before start.sh.
+"${script_dir}/push-secrets.sh" "${droplet_ip}" 2>/dev/null | grep '^pushed' || true
+
 printf -v remote_command 'cd /opt/agentforge && chmod 700 start.sh openemr-entrypoint.sh && ./start.sh %q %q %q' \
     "${public_hostname}" "${tls_email}" "${openemr_image}"
 # Values are escaped with printf %q before intentional client-side expansion.
