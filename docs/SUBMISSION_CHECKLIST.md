@@ -16,7 +16,9 @@ conflict with OpenEMR's own `README.md`.
 
 ### Hard gates and repository
 
-- [ ] Public repository is based on the required OpenEMR fork.
+- [x] Public repository is based on the required OpenEMR fork. *(GitLab
+      repository initialised from the `Gauntlet-HQ/openemr-base-clean` fork;
+      OpenEMR history retained. 2026-09-16.)*
 - [x] `README_AGENT_FORGE.md` contains deployed URL, setup, architecture
       overview, demo credentials, test commands, and limitations. *(2026-09-16.)*
 - [x] `AUDIT.md` begins with an approximately 500-word key-findings summary and
@@ -62,12 +64,16 @@ conflict with OpenEMR's own `README.md`.
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
 - [x] Runnable API collection covers core endpoints. *(Bruno, 21/21 on the
       deployment 2026-09-16.)*
-- [ ] No credentials, tokens, session IDs, PHI, or private trace URLs are
-      committed.
+- [x] No credentials, tokens, session IDs, PHI, or private trace URLs are
+      committed. *(Secret scan 2026-09-16: only OpenEMR's own bundled test
+      key matched; secrets live in `~/.config/agentforge` and Docker
+      secrets on the Droplet.)*
 
 ### Submission package
 
-- [ ] Live application URL tested from outside the development machine.
+- [x] Live application URL tested from outside the development machine.
+      *(Owner opened `https://openemr-137-184-4-22.sslip.io` from a phone on
+      mobile data, 2026-09-16.)*
 - [ ] Repository URL and exact commit recorded.
 - [ ] Dashboard access or sanitized evidence prepared for evaluators.
 - [x] Eval dataset and results included. *(`evals/cases/`, `evals/results/`.)*
