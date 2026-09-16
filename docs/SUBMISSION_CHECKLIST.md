@@ -53,8 +53,10 @@ conflict with OpenEMR's own `README.md`.
       *(`docs/operations/correlation-id-walkthrough.md` with a real turn.)*
 - [x] Observability records order, latency, failures, tokens, and cost.
       *(Langfuse traces per turn, verified 2026-09-15.)*
-- [ ] Dashboard shows all PRD-required metrics. *(`/metrics` and Langfuse
-      traces carry them; owner to pin a Langfuse dashboard and screenshot it.)*
+- [x] Dashboard shows all PRD-required metrics. *(Langfuse dashboard
+      "Clinical Co-Pilot": requests, p50/p95, errors, retries, tool calls,
+      tool failures, tokens, cost; `docs/operations/langfuse-dashboard.md`,
+      2026-09-16. Screenshot for evaluators still to attach.)*
 - [x] Eval suite includes boundary, invariant, and regression cases. *(33
       cases, 33/33 after the DQ-HIGH-002 gateway fix, `evals/results/`.)*
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
