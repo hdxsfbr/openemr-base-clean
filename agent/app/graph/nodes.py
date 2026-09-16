@@ -20,6 +20,7 @@ from ..gateway_client import GatewayPort, unavailable
 from ..model import ModelError, ModelPort, NarrateResult, PlanResult, Usage
 from ..settings import settings
 from ..state_store import get_pack, put_pack
+from ..telemetry import record_tool_result, tool_observation
 from ..verifier import default_suggestions, deterministic_summary, filter_suggestions, verify, verify_summary
 from .state import TurnState
 
@@ -99,6 +100,12 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         return {"turn_type": turn_type, "route": "retrieve" if turn_type == "uc01_first" else "plan"}
 
     async def _call(tool: str, params: dict[str, Any], state: TurnState) -> ToolResponse:
+        with tool_observation(tool) as obs:
+            response = await _call_inner(tool, params, state)
+            record_tool_result(obs, response)
+            return response
+
+    async def _call_inner(tool: str, params: dict[str, Any], state: TurnState) -> ToolResponse:
         if state.get("fault") == f"tool:{tool}":
             return unavailable(tool, "fault_injected", state["correlation_id"])
         model = PARAM_MODELS.get(tool, WindowParams)

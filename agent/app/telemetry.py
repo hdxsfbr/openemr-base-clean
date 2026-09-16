@@ -147,6 +147,45 @@ def generation(name: str, model: str) -> Iterator[Any]:
         yield _NoGeneration()
 
 
+@contextmanager
+def tool_observation(name: str) -> Iterator[Any]:
+    """A Langfuse tool-type observation for one gateway call, nested under
+    the current turn trace, so tool volume, failures, and latency show on the
+    agent dashboards. Only status, reason, and counts are attached; never
+    records. No-op when the tracer is off."""
+    try:
+        if not _ensure_client():
+            yield _NoGeneration()
+            return
+        from langfuse import get_client
+
+        with get_client().start_as_current_observation(as_type="tool", name=name) as obs:
+            yield obs
+    except Exception as exc:  # noqa: BLE001 - telemetry never blocks care
+        log.warning("tool observation unavailable: %s", exc.__class__.__name__, extra={"component": "telemetry"})
+        yield _NoGeneration()
+
+
+def record_tool_result(obs: Any, response: Any) -> None:
+    """Attach the PHI-free outcome of a tool call to its observation."""
+    try:
+        status = getattr(getattr(response, "status", None), "value", None) or str(getattr(response, "status", ""))
+        reason = getattr(response, "reason", None)
+        obs.update(
+            level="ERROR" if status == "unavailable" else "DEFAULT",
+            status_message=reason if status == "unavailable" else None,
+            metadata={
+                "status": status,
+                "reason": reason,
+                "record_count": len(getattr(response, "records", None) or []),
+                "truncated": bool(getattr(response, "truncated", False)),
+                "gateway_latency_ms": getattr(response, "latency_ms", None),
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def record_usage(gen: Any, usage: Any, **metadata: Any) -> None:
     try:
         gen.update(
