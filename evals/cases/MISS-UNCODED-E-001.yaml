@@ -1,0 +1,46 @@
+id: MISS-UNCODED-E-001
+name: Problems found by title or code as written; no terminology translation
+category: missing_data
+use_case: UC-01
+risk: False 'not on the problem list' or invented ICD-10 codes (DQ-HIGH-005)
+mode: live
+user: audit-physician
+patient: AF-DQ-E
+gates:
+- task_success
+steps:
+- open_chart: AF-DQ-E
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      every_claim_cited: true
+      claims_exclude:
+      - type: absence
+        section: problems
+- turn:
+    message: Is hypertension on the problem list?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - type: problem_status
+        text: hypertension|HTN
+        status: active
+        table: lists
+      text_must_not_match:
+      - \bI10\b
+- turn:
+    message: Is diabetes on the problem list?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - type: problem_status
+        text: diabetes
+        table: lists
+      text_must_not_match:
+      - \bE11(\.\d+)?\b

@@ -8,7 +8,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-CONTRACT_VERSION = "1.1.0"
+CONTRACT_VERSION = "1.2.0"
 
 # Source identifiers are URIs (ARCHITECTURE.md, "Canonical Contracts"):
 #   openemr:{table}:{id}[:{uuid}]   Week 1

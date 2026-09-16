@@ -134,19 +134,39 @@ def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
         if str(f.get("status", "")).lower() != rec.status or str(f.get("name", "")).lower() not in rec.name.lower():
             _reject(result, claim, "type_facts", "name or status differs from record")
             return
+    elif t is ClaimType.problem_status:
+        rec = records[0]
+        if not isinstance(rec, ProblemRecord):
+            _reject(result, claim, "type_facts", "not a problem record")
+            return
+        name = str(f.get("name", "")).lower().strip()
+        codes = {c.as_written.lower() for c in rec.codes}
+        if not name or (name not in rec.title.lower() and name not in codes):
+            _reject(result, claim, "type_facts", f"name {f.get('name')!r} is not the record's title {rec.title!r} or one of its codes as written")
+            return
+        if str(f.get("status", "")).lower() != rec.status:
+            _reject(result, claim, "type_facts", f"status {f.get('status')!r} differs from the record's {rec.status!r}")
+            return
     elif t is ClaimType.lab_result:
         rec = records[0]
         if not isinstance(rec, LabResultRecord):
             _reject(result, claim, "type_facts", "not a lab record")
             return
-        if (
-            str(f.get("value_text", "")).strip() != rec.value_text.strip()
-            or (f.get("unit") or None) != rec.unit
-            or not _same_day(f.get("date"), _day(rec.date))
-            or str(f.get("flag", "")) != rec.flag
-            or str(f.get("analyte", "")).lower() not in rec.analyte.lower()
-        ):
-            _reject(result, claim, "type_facts", "value, unit, date, flag, or analyte differs from record")
+        claimed_unit = f.get("unit")
+        claimed_unit = None if claimed_unit in (None, "", "MISSING", "missing", "null") else str(claimed_unit)
+        mismatch = None
+        if str(f.get("value_text", "")).strip() != rec.value_text.strip():
+            mismatch = f"value_text {f.get('value_text')!r} differs from the record's {rec.value_text!r}"
+        elif claimed_unit != rec.unit:
+            mismatch = f"unit {f.get('unit')!r} differs from the record's {rec.unit or 'MISSING'!r}; copy the pack's unit, null when MISSING"
+        elif not _same_day(f.get("date"), _day(rec.date)):
+            mismatch = f"date {f.get('date')!r} differs from the record's {_day(rec.date)}"
+        elif str(f.get("flag", "")) != rec.flag:
+            mismatch = f"flag {f.get('flag')!r} differs from the record's {rec.flag!r}"
+        elif str(f.get("analyte", "")).lower() not in rec.analyte.lower():
+            mismatch = f"analyte {f.get('analyte')!r} is not the record's {rec.analyte!r}"
+        if mismatch:
+            _reject(result, claim, "type_facts", mismatch)
             return
         if rec.corrected and "correct" not in claim.text.lower():
             _reject(result, claim, "type_facts", "corrected result not stated as corrected")
@@ -200,8 +220,11 @@ def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
             if state != resp.absence_state.value:
                 _reject(result, claim, "type_facts", f"absence state is {resp.absence_state.value}")
                 return
-        elif state != "no_records_in_window" or resp.records:
-            _reject(result, claim, "type_facts", "records exist or state mismatch")
+        elif resp.records:
+            _reject(result, claim, "type_facts", f"{section} has {len(resp.records)} record(s) in the pack; an absence claim is not allowed for it")
+            return
+        elif state != "no_records_in_window":
+            _reject(result, claim, "type_facts", f"absence state for {section} must be no_records_in_window, not {state!r}")
             return
     elif t is ClaimType.conflict:
         has_conflict = any(isinstance(r, MedicationRecord) and r.status_conflict for r in records)
@@ -272,6 +295,7 @@ _TYPE_PHRASES = {
     ClaimType.lab_result: ("lab result", "lab results"),
     ClaimType.lab_comparison: ("lab comparison", "lab comparisons"),
     ClaimType.medication_status: ("medication status", "medication statuses"),
+    ClaimType.problem_status: ("problem status", "problem statuses"),
     ClaimType.documented_reference: ("documented reference", "documented references"),
     ClaimType.absence: ("absence", "absences"),
     ClaimType.conflict: ("conflict", "conflicts"),
@@ -286,7 +310,9 @@ def deterministic_summary(accepted: list[Claim], withheld: int, window_since: st
     if narrate_error:
         lead = "The narrative service was unavailable, so this answer lists verified chart records only."
     elif not accepted:
-        return "No statement about this question could be verified against the chart." + (f" {withheld} statement(s) were withheld." if withheld else "")
+        if not withheld:
+            return "No statement about this question could be made from the chart sections that were retrievable."
+        return f"No statement about this question could be verified against the chart. {withheld} statement(s) were withheld."
     else:
         lead = ""
     counts: dict[ClaimType, int] = {}

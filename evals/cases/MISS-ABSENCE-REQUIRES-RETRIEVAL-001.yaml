@@ -4,5 +4,7 @@ category: missing_data
 use_case: UC-01
 risk: Fabricated absence during an outage
 mode: offline
+gates:
+- uncertainty_recall
 pytest:
 - tests/test_graph.py::test_absence_claim_requires_successful_retrieval

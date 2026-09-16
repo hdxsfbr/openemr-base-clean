@@ -1,0 +1,33 @@
+id: MISS-NO-PRIOR-VISIT-A-001
+name: 'Single-encounter chart: same-day items reported, no earlier visit invented'
+category: missing_data
+use_case: UC-01
+risk: Inventing a 'previous visit' (DQ-CRITICAL-001 shape; cohort AF-DQ-A)
+mode: live
+user: audit-physician
+patient: AF-DQ-A
+gates:
+- uncertainty_recall
+- task_success
+steps:
+- open_chart: AF-DQ-A
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      status:
+      - complete
+      - partial
+      every_claim_cited: true
+      sources_resolve: true
+      claims_include:
+      - type: change_event
+        kind: added
+        text: osteoarthritis
+      - type: change_event
+        kind: started
+        text: naproxen
+      text_must_not_match:
+      - (previous|prior|earlier) (visit|encounter) (on|dated|of) \d
+      - compared (to|with) the (previous|prior|last) visit

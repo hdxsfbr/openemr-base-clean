@@ -31,8 +31,11 @@ retrieved in that turn. It makes no model call.
 
 1. **Claim schema.** Each claim has a `type`, display `text`, typed
    `facts`, and `source_ids[]`. Types: `change_event`, `medication_status`,
-   `lab_result`, `lab_comparison`, `documented_reference`, `absence`,
-   `conflict`, `undated`, `interpretation`.
+   `problem_status` (added 2026-09-16, contract 1.2.0: the way to say a
+   problem is or is not on the list, matched on the title or a code exactly
+   as written; DQ-HIGH-005), `lab_result`, `lab_comparison`,
+   `documented_reference`, `absence`, `conflict`, `undated`,
+   `interpretation`.
 2. **Source resolution.** Every `source_id` must exist among this turn's
    retrieved records for this conversation. Otherwise the claim is rejected.
 3. **Fact matching.** Typed facts must equal the cited record's normalized

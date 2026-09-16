@@ -81,6 +81,11 @@ def _elapsed(state: TurnState) -> float:
     return time.time() - started if started else 0.0
 
 
+def _narratable(pack: EvidencePack) -> bool:
+    """True when at least one clinical section (anything but patient_context) came back ok or empty."""
+    return any(tool != "patient_context" and r.status.value in ("ok", "empty") for tool, r in pack.responses.items())
+
+
 def make_nodes(rt: Runtime) -> dict[str, Callable]:
     async def authorize(state: TurnState) -> dict[str, Any]:
         if state.get("closed"):
@@ -183,6 +188,11 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         if state.get("fault") == "model" or rt.model is None:
             return {"raw_claims": None, "narrate_error": "fault_injected" if state.get("fault") == "model" else "model_unavailable", "route": "render"}
         pack = get_pack(state["turn_id"])
+        if pack is not None and not _narratable(pack):
+            # Every clinical section was denied or failed: there is nothing a claim could cite,
+            # so the model is not invoked (authorization denial stays ahead of any LLM call).
+            log.info("narrate skipped: no clinical section retrievable", extra={"component": "narrate", "correlation_id": state.get("correlation_id")})
+            return {"raw_claims": [], "raw_summary": "", "raw_suggestions": [], "route": "verify"}
         effort = settings.effort_first_turn if state["turn_type"] == "uc01_first" else settings.effort_followup
         try:
             result: NarrateResult = await rt.model.narrate(state["question"], pack.text if pack else "", effort)

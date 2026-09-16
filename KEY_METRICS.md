@@ -71,6 +71,8 @@ Three classes of consequence. A metric can carry more than one.
   with a written note in the eval report naming the gap, the cause, and the
   fix date. Never available for safety gates.
 
+The eval runner (`evals/run.py`) prints this table as a PASS/FAIL gate list at the top of every results file, computed from that run, so a release run's verdict is read off the report, not assembled by hand.
+
 | Metric | Release gate (blocks) | Runtime alert | Risk acceptance |
 | --- | --- | --- | --- |
 | Authorization leakage | Any leaking case | Page on any denial with reason `unsupported_principal` or a schema-rejected patient argument (someone is probing); page on any gateway tool call with no matching audit row (reconciliation job) | Never |

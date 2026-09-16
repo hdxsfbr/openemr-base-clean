@@ -1,0 +1,42 @@
+id: MISS-UNDATED-PROBLEM-D-001
+name: Problem with no clinical date is 'undated', never a change dated by its modification stamp
+category: missing_data
+use_case: UC-01
+risk: Maintenance timestamps read as clinical dates (DQ-HIGH-004)
+mode: live
+user: audit-physician
+patient: AF-DQ-D
+gates:
+- uncertainty_recall
+steps:
+- open_chart: AF-DQ-D
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      every_claim_cited: true
+      claims_include:
+      - type: undated
+        section: problems
+        text: kidney|CKD
+      claims_exclude:
+      - type: change_event
+        section: problems
+      limitations_include:
+      - kind: undated
+        section: lists
+- turn:
+    message: When was CKD first documented?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - type: undated
+        text: kidney|CKD
+      claims_exclude:
+      - type: change_event
+        section: problems
+      text_must_not_match:
+      - (first )?documented (on|in) (20\d\d|[A-Z][a-z]+ \d)

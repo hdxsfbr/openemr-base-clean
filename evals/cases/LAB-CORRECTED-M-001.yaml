@@ -6,6 +6,8 @@ risk: Superseded value presented as current
 mode: live
 user: audit-physician
 patient: AF-DQ-M
+gates:
+- uncertainty_recall
 steps:
 - open_chart: AF-DQ-M
 - start: {}
@@ -16,3 +18,11 @@ steps:
       every_claim_cited: true
       text_must_match:
       - correct
+      claims_include:
+      - type: lab_result
+        text: creatinine.*1\.2|1\.2.*creatinine
+      - type: lab_result
+        text: correct
+      claims_exclude:
+      - type: lab_comparison
+        text: creatinine

@@ -15,6 +15,7 @@ from .common import CorrelationId, SourceId, StrictModel
 class ClaimType(StrEnum):
     change_event = "change_event"
     medication_status = "medication_status"
+    problem_status = "problem_status"
     lab_result = "lab_result"
     lab_comparison = "lab_comparison"
     documented_reference = "documented_reference"
@@ -45,8 +46,8 @@ class ClaimFacts(StrictModel):
     section: str | None = Field(default=None, max_length=32, description="change_event, absence, undated")
     kind: str | None = Field(default=None, max_length=32, description="change_event: added|ended|started|stopped|resulted|noted; conflict: status_conflict|note_vs_list|duplicate_sources")
     date: str | None = Field(default=None, max_length=10, description="YYYY-MM-DD for change_event and lab_result")
-    name: str | None = Field(default=None, max_length=255, description="medication_status: medication name")
-    status: str | None = Field(default=None, max_length=32, description="medication_status: active|inactive|unknown")
+    name: str | None = Field(default=None, max_length=255, description="medication_status: medication name; problem_status: problem title as written")
+    status: str | None = Field(default=None, max_length=32, description="medication_status, problem_status: active|inactive|unknown")
     analyte: str | None = Field(default=None, max_length=255, description="lab_result, lab_comparison")
     value_text: str | None = Field(default=None, max_length=255, description="lab_result: exactly as in the pack")
     unit: str | None = Field(default=None, max_length=64, description="lab_result: exactly as in the pack, null if missing")

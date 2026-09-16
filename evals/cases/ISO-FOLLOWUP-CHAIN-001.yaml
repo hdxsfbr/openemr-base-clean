@@ -23,6 +23,9 @@ steps:
       - lab_result
       source_tables_include:
       - procedure_result
+      claims_include:
+      - type: lab_result
+        flag: abnormal
 - turn:
     message: Was the amlodipine change documented in a note?
     expect:
@@ -33,6 +36,8 @@ steps:
         clinical_notes:
         - ok
         - empty
+      tools_called_include:
+      - clinical_notes
 - history:
     expect:
       turns_min: 3

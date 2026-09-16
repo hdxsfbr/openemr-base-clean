@@ -6,6 +6,8 @@ risk: Invalid cross-unit comparison
 mode: live
 user: audit-physician
 patient: AF-DQ-K
+gates:
+- uncertainty_recall
 steps:
 - open_chart: AF-DQ-K
 - start: {}
@@ -18,3 +20,17 @@ steps:
       every_claim_cited: true
       text_must_not_match:
       - (rose|fell|increased|decreased|up|down) from 5\.5
+- turn:
+    message: What is the most recent potassium result?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - type: lab_result
+        text: potassium
+      text_must_match:
+      - unit
+      claims_exclude:
+      - type: lab_result
+        text: potassium.*(mmol|mEq)

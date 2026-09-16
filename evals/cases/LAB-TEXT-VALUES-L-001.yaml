@@ -1,0 +1,29 @@
+id: LAB-TEXT-VALUES-L-001
+name: Text-valued results are quoted verbatim and never compared
+category: lab
+use_case: UC-02
+risk: '''>200'' or ''hemolyzed'' parsed into a trend (DQ-MEDIUM-009)'
+mode: live
+user: audit-physician
+patient: AF-DQ-L
+gates:
+- uncertainty_recall
+steps:
+- open_chart: AF-DQ-L
+- start: {}
+- turn:
+    message: What lab results are on file?
+    expect:
+      http_status: 200
+      every_claim_cited: true
+      claims_include:
+      - type: lab_result
+        text: '>200'
+      - type: lab_result
+        text: hemolyzed
+      - type: lab_result
+        text: \b140\b
+      claims_exclude:
+      - type: lab_comparison
+      text_must_not_match:
+      - \b(rose|fell|increased|decreased|higher|lower|up|down) (from|than|by)\b

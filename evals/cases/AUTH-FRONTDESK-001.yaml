@@ -33,3 +33,4 @@ steps:
       - allergies
       - labs
       - notes
+      model_calls_max: 0

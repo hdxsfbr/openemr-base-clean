@@ -4,6 +4,7 @@ Each test guards a boundary, invariant, or regression risk (evals/README.md)."""
 from __future__ import annotations
 
 import datetime as dt
+import json
 from typing import Any
 
 import pytest
@@ -165,3 +166,63 @@ async def test_closed_conversation_is_denied_before_any_tool_call() -> None:
     await g.aupdate_state(CFG, {"closed": True})
     final = await g.ainvoke(turn_input("What changed since the last visit?"), CFG)
     assert final["status"] == "denied" and gw.calls == []
+
+
+# ---------------------------------------------------------------- verifier details found by the 2026-09-16 cohort sweep
+
+from app.contracts import Claim, ToolResponse  # noqa: E402
+from app.evidence import EvidencePack, add_responses  # noqa: E402
+from app.verifier import verify  # noqa: E402
+from conftest import FIXTURE_DIR  # noqa: E402
+
+HYPERTENSION = "openemr:lists:9000001:a2bfa267-cec6-4277-bd56-093500afd394"
+
+
+def _pack(*tools: str) -> EvidencePack:
+    pack = EvidencePack()
+    add_responses(pack, [ToolResponse.model_validate(json.loads((FIXTURE_DIR / f"af-dq-a2.{t}.json").read_text())) for t in tools])
+    return pack
+
+
+def test_lab_result_with_missing_unit_verifies_and_mismatch_names_the_field() -> None:
+    pack = _pack("lab_results")
+    resp = pack.responses["lab_results"]
+    rec = resp.records[0].model_copy(update={"unit": None, "comparable": False})
+    pack.responses["lab_results"] = resp.model_copy(update={"records": [rec]})
+    pack.records[rec.source.source_id] = rec
+    base = {"id": "c1", "type": "lab_result", "text": f"{rec.analyte} {rec.value_text}, unit missing.", "source_ids": [rec.source.source_id]}
+    facts = {"analyte": rec.analyte, "value_text": rec.value_text, "date": rec.date.value.date().isoformat(), "flag": rec.flag}
+    ok = verify([Claim.model_validate({**base, "facts": {**facts, "unit": None}})], pack)
+    assert [c.id for c in ok.accepted] == ["c1"]
+    guessed = verify([Claim.model_validate({**base, "facts": {**facts, "unit": "mmol/L"}})], pack)
+    assert guessed.rejected and guessed.rejected[0]["detail"].startswith("unit 'mmol/L'")
+
+
+def test_absence_rejection_names_the_section_and_allowed_state() -> None:
+    pack = _pack("problems", "allergies")
+    populated = Claim.model_validate({"id": "c1", "type": "absence", "text": "No problems documented.", "facts": {"section": "problems", "state": "no_records_in_window"}})
+    res = verify([populated], pack)
+    assert res.rejected[0]["detail"].startswith("problems has 3 record(s)")
+
+
+def test_problem_status_claim_verifies_against_title_or_code_only() -> None:
+    pack = _pack("problems")
+    good = {"id": "c1", "type": "problem_status", "text": "Essential hypertension is on the problem list, active.", "facts": {"name": "Essential hypertension", "status": "active"}, "source_ids": [HYPERTENSION]}
+    translated = {"id": "c2", "type": "problem_status", "text": "Hypertension (ICD-9 401.9) is active.", "facts": {"name": "401.9", "status": "active"}, "source_ids": [HYPERTENSION]}
+    wrong_status = {"id": "c3", "type": "problem_status", "text": "Essential hypertension inactive.", "facts": {"name": "Essential hypertension", "status": "inactive"}, "source_ids": [HYPERTENSION]}
+    res = verify([Claim.model_validate(c) for c in (good, translated, wrong_status)], pack)
+    assert [c.id for c in res.accepted] == ["c1"]
+    assert {r["claim_id"] for r in res.rejected} == {"c2", "c3"}
+
+
+@pytest.mark.anyio
+async def test_model_is_not_called_when_every_clinical_section_is_unavailable() -> None:
+    budget.daily.reset()
+    model = FakeModel(claims=[])
+    gateway = FakeGateway(failing={"encounters", "problems", "medications", "allergies", "lab_results", "clinical_notes"})
+    g = make_graph(model, gateway)
+    final = await g.ainvoke(turn_input("What changed since the last visit?", turn_id="fb5c2fa60b22e6ff"), CFG)  # own turn id: the pack store is keyed by it
+    assert model.narrate_calls == 0
+    assert final["status"] == "partial" and final["accepted"] == []
+    assert {l["kind"] for l in final["limitations"]} == {"unavailable"}
+    assert "retrievable" in final["summary"]

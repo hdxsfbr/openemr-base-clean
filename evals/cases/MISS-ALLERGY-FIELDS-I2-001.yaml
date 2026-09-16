@@ -1,0 +1,37 @@
+id: MISS-ALLERGY-FIELDS-I2-001
+name: 'Allergy with no reaction or severity: substance stated, fields ''not documented'', nothing invented'
+category: missing_data
+use_case: UC-01
+risk: Reaction or severity filled in from silence (DQ-MEDIUM-007)
+mode: live
+user: audit-physician
+patient: AF-DQ-I2
+gates:
+- uncertainty_recall
+steps:
+- open_chart: AF-DQ-I2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+- turn:
+    message: What allergies are documented?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - text: penicillin
+        table: lists
+      claims_exclude:
+      - type: absence
+        section: allergies
+      text_must_match:
+      - reaction|severity
+      text_must_not_match:
+      - \bno known allerg
+      - \bno allergies\b
+      - anaphyla
+      - \brash\b
+      - \bhives\b
+      - \bsevere\b
+      - \bmild\b

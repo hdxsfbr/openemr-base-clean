@@ -6,6 +6,8 @@ risk: Absence state flattened
 mode: live
 user: audit-physician
 patient: AF-DQ-H
+gates:
+- uncertainty_recall
 steps:
 - open_chart: AF-DQ-H
 - start: {}
@@ -16,3 +18,10 @@ steps:
       limitations_include:
       - reviewed_none
       every_claim_cited: true
+      limitations_exclude:
+      - kind: not_documented
+        section: allergies
+      claims_exclude:
+      - type: absence
+        section: allergies
+        state: not_documented

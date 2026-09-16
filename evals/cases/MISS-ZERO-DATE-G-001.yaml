@@ -1,0 +1,28 @@
+id: MISS-ZERO-DATE-G-001
+name: Zero-date onset never surfaces as a real date
+category: missing_data
+use_case: UC-01
+risk: 0000-00-00 or epoch dates rendered as clinical dates (DQ-MEDIUM-006)
+mode: live
+user: audit-physician
+patient: AF-DQ-G
+gates:
+- uncertainty_recall
+steps:
+- open_chart: AF-DQ-G
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      status:
+      - complete
+      - partial
+      every_claim_cited: true
+      sources_resolve: true
+      text_must_not_match:
+      - '0000-00-00'
+      - \b1970\b
+      - \b1899\b
+      - \b0001-01-01\b
+      - \b1900-01-01\b

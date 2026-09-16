@@ -1,0 +1,23 @@
+id: MISS-CLINICAL-DATE-D2-001
+name: Medication entered before the last visit but started after it is a change, by its clinical date
+category: missing_data
+use_case: UC-01
+risk: Entry timestamp used instead of the clinical start date (DQ-HIGH-004)
+mode: live
+user: audit-physician
+patient: AF-DQ-D2
+gates:
+- task_success
+steps:
+- open_chart: AF-DQ-D2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      every_claim_cited: true
+      claims_include:
+      - type: change_event
+        section: medications
+        kind: started
+        text: sertraline

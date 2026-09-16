@@ -208,7 +208,7 @@
         return msg;
     }
 
-    var CLAIM_LABELS = { change_event: 'Change', medication_status: 'Medication', lab_result: 'Lab result', lab_comparison: 'Lab trend', documented_reference: 'Documented', absence: 'Absent', conflict: 'Conflict', undated: 'Undated', interpretation: 'Reading' };
+    var CLAIM_LABELS = { change_event: 'Change', medication_status: 'Medication', problem_status: 'Problem', lab_result: 'Lab result', lab_comparison: 'Lab trend', documented_reference: 'Documented', absence: 'Absent', conflict: 'Conflict', undated: 'Undated', interpretation: 'Reading' };
     var STATUS_WORD = { complete: 'Verified', partial: 'Partially verified', fallback: 'Records only', denied: 'Denied', failed: 'Failed' };
 
     function claimDetail(claim) {
@@ -219,7 +219,7 @@
             if (f.flag && f.flag !== 'unknown') { bits.push(f.flag); }
         } else if (claim.type === 'lab_comparison' && f.direction) {
             bits.push(f.analyte ? f.analyte + ' ' + f.direction : f.direction);
-        } else if (claim.type === 'medication_status' && f.status) {
+        } else if ((claim.type === 'medication_status' || claim.type === 'problem_status') && f.status) {
             bits.push(f.status);
         } else if (claim.type === 'absence' && f.state) {
             bits.push(f.state.replace(/_/g, ' '));

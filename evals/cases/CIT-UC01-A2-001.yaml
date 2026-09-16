@@ -6,6 +6,8 @@ risk: Citation theater; claims without a record
 mode: live
 user: audit-physician
 patient: AF-DQ-A2
+gates:
+- task_success
 steps:
 - open_chart: AF-DQ-A2
 - start: {}
@@ -34,3 +36,16 @@ steps:
       verification_outcome:
       - passed
       - partial
+      claims_include:
+      - type: change_event
+        kind: started
+        text: metformin
+      - type: change_event
+        kind: added
+        text: hyperlipidemia
+      - text: amlodipine
+      - text: A1c.*6\.8|6\.8.*A1c
+      - text: \b162\b|LDL
+      claims_exclude:
+      - type: medication_status
+        text: amlodipine

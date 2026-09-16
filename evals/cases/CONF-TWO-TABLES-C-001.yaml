@@ -1,0 +1,40 @@
+id: CONF-TWO-TABLES-C-001
+name: 'Medication in prescriptions and the list with different status: one conflict citing both'
+category: conflict
+use_case: UC-01
+risk: Double-counting or silently picking one source (DQ-HIGH-003)
+mode: live
+user: audit-physician
+patient: AF-DQ-C
+gates:
+- uncertainty_recall
+steps:
+- open_chart: AF-DQ-C
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      every_claim_cited: true
+      claims_include:
+      - type: conflict
+        kind: status_conflict
+        text: metformin
+        tables_all:
+        - prescriptions
+        - lists
+      claims_exclude:
+      - type: medication_status
+        text: metformin
+- turn:
+    message: What does the chart say about metformin?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - type: conflict
+        text: metformin
+      claims_exclude:
+      - type: medication_status
+        text: metformin

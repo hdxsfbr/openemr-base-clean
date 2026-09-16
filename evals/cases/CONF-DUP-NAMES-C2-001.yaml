@@ -1,0 +1,34 @@
+id: CONF-DUP-NAMES-C2-001
+name: Brand and generic entries without a shared code are both listed, never merged
+category: conflict
+use_case: UC-01
+risk: Merging two records on a name guess (DQ-HIGH-003)
+mode: live
+user: audit-physician
+patient: AF-DQ-C2
+gates:
+- uncertainty_recall
+steps:
+- open_chart: AF-DQ-C2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+- turn:
+    message: Which medications are currently listed?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - type: medication_status
+        text: glucophage
+        status: active
+        table: prescriptions
+      - type: medication_status
+        text: metformin
+        status: active
+        table: lists
+      claims_exclude:
+      - text: same (medication|drug|prescription)|duplicate|merged|equivalent
+      summary_must_not_match:
+      - same (medication|drug|prescription)|duplicate|equivalent

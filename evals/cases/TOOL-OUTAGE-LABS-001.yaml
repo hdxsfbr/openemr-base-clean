@@ -6,6 +6,8 @@ risk: Silent omission or fabricated absence
 mode: live
 user: audit-physician
 patient: AF-DQ-A2
+gates:
+- degradation
 steps:
 - open_chart: AF-DQ-A2
 - start: {}

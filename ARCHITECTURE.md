@@ -392,8 +392,9 @@ runner loads it. Hand-written parallel definitions are not permitted.
   deterministic follow-ups when fewer than two survive. They assert nothing
   and are never rendered as facts.
 - `Claim{id, type, text, facts, source_ids[], window?}` with `type` in
-  `change_event | medication_status | lab_result | lab_comparison |
-  documented_reference | absence | conflict | undated | interpretation`.
+  `change_event | medication_status | problem_status | lab_result |
+  lab_comparison | documented_reference | absence | conflict | undated |
+  interpretation`.
   `facts` is typed per claim type (for example `lab_result` carries analyte,
   value, unit, date, flag, range). The enum is open by design: Week 2 adds
   `document_extract` and `guideline_reference` with their own fact types and
@@ -459,6 +460,7 @@ claim. Week 1 registers only the `openemr:` scheme.
 | --- | --- |
 | `change_event` | Record's clinical date inside the window; event kind (added, started, stopped, changed) consistent with record status and dates; undated records may only appear as `undated` |
 | `medication_status` | Status equals the record's normalized status; if `status_conflict`, the claim must be `conflict` and cite both provenances |
+| `problem_status` | Name equals the problem's title or one of its codes exactly as written (no terminology translation); status equals the record's status |
 | `lab_result` | Analyte, value text, unit, date, flag, and range equal the record; a `corrected` record must be cited as corrected |
 | `lab_comparison` | Both records same analyte (code, else exact name), both strictly numeric, same non-empty unit; direction and delta computed by the verifier, not taken from the model |
 | `documented_reference` | The cited note or problem record contains the medication name (or code) as written; the claim text may say "mentions", never "treats" or "for" |

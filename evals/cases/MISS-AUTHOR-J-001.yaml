@@ -1,0 +1,27 @@
+id: MISS-AUTHOR-J-001
+name: Note with no author is 'author not recorded', never attributed to the encounter provider
+category: missing_data
+use_case: UC-01
+risk: Provenance invented from the encounter (DQ-MEDIUM-008)
+mode: live
+user: audit-physician
+patient: AF-DQ-J
+gates:
+- uncertainty_recall
+steps:
+- open_chart: AF-DQ-J
+- start: {}
+- turn:
+    message: What changed since the last visit?
+- turn:
+    message: Who wrote the most recent note?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claims_include:
+      - table: form_clinical_notes
+      text_must_match:
+      - unknown|not (recorded|documented)
+      text_must_not_match:
+      - (written|authored|signed|wrote) by (the )?(physician|dr\b|doctor|provider)

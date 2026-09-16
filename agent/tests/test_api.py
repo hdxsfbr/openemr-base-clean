@@ -43,7 +43,7 @@ def test_turn_returns_contract_shaped_response_with_correlation_id(client: TestC
     assert r.headers["X-Correlation-Id"] == "conv1234abcd.1"
     assert body["verification"]["outcome"] in ("passed", "partial")
     assert {e["tool"] for e in body["evidence"]} >= {"encounters", "lab_results"}
-    assert body["contract_version"] == "1.1.0"
+    assert body["contract_version"] == "1.2.0"
     assert body["summary"] and body["summary_basis"] in ("model", "deterministic")
     assert body["answered_at"] and body["answered_at"].endswith("Z")
     assert isinstance(body["suggestions"], list) and body["suggestions"] and all(s.endswith("?") for s in body["suggestions"])

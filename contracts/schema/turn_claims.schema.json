@@ -193,7 +193,7 @@
             }
           ],
           "default": null,
-          "description": "medication_status: medication name",
+          "description": "medication_status: medication name; problem_status: problem title as written",
           "title": "Name"
         },
         "reading": {
@@ -249,7 +249,7 @@
             }
           ],
           "default": null,
-          "description": "medication_status: active|inactive|unknown",
+          "description": "medication_status, problem_status: active|inactive|unknown",
           "title": "Status"
         },
         "unit": {
@@ -288,6 +288,7 @@
       "enum": [
         "change_event",
         "medication_status",
+        "problem_status",
         "lab_result",
         "lab_comparison",
         "documented_reference",
@@ -331,5 +332,5 @@
   },
   "title": "TurnClaims",
   "type": "object",
-  "x-contract-version": "1.1.0"
+  "x-contract-version": "1.2.0"
 }
