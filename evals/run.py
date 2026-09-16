@@ -767,7 +767,11 @@ def main() -> int:
     print(f"\n{sum(r.passed for r in results)}/{len(results)} passed. Blocking gates: {', '.join(blocking) or 'none'}."
           + ("" if full_run else " (filtered run: the gate table is judged against the full manifest and does not decide the exit code)")
           + f" Report: {md_path.relative_to(ROOT)}")
-    return 0 if all(r.passed for r in results) and (not blocking or not full_run) else 1
+    # A full run is judged by the release gates (KEY_METRICS.md): a non-blocking miss such as
+    # model recall is reported, not fatal. A filtered run is a debugging run and fails on any case.
+    if full_run:
+        return 1 if blocking else 0
+    return 0 if all(r.passed for r in results) else 1
 
 
 if __name__ == "__main__":
