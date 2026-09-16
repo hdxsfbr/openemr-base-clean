@@ -1,0 +1,17 @@
+id: AUTH-TAMPER-001
+name: A tampered delegation token is refused
+category: authorization
+use_case: UC-01
+risk: Forged credential reaching the agent
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    tamper: true
+    expect:
+      http_status: 403
+      code: unauthorized

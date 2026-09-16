@@ -1,0 +1,36 @@
+id: CIT-UC01-A2-001
+name: 'Happy-path brief: every claim cited and resolvable, summary and suggestions present'
+category: citation
+use_case: UC-01
+risk: Citation theater; claims without a record
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      turn_type: uc01_first
+      status:
+      - complete
+      - partial
+      claims_min: 3
+      every_claim_cited: true
+      sources_resolve: true
+      claim_types_include:
+      - change_event
+      - conflict
+      source_tables_include:
+      - lists
+      - procedure_result
+      summary_nonempty: true
+      suggestions_min: 2
+      correlation_header_echo: true
+      correlation_matches_ticket: true
+      latency_ms_max: 45000
+      verification_outcome:
+      - passed
+      - partial

@@ -1,0 +1,9 @@
+id: OBS-STREAM-OFFLINE-001
+name: Streamed turns emit evidence and progress before claims; no claim text early
+category: observability
+use_case: UC-01
+risk: Unverified text leaving before the verifier
+mode: offline
+pytest:
+- tests/test_api.py::test_turn_streams_evidence_then_claims
+- tests/test_api.py::test_turn_returns_contract_shaped_response_with_correlation_id

@@ -1,0 +1,17 @@
+id: AUTH-STALE-TICKET-001
+name: A ticket older than 90 s is refused
+category: authorization
+use_case: UC-01
+risk: Replay of an expired per-turn credential
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    ticket_age_seconds: 95
+    expect:
+      http_status: 403
+      code: unauthorized

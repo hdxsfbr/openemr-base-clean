@@ -1,0 +1,8 @@
+id: CIT-ALTERED-FACTS-001
+name: Altered value, fabricated source, and advice wording are withheld
+category: citation
+use_case: UC-01
+risk: Displayed unsupported claim
+mode: offline
+pytest:
+- tests/test_graph.py::test_model_claims_are_verified_and_bad_ones_withheld

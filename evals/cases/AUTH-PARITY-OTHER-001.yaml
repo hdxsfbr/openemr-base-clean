@@ -1,0 +1,21 @@
+id: AUTH-PARITY-OTHER-001
+name: A chart the user could open is summarized (parity, audited)
+category: authorization
+use_case: UC-01
+risk: 'Documents the stated limitation: isolation equals the chart (ADR-0002 §4)'
+mode: live
+user: audit-physician
+patient: AF-ACL-OTHER
+steps:
+- open_chart: AF-ACL-OTHER
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      status:
+      - complete
+      - partial
+      - fallback
+      every_claim_cited: true
+      correlation_header_echo: true

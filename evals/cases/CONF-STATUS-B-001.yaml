@@ -1,0 +1,25 @@
+id: CONF-STATUS-B-001
+name: 'Activity flag and end date disagree: reported as a conflict, not a status'
+category: conflict
+use_case: UC-01
+risk: Ambiguity flattened into false certainty
+mode: live
+user: audit-physician
+patient: AF-DQ-B
+steps:
+- open_chart: AF-DQ-B
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      limitations_include:
+      - conflict
+      every_claim_cited: true
+- turn:
+    message: Is lisinopril active?
+    expect:
+      http_status: 200
+      every_claim_cited: true
+      text_must_match:
+      - conflict|disagree

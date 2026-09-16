@@ -1,0 +1,20 @@
+id: AUTH-UNSCHED-DIRECT-001
+name: An unscheduled chart opened directly is allowed (parity)
+category: authorization
+use_case: UC-01
+risk: Parity means no care-relationship rule; the deferred policy would deny this
+mode: live
+user: audit-physician
+patient: AF-ACL-UNSCHED
+steps:
+- open_chart: AF-ACL-UNSCHED
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      status:
+      - complete
+      - partial
+      - fallback
+      every_claim_cited: true

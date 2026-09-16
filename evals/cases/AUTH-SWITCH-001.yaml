@@ -1,0 +1,25 @@
+id: AUTH-SWITCH-001
+name: Patient switch closes the conversation before any tool call
+category: authorization
+use_case: UC-01
+risk: Two patients mixed in one conversation (ARCH-HIGH-001, SEC-HIGH-002)
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- open_chart: AF-DQ-B
+- ticket:
+    expect:
+      http_status: 409
+      code: patient_context_changed
+- ticket:
+    expect:
+      http_status: 409
+      code:
+      - patient_context_changed
+      - conversation_closed
+- start:
+    expect:
+      http_status: 200

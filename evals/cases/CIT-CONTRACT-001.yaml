@@ -1,0 +1,10 @@
+id: CIT-CONTRACT-001
+name: Recorded gateway responses match the exported contract; schema not drifted
+category: citation
+use_case: null
+risk: Hand-edited schemas diverging from the source of truth
+mode: offline
+pytest:
+- tests/test_contracts.py::test_recorded_gateway_response_matches_contract
+- tests/test_contracts.py::test_exported_schema_is_current
+- tests/test_contracts.py::test_status_empty_is_distinct_from_unavailable

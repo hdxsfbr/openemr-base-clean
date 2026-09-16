@@ -1,0 +1,8 @@
+id: CIT-SUMMARY-GATE-001
+name: Model prose shown only when every claim verifies and every number is grounded
+category: citation
+use_case: UC-01
+risk: Withheld content leaking through the summary paragraph
+mode: offline
+pytest:
+- tests/test_graph.py::test_model_summary_shown_only_when_every_claim_verifies

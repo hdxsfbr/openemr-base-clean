@@ -1,0 +1,23 @@
+id: CONF-NOTE-VS-LIST-N-001
+name: 'Note says stopped, list says active: both cited'
+category: conflict
+use_case: UC-03
+risk: One source silently preferred
+mode: live
+user: audit-physician
+patient: AF-DQ-N
+steps:
+- open_chart: AF-DQ-N
+- start: {}
+- turn:
+    message: What changed since the last visit?
+- turn:
+    message: Was the atorvastatin stop documented in a note?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      source_tables_include:
+      - form_clinical_notes
+      text_must_match:
+      - atorvastatin

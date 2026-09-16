@@ -1,0 +1,8 @@
+id: MISS-ABSENCE-REQUIRES-RETRIEVAL-001
+name: An absence claim needs a successful retrieval of that section
+category: missing_data
+use_case: UC-01
+risk: Fabricated absence during an outage
+mode: offline
+pytest:
+- tests/test_graph.py::test_absence_claim_requires_successful_retrieval

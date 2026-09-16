@@ -1,0 +1,18 @@
+id: MISS-ALLERGY-REVIEWED-H-001
+name: Reviewed allergy list with no rows is 'reviewed, none recorded'
+category: missing_data
+use_case: UC-01
+risk: Absence state flattened
+mode: live
+user: audit-physician
+patient: AF-DQ-H
+steps:
+- open_chart: AF-DQ-H
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      limitations_include:
+      - reviewed_none
+      every_claim_cited: true

@@ -1,0 +1,9 @@
+id: MODEL-FALLBACK-OFFLINE-001
+name: No model configured still renders a cited brief; budget halt path
+category: model_failure
+use_case: UC-01
+risk: Rendering unverified output
+mode: offline
+pytest:
+- tests/test_graph.py::test_uc01_first_turn_without_model_renders_deterministic_brief
+- tests/test_graph.py::test_budget_exhaustion_routes_to_deterministic_fallback

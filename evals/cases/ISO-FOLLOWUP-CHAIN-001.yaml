@@ -1,0 +1,38 @@
+id: ISO-FOLLOWUP-CHAIN-001
+name: Follow-ups keep the window and chain more than one tool
+category: isolation
+use_case: UC-02
+risk: Context lost or crossed within a conversation
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+- turn:
+    message: Which of those lab results are flagged abnormal?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      claim_types_include:
+      - lab_result
+      source_tables_include:
+      - procedure_result
+- turn:
+    message: Was the amlodipine change documented in a note?
+    expect:
+      http_status: 200
+      turn_type: followup
+      every_claim_cited: true
+      evidence_status:
+        clinical_notes:
+        - ok
+        - empty
+- history:
+    expect:
+      turns_min: 3

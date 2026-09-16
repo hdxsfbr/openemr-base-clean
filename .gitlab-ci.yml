@@ -1,6 +1,6 @@
 # AgentForge Clinical Co-Pilot: fast deterministic checks on every push.
-# The eval subset joins this pipeline once cases exist (evals/README.md); the
-# Week 2 PR-blocking gate is a threshold change here, not new infrastructure.
+# The offline eval subset runs here (evals/README.md); the Week 2 PR-blocking
+# gate is a threshold change here, not new infrastructure.
 stages:
   - lint
   - test
@@ -45,3 +45,19 @@ test:agent:
     - cd agent
     - pip install --quiet '.[dev]'
     - pytest -q
+    - python -m app.contracts.export --check
+
+# Deterministic eval subset (evals/README.md): the offline cases delegate to
+# pytest node ids and need no stack. Live cases run against a deployment with
+# `python evals/run.py` and their results are versioned under evals/results/.
+test:evals-offline:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - cd agent && pip install --quiet '.[dev]' && cd ..
+    - python evals/run.py --offline-only
+  artifacts:
+    when: always
+    paths:
+      - evals/results/
+    expire_in: 30 days

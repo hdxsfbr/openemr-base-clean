@@ -1,0 +1,35 @@
+id: AUTH-FRONTDESK-001
+name: Front Office user receives no clinical section
+category: authorization
+use_case: UC-01
+risk: PHI reaching a role the chart hides it from; the aclCheckIssue fail-open found 2026-09-15 (ADR-0002 Verification)
+mode: live
+user: audit-frontdesk
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      status:
+      - partial
+      - fallback
+      evidence_status:
+        encounters: unavailable
+        problems: unavailable
+        medications: unavailable
+        allergies: unavailable
+        lab_results: unavailable
+        clinical_notes: unavailable
+        patient_context: ok
+      claims_max: 0
+      limitations_include:
+      - unavailable
+      no_claims_in_sections:
+      - problems
+      - medications
+      - allergies
+      - labs
+      - notes

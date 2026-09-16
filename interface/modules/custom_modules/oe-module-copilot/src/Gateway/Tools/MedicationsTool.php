@@ -57,8 +57,11 @@ final class MedicationsTool extends AbstractTool
             $start = Dates::clinical($row['begdate'] ?? null, 'clinical');
             $end = Dates::clinical($row['enddate'] ?? null, 'clinical');
             $endDay = Dates::day($end);
-            $byEnd = $endDay === null ? null : ($endDay > $today ? 'active' : 'inactive'); // the chart greys by end date
-            $byActivity = isset($row['activity']) ? ((int) $row['activity'] === 1 ? 'active' : 'inactive') : null; // the API uses activity
+            // The chart summary greys a list entry by end date only: no end date means it is shown as
+            // current. The API path uses `activity`. When the two disagree (DQ-HIGH-002, fixture AF-DQ-B:
+            // activity=0 with no end date) the record carries a status conflict instead of a status.
+            $byEnd = $endDay === null ? 'active' : ($endDay > $today ? 'active' : 'inactive');
+            $byActivity = isset($row['activity']) ? ((int) $row['activity'] === 1 ? 'active' : 'inactive') : null;
             [$status, $basis, $conflict] = self::reconcile($byEnd, $byActivity);
             $records[] = [
                 'source' => self::source('lists', (int) $row['id'], self::uuid($row['uuid'] ?? null)),

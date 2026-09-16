@@ -1,0 +1,20 @@
+id: MODEL-BUDGET-001
+name: Budget exhaustion routes to the deterministic fallback
+category: model_failure
+use_case: UC-01
+risk: Runaway spend or a silent failure
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    fault: budget
+    expect:
+      http_status: 200
+      status: fallback
+      limitations_include:
+      - model_budget_exhausted
+      every_claim_cited: true

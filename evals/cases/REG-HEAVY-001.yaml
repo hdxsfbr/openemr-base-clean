@@ -1,0 +1,21 @@
+id: REG-HEAVY-001
+name: 'Five-year chart: bounded retrieval, cited brief inside the latency budget'
+category: regression
+use_case: UC-01
+risk: Latency and pack size at volume (PERF-MED-003)
+mode: live
+user: audit-physician
+patient: AF-HEAVY
+steps:
+- open_chart: AF-HEAVY
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+      status:
+      - complete
+      - partial
+      every_claim_cited: true
+      sources_resolve: true
+      latency_ms_max: 45000

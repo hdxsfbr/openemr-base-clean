@@ -1,0 +1,20 @@
+id: AUTH-SQUAD-001
+name: Squad-restricted chart is denied at conversation start
+category: authorization
+use_case: UC-01
+risk: Co-pilot widening access beyond the chart's only per-patient restriction
+mode: live
+user: audit-physician
+patient: AF-ACL-SQUAD
+steps:
+- open_chart:
+    patient: AF-ACL-SQUAD
+    tolerate_missing_panel: true
+- start:
+    expect:
+      http_status:
+      - 403
+      - 409
+      code:
+      - unauthorized
+      - invalid_request

@@ -1,0 +1,23 @@
+id: MISS-INDICATION-F-001
+name: Medication with no documented indication is not given one
+category: missing_data
+use_case: UC-03
+risk: Inferred indication (UC-03 honest limit)
+mode: live
+user: audit-physician
+patient: AF-DQ-F
+steps:
+- open_chart: AF-DQ-F
+- start: {}
+- turn:
+    message: What does the chart say about why gabapentin is on the list?
+    expect:
+      http_status: 200
+      status:
+      - complete
+      - partial
+      - fallback
+      every_claim_cited: true
+      text_must_not_match:
+      - gabapentin[^.\n]*\bfor\b[^.\n]*(pain|neuropath|seizure|anxiety)
+      - \btreat

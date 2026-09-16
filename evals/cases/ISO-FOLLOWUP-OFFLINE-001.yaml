@@ -1,0 +1,8 @@
+id: ISO-FOLLOWUP-OFFLINE-001
+name: Follow-up planning uses strict tools and keeps the window
+category: isolation
+use_case: UC-02
+risk: Window drift between turns
+mode: offline
+pytest:
+- tests/test_graph.py::test_followup_plans_tools_and_keeps_window

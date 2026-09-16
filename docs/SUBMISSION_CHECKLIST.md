@@ -5,22 +5,20 @@ portal. All deadlines are Central Time.
 
 ## Early Submission — Wednesday, September 16 at 11:59 PM
 
-**Repository note (2026-09-14):** Per instructor direction, GitLab
-(`labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean`, personal
-namespace) is the actual working system of record — that's where `main`,
-merges, and CI/history live going forward. The PRD's own submission table
-names "GitHub Repository — Forked from OpenEMR" as the deliverable, and
-`hdxsfbr/openemr-base-clean` on GitHub is kept as a genuine fork of
-`Gauntlet-HQ/openemr-base-clean` to satisfy that literal requirement. GitHub
-is not kept in sync with GitLab commit-for-commit — confirm with the
-instructor/portal which URL is actually expected at submission time, and if
-it's GitHub, push the final state there before submitting.
+**Repository note (updated 2026-09-15):** GitLab
+(`labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean`, branch
+`main`) is the system of record and the URL to submit; owner decision,
+pending instructor confirmation. `hdxsfbr/openemr-base-clean` on GitHub stays
+a genuine fork of `Gauntlet-HQ/openemr-base-clean` for the PRD's literal
+"forked from OpenEMR" requirement and is not kept in sync. The challenge
+README is `README_AGENT_FORGE.md` at the repository root so it does not
+conflict with OpenEMR's own `README.md`.
 
 ### Hard gates and repository
 
 - [ ] Public repository is based on the required OpenEMR fork.
-- [ ] `README.md` contains deployed URL, setup, architecture overview, demo
-      credentials, test commands, and limitations.
+- [x] `README_AGENT_FORGE.md` contains deployed URL, setup, architecture
+      overview, demo credentials, test commands, and limitations. *(2026-09-16.)*
 - [x] `AUDIT.md` begins with an approximately 500-word key-findings summary and
       covers all five required audit areas. *(Complete and owner-reviewed
       2026-09-14; Stage 3 gate passed.)*
@@ -34,7 +32,8 @@ it's GitHub, push the final state there before submitting.
       *(Definitions, targets, gaming defenses, and decision thresholds
       approved 2026-09-15; latency and cost thresholds provisional until the
       load baseline.)*
-- [ ] `docs/REQUIREMENTS_TRACEABILITY.md` links requirements to current evidence.
+- [x] `docs/REQUIREMENTS_TRACEABILITY.md` links requirements to current evidence.
+      *(Refreshed 2026-09-16 against the eval run and the live deployment.)*
 
 ### Product and engineering
 
@@ -47,15 +46,20 @@ it's GitHub, push the final state there before submitting.
       *(2026-09-15: follow-up planned a note search and cited two notes.)*
 - [x] Authorization is enforced for every retrieval. *(Parity gateway per
       tool call; per-role matrix evals still to record.)*
-- [ ] Every displayed factual claim passes verification and has a source.
-- [ ] Correlation IDs connect UI, gateway, tools, LLM, verifier, and logs.
+- [x] Every displayed factual claim passes verification and has a source.
+      *(Verifier before render; `every_claim_cited` and `sources_resolve` on
+      every live eval turn, 2026-09-16.)*
+- [x] Correlation IDs connect UI, gateway, tools, LLM, verifier, and logs.
+      *(`docs/operations/correlation-id-walkthrough.md` with a real turn.)*
 - [x] Observability records order, latency, failures, tokens, and cost.
       *(Langfuse traces per turn, verified 2026-09-15.)*
-- [ ] Dashboard shows all PRD-required metrics.
-- [ ] Eval suite includes boundary, invariant, and regression cases.
+- [ ] Dashboard shows all PRD-required metrics. *(`/metrics` and Langfuse
+      traces carry them; owner to pin a Langfuse dashboard and screenshot it.)*
+- [x] Eval suite includes boundary, invariant, and regression cases. *(33
+      cases, 33/33 after the DQ-HIGH-002 gateway fix, `evals/results/`.)*
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
-- [x] Runnable API collection covers core endpoints. *(Bruno, 20/20 on the
-      deployment 2026-09-15.)*
+- [x] Runnable API collection covers core endpoints. *(Bruno, 21/21 on the
+      deployment 2026-09-16.)*
 - [ ] No credentials, tokens, session IDs, PHI, or private trace URLs are
       committed.
 
@@ -64,7 +68,7 @@ it's GitHub, push the final state there before submitting.
 - [ ] Live application URL tested from outside the development machine.
 - [ ] Repository URL and exact commit recorded.
 - [ ] Dashboard access or sanitized evidence prepared for evaluators.
-- [ ] Eval dataset and results included.
+- [x] Eval dataset and results included. *(`evals/cases/`, `evals/results/`.)*
 - [ ] 3–5 minute demo recorded, reviewed, and uploaded.
 - [ ] AI interview instructions confirmed.
 - [ ] Technical interview scheduled within the required window.
@@ -74,7 +78,8 @@ it's GitHub, push the final state there before submitting.
 
 - [ ] Early checklist rerun against the final commit and deployment.
 - [ ] Interview feedback addressed or documented as a tradeoff.
-- [ ] Three required alert definitions and on-call responses are documented.
+- [x] Three required alert definitions and on-call responses are documented.
+      *(`docs/operations/alerts.md`, `agent/app/alerts.py`, 2026-09-16.)*
 - [ ] CPU, memory, latency, and throughput baselines recorded.
 - [ ] Load tests run at 10 and 50 concurrent users with p50/p95/p99 and errors.
 - [ ] Actual development cost and 100/1K/10K/100K-user projections complete in

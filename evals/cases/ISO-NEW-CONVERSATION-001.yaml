@@ -1,0 +1,24 @@
+id: ISO-NEW-CONVERSATION-001
+name: A new conversation for the same chart starts empty
+category: isolation
+use_case: UC-01
+risk: Prior turns leaking across conversations
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- turn:
+    message: What changed since the last visit?
+    expect:
+      http_status: 200
+- history:
+    expect:
+      http_status: 200
+      turns_min: 1
+- start: {}
+- history:
+    expect:
+      http_status: 200
+      turns_max: 0
