@@ -27,3 +27,10 @@ steps:
       - type: lab_comparison
       text_must_not_match:
       - \b(rose|fell|increased|decreased|higher|lower|up|down) (from|than|by)\b
+      limitations_include:
+      - kind: not_documented
+        section: labs
+        detail: triglycerides.*recorded as text '>200'
+      - kind: not_documented
+        section: labs
+        detail: potassium.*recorded as text 'hemolyzed'

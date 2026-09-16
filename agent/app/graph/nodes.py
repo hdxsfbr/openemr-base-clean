@@ -340,11 +340,32 @@ def pack_limitations(pack: EvidencePack) -> list[dict[str, Any]]:
             out.append({"kind": "not_documented", "section": "notes", "detail": f"Note {_day(rec.date) or 'undated'}: author not recorded.", "source_ids": [rec.source.source_id]})
         if hasattr(rec, "analyte") and rec.corrected:
             out.append({"kind": "conflict", "section": "labs", "detail": f"{rec.analyte} ({_day(rec.date) or 'undated'}): corrected result {rec.value_text} {rec.unit or ''}; it supersedes any earlier value for that date and is not a trend.".replace("  ", " "), "source_ids": [rec.source.source_id]})
+        if hasattr(rec, "provenance") and not rec.documented_indication:
+            out.append({"kind": "not_documented", "section": "medications", "detail": f"{rec.name}: no documented indication (nothing in the record says why it is listed).", "source_ids": [rec.source.source_id]})
+        if hasattr(rec, "analyte") and rec.unit is not None and rec.numeric_value is None and rec.value_text:
+            out.append({"kind": "not_documented", "section": "labs", "detail": f"{rec.analyte} ({_day(rec.date) or 'undated'}): value recorded as text {rec.value_text!r}; quoted, never compared.", "source_ids": [rec.source.source_id]})
         if hasattr(rec, "analyte") and rec.unit is None:
             out.append({"kind": "not_documented", "section": "labs", "detail": f"{rec.analyte} ({_day(rec.date) or 'undated'}): unit not recorded; value {rec.value_text} is not comparable.", "source_ids": [rec.source.source_id]})
+    # The same medication in the list and in prescriptions with different statuses (DQ-HIGH-003):
+    # a deterministic conflict line citing both, so the state never depends on the model saying it.
+    by_name: dict[str, list[Any]] = {}
+    for rec in pack.records.values():
+        if hasattr(rec, "provenance"):
+            by_name.setdefault(_med_key(rec.name), []).append(rec)
+    for key, recs in by_name.items():
+        provenances = {r.provenance for r in recs}
+        statuses = {r.status for r in recs}
+        if len(provenances) > 1 and len(statuses) > 1:
+            listing = ", ".join(f"{r.status} in {r.provenance}" for r in sorted(recs, key=lambda r: r.provenance))
+            out.append({"kind": "conflict", "section": "medications", "detail": f"{recs[0].name}: status differs across sources ({listing}); both records shown, neither preferred.", "source_ids": [r.source.source_id for r in recs]})
     if pack.truncated:
         out.append({"kind": "truncated", "section": None, "detail": "Evidence pack truncated at its size cap.", "source_ids": []})
     return out
+
+
+def _med_key(name: str) -> str:
+    """First word of the medication name, lower-cased: 'Metformin 500 mg' and 'METFORMIN' group together; brand names do not."""
+    return (name.split() or [""])[0].lower()
 
 
 def fallback_claims(pack: EvidencePack) -> list[Claim]:

@@ -28,6 +28,10 @@ steps:
         kind: stopped
         text: metformin
         table: prescriptions
+      limitations_include:
+      - kind: conflict
+        section: medications
+        detail: metformin.*differs across sources
 - turn:
     message: What does the chart say about metformin?
     expect:
@@ -42,3 +46,7 @@ steps:
         kind: stopped
         text: metformin
         table: prescriptions
+      limitations_include:
+      - kind: conflict
+        section: medications
+        detail: metformin.*differs across sources

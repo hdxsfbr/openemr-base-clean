@@ -2,12 +2,11 @@ id: MISS-ZERO-DATE-G-001
 name: Zero-date onset never surfaces as a real date
 category: missing_data
 use_case: UC-01
-risk: 0000-00-00 or epoch dates rendered as clinical dates (DQ-MEDIUM-006)
+risk: 0000-00-00 or epoch dates rendered as clinical dates (DQ-MEDIUM-006). The encounters tool does not surface onset state, so there is no positive line to assert; the case is a hard negative check (no
+  zero-date or epoch leaks) with no gate tag until onset is exposed.
 mode: live
 user: audit-physician
 patient: AF-DQ-G
-gates:
-- uncertainty_recall
 steps:
 - open_chart: AF-DQ-G
 - start: {}

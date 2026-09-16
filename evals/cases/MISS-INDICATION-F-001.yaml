@@ -27,3 +27,7 @@ steps:
       - text: gabapentin
       text_must_match:
       - indication|reason|explain|why
+      limitations_include:
+      - kind: not_documented
+        section: medications
+        detail: gabapentin.*no documented indication

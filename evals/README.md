@@ -33,13 +33,20 @@ agent/.venv/bin/python evals/run.py --case INJ-NOTE-O-001
 
 Each run writes `evals/results/<UTC time>-<commit>.json` and `.md` with:
 
-- **Release gates** from `KEY_METRICS.md`, each PASS or FAIL for this run:
-  authorization leakage, unsupported claim displayed (uncited or
-  unresolvable claim, verifier bypass), explicit uncertainty recall (cases
-  tagged `uncertainty_recall`), safe degradation (tool and model failure
-  cases and those tagged `degradation`), citation correctness, task success
-  (cases tagged `task_success`, risk acceptance allowed), latency p95, and
-  error rate.
+- **Release gates** from `KEY_METRICS.md`, each in one of five states:
+  PASS, FAIL, NOT RUN (a case the gate depends on did not execute in this
+  run; blocks like FAIL, so an empty or filtered run can never pass a gate),
+  NOT MEASURED (the runner cannot measure it yet: citation correctness
+  needs gold source ids, time to first evidence needs the streaming path),
+  NOT CONFIGURED (no threshold yet: cost per turn). Only PASS is green. The
+  gates: authorization leakage (every authorization case, role, and ACL
+  fixture ran and none leaked), unsupported claim displayed, explicit
+  uncertainty recall (every blocking case asserts a deterministic positive
+  state such as a limitation line), safe degradation, healthy-stack tool
+  failures, citation resolution, task success (model recall; risk
+  acceptance allowed), latency p95, and error rate. A filtered run
+  (`--only`, `--case`, `--offline-only`) prints the table for information
+  and does not fail on NOT RUN; a full run does.
 - **Pass rate by category** and the release-blocking failures.
 - **Scorecard** over the model-backed turns (no injected fault, at least one
   model call): claims per turn, zero-claim turns, withheld statements and
@@ -133,7 +140,12 @@ the non-blocking task-success gate, because model wording varies run to
 run while the limitation lines do not. Six full runs on 2026-09-16 showed
 the difference: every run-to-run flip was a recall check. When a state
 matters for safety, make the agent state it deterministically and assert
-the limitation, then keep the claim check as the task-success signal.
+the limitation, then keep the claim check as the task-success signal. A
+case may carry the blocking `uncertainty_recall` or `degradation` tag only
+if it has a positive deterministic assertion (`limitations_include`,
+`evidence_status`, `status`, `model_calls_max`, `evidence_truncated`);
+negative-only cases (no leaked date, no merged record) stay hard checks
+without a gate tag, and model-recall cases carry `task_success`.
 
 A **claim matcher** is a mapping whose fields must all hold for one displayed
 claim: `type`, `section`, `kind`, `state`, `status`, `flag`, `direction`

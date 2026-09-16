@@ -2,7 +2,9 @@ id: TOOL-ORPHAN-P-001
 name: Orphan rows never surface, never cross-attach, never crash the turn
 category: tool_failure
 use_case: UC-01
-risk: 'Referential-integrity gaps enforced only in application code (DQ-LOW-013): the lab result without a report is invisible to the chart and to the tool (parity)'
+risk: 'Referential-integrity gaps enforced only in application code (DQ-LOW-013): the lab result without a report is invisible to the chart and to the tool (parity). Known gap: the audit asks for a partial
+  status with an orphan count, but OpenEMR''s procedure service joins results through reports, so the orphan row never reaches the tool and the section reads empty; this case therefore proves no crash and
+  no cross-attachment, not the count. Closing it needs a direct orphan query in the lab tool.'
 mode: live
 user: audit-physician
 patient: AF-DQ-P

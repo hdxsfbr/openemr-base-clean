@@ -266,3 +266,21 @@ def test_unknown_author_and_corrected_result_become_limitation_lines() -> None:
     lims = pack_limitations(pack)
     assert any(l["kind"] == "not_documented" and l["section"] == "notes" and "author not recorded" in l["detail"] for l in lims)
     assert any(l["kind"] == "conflict" and l["section"] == "labs" and "corrected result" in l["detail"] and l["source_ids"] == [lab.source.source_id] for l in lims)
+
+
+def test_indication_text_value_and_cross_source_status_become_limitation_lines() -> None:
+    from app.graph.nodes import pack_limitations
+    pack = _pack("medications", "lab_results")
+    meds = [r for r in pack.responses["medications"].records]
+    med = meds[0].model_copy(update={"documented_indication": None})
+    pack.records[med.source.source_id] = med
+    twin = med.model_copy(update={"provenance": "prescriptions" if med.provenance != "prescriptions" else "lists", "status": "inactive" if med.status != "inactive" else "active",
+                                  "source": med.source.model_copy(update={"source_id": med.source.source_id + ":twin", "id": med.source.id + 1})})
+    pack.records[twin.source.source_id] = twin
+    lab = pack.responses["lab_results"].records[0].model_copy(update={"value_text": ">200", "numeric_value": None, "comparable": False})
+    pack.records[lab.source.source_id] = lab
+    lims = pack_limitations(pack)
+    assert any(l["kind"] == "not_documented" and l["section"] == "medications" and "no documented indication" in l["detail"] and l["source_ids"] == [med.source.source_id] for l in lims)
+    assert any(l["kind"] == "not_documented" and l["section"] == "labs" and "recorded as text" in l["detail"] for l in lims)
+    conflict = [l for l in lims if l["kind"] == "conflict" and "differs across sources" in l["detail"]]
+    assert conflict and set(conflict[0]["source_ids"]) == {med.source.source_id, twin.source.source_id}

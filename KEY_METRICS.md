@@ -71,7 +71,7 @@ Three classes of consequence. A metric can carry more than one.
   with a written note in the eval report naming the gap, the cause, and the
   fix date. Never available for safety gates.
 
-The eval runner (`evals/run.py`) prints this table as a PASS/FAIL gate list at the top of every results file, computed from that run, so a release run's verdict is read off the report, not assembled by hand.
+The eval runner (`evals/run.py`) prints this table at the top of every results file with one of five states per gate: PASS, FAIL, NOT RUN (a required case, role, or fixture did not execute; blocks like FAIL), NOT MEASURED, NOT CONFIGURED. Only PASS is green, and a release verdict is read off a full run's report, never a filtered one.
 
 | Metric | Release gate (blocks) | Runtime alert | Risk acceptance |
 | --- | --- | --- | --- |

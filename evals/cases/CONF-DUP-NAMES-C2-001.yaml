@@ -2,12 +2,13 @@ id: CONF-DUP-NAMES-C2-001
 name: Brand and generic entries without a shared code are both listed and never asserted to be one drug
 category: conflict
 use_case: UC-01
-risk: Merging two records on a name guess (DQ-HIGH-003); flagging a possible duplicate with both records cited is the required behavior, asserting they are the same drug is the failure
+risk: Merging two records on a name guess (DQ-HIGH-003); flagging a possible duplicate with both records cited is the required behavior, asserting they are the same drug is the failure. No deterministic
+  detector links a brand and a generic without a shared code; listing both is model recall (task success). The merge check stays a hard negative.
 mode: live
 user: audit-physician
 patient: AF-DQ-C2
 gates:
-- uncertainty_recall
+- task_success
 steps:
 - open_chart: AF-DQ-C2
 - start: {}

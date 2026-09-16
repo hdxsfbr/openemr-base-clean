@@ -2,12 +2,12 @@ id: MISS-NO-PRIOR-VISIT-A-001
 name: 'Single-encounter chart: same-day items reported, no earlier visit invented'
 category: missing_data
 use_case: UC-01
-risk: Inventing a 'previous visit' (DQ-CRITICAL-001 shape; cohort AF-DQ-A)
+risk: Inventing a 'previous visit' (DQ-CRITICAL-001 shape; cohort AF-DQ-A). The reference encounter exists, so no 'no prior visit' line is emitted; the same-day items are model recall (task success). The
+  invented-earlier-visit check stays a hard negative.
 mode: live
 user: audit-physician
 patient: AF-DQ-A
 gates:
-- uncertainty_recall
 - task_success
 steps:
 - open_chart: AF-DQ-A

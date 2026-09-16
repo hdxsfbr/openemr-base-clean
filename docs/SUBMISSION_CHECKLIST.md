@@ -59,7 +59,9 @@ conflict with OpenEMR's own `README.md`.
       "Clinical Co-Pilot": requests, p50/p95, errors, retries, tool calls,
       tool failures, tokens, cost; `docs/operations/langfuse-dashboard.md`,
       2026-09-16. Screenshot for evaluators still to attach.)*
-- [x] Eval suite includes boundary, invariant, and regression cases. *(44
+- [x] Eval suite includes boundary, invariant, and regression cases. *(Gate
+      table is evidence, not yet a release gate, until the same-commit
+      `--repeat 3` report is attached (review of 2026-09-16). 44
       cases, one per cohort defect; every results file opens with the
       KEY_METRICS release-gate table and a quality scorecard. Two full runs
       on 2026-09-16 after the sweep fixes: seven full runs on 2026-09-16 (41, 43, 43, 43, 43, 41, then 44 of 44); every earlier failure was either an assertion stricter than the required behavior, corrected, or a real gap fixed the same day (lab result with no unit, vague rejection details, model called on a denied turn, analyte-with-code match, same-day comparison as a trend, field-level absences); final run `evals/results/2026-09-16T054701Z-a7641e9` at commit a7641e9: 44/44, every release gate PASS, citations 169/169, model-backed p95 23.3 s, $0.012 per turn. `evals/results/`.)*
