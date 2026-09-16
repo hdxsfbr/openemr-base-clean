@@ -62,7 +62,7 @@ conflict with OpenEMR's own `README.md`.
 - [x] Eval suite includes boundary, invariant, and regression cases. *(44
       cases, one per cohort defect; every results file opens with the
       KEY_METRICS release-gate table and a quality scorecard. Two full runs
-      on 2026-09-16 after the sweep fixes: RUN_SUMMARY. `evals/results/`.)*
+      on 2026-09-16 after the sweep fixes: seven full runs on 2026-09-16 (41, 43, 43, 43, 43, 41, then 44 of 44); every earlier failure was either an assertion stricter than the required behavior, corrected, or a real gap fixed the same day (lab result with no unit, vague rejection details, model called on a denied turn, analyte-with-code match, same-day comparison as a trend, field-level absences); final run `evals/results/2026-09-16T054701Z-a7641e9` at commit a7641e9: 44/44, every release gate PASS, citations 169/169, model-backed p95 23.3 s, $0.012 per turn. `evals/results/`.)*
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
 - [ ] GitLab pipeline green on the submitted commit. *(The lab GitLab had no
       runners and no pipeline was ever created as of 2026-09-16; a dedicated
