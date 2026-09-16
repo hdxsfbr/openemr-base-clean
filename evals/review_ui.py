@@ -318,6 +318,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dir", default=str(JOURNAL_DIR), help="directory of journal .md files")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--host", default="127.0.0.1", help="bind address; 0.0.0.0 exposes this to the network — there is no auth, so only do that on a network you trust")
     args = ap.parse_args()
 
     global JOURNALS_DIR
@@ -327,8 +328,8 @@ def main() -> int:
         return 2
 
     import uvicorn
-    print(f"Serving journals from {JOURNALS_DIR} — open http://127.0.0.1:{args.port}/")
-    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    print(f"Serving journals from {JOURNALS_DIR} — open http://{args.host}:{args.port}/ (or http://127.0.0.1:{args.port}/ locally)")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     return 0
 
 
