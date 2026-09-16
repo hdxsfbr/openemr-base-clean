@@ -85,7 +85,9 @@ conflict with OpenEMR's own `README.md`.
 - [ ] Dashboard access or sanitized evidence prepared for evaluators.
 - [x] Eval dataset and results included. *(`evals/cases/`, `evals/results/`.)*
 - [ ] 3–5 minute demo recorded, reviewed, and uploaded.
-- [ ] AI interview instructions confirmed.
+- [ ] AI interview instructions confirmed. *(Prep: `docs/INTERVIEW_NOTES.md`
+      answers every question in the PRD's pre-search checklist with evidence
+      pointers, 2026-09-16.)*
 - [ ] Technical interview scheduled within the required window.
 - [ ] Submission completed with several hours of buffer.
 
