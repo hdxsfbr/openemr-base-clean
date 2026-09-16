@@ -248,7 +248,7 @@ lives on a machine that holds nothing else.
 | Terraform root | `infra/digitalocean/runner/` (own state; destroying it never touches the demo host) |
 | Droplet | `agentforge-ci-runner`, `s-1vcpu-1gb` ($6/month, $0.00893/h), `sfo3`, Ubuntu 24.04, 2 GB swap |
 | Firewall | inbound SSH from `allowed_ssh_cidrs` only; outbound open (the runner polls GitLab, nothing connects in) |
-| GitLab side | project runner #221 on the repository, untagged jobs allowed, not shared with any other project |
+| GitLab side | project runner #222 on the repository, untagged jobs allowed, locked to this project |
 | Executor | Docker, unprivileged, `concurrent = 1`, default image `alpine:3.20` |
 
 Create and register (the runner authentication token is read from a local
@@ -266,7 +266,7 @@ The token comes from GitLab: Settings → CI/CD → Runners → the runner's pag
 (shown once at creation). Rotating it: reset the token on that page, put the
 new value in the file, re-run `register.sh`. Retiring the runner:
 `./tf.sh -chdir=runner destroy -var-file=../terraform.tfvars`, then delete
-runner #221 on GitLab.
+runner #222 on GitLab.
 
 ## Failure and Recovery
 
