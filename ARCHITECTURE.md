@@ -379,12 +379,18 @@ runner loads it. Hand-written parallel definitions are not permitted.
   above), one `params` model per tool, `additionalProperties: false`.
 - `TurnRequest{message, correlation_id?, stream?}`,
   `TurnResponse{turn_id, status, evidence[], summary, summary_basis,
-  claims[], sources[], limitations[], withheld_count, verification, usage,
-  correlation_id}`. `summary` is the one-paragraph answer shown above the
+  suggestions[], claims[], sources[], limitations[], withheld_count,
+  verification, usage, correlation_id}`. `summary` is the one-paragraph answer shown above the
   claims; `summary_basis` says whether it is the model's prose (`model`,
   allowed only when no claim was withheld this turn and the prose passes the
   lexicon and cites no number absent from the verified claims) or a
   count-only paragraph built from the verified claims (`deterministic`).
+  `suggestions` are up to three follow-up questions the panel offers as
+  chips: written by the model in the same narrate call from that turn's
+  records, filtered for shape and lexicon (a question, short, not already
+  asked, no advice, nothing outside the open chart), and topped up from
+  deterministic follow-ups when fewer than two survive. They assert nothing
+  and are never rendered as facts.
 - `Claim{id, type, text, facts, source_ids[], window?}` with `type` in
   `change_event | medication_status | lab_result | lab_comparison |
   documented_reference | absence | conflict | undated | interpretation`.

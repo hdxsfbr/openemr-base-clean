@@ -44,6 +44,18 @@ class ModelClaim(BaseModel):
 class ModelTurnClaims(BaseModel):
     claims: list[ModelClaim] = Field(default_factory=list)
     summary: str | None = None
+    suggestions: list[str] | None = None
+
+
+def model_suggestions(output: ModelTurnClaims, limit: int = 3, max_chars: int = 120) -> list[str]:
+    """The model's follow-up questions, whitespace-collapsed and capped; the verifier filters them."""
+    out: list[str] = []
+    for item in output.suggestions or []:
+        if isinstance(item, str):
+            text = " ".join(item.split())[:max_chars]
+            if text:
+                out.append(text)
+    return out[:limit]
 
 
 def model_summary(output: ModelTurnClaims, limit: int = 600) -> str:

@@ -312,6 +312,15 @@
       "title": "Claims",
       "type": "array"
     },
+    "suggestions": {
+      "description": "Follow-up questions about this chart the physician could ask next",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3,
+      "title": "Suggestions",
+      "type": "array"
+    },
     "summary": {
       "default": "",
       "description": "One to three sentences that answer the question by restating the claims; shown only when every claim verified",

@@ -35,7 +35,14 @@
     var STORAGE_KEY = 'copilot.conversation';
     // A turn may take up to the agent's 45 s wall clock; the panel waits a little longer than that.
     var TURN_TIMEOUT_MS = 60000;
-    var FIRST_QUESTION = 'What changed since the last visit?';
+    // Starter questions (UC-01, UC-02, UC-03). After each turn the agent returns
+    // follow-ups drawn from that turn's records; starters fill in when it has fewer than two.
+    var STARTER_QUESTIONS = [
+        'What changed since the last visit?',
+        'Which recent abnormal labs still have no later result or documented follow-up?',
+        'What does the chart say about why each current medication is on the list?'
+    ];
+    var asked = [];
 
     function el(tag, className, text) {
         var node = document.createElement(tag);
@@ -359,11 +366,26 @@
         state.busy = busy;
         input.disabled = busy;
         send.disabled = busy;
-        chip.disabled = busy;
+        Array.prototype.forEach.call(suggestions.querySelectorAll('button'), function (b) { b.disabled = busy; });
+    }
+    /** Offer follow-up questions as chips: the turn's own, topped up with starters not yet asked. */
+    function renderSuggestions(list) {
+        var items = (list || []).slice(0, 3);
+        STARTER_QUESTIONS.forEach(function (q) {
+            if (items.length < 3 && items.indexOf(q) < 0 && asked.indexOf(q) < 0) { items.push(q); }
+        });
+        suggestions.textContent = '';
+        items.forEach(function (q) {
+            var chip = el('button', 'btn btn-sm btn-outline-primary copilot-chip', q);
+            chip.type = 'button';
+            chip.addEventListener('click', function () { ask(q); });
+            suggestions.appendChild(chip);
+        });
     }
     function ask(question) {
         if (state.busy) { return; }
         setBusy(true);
+        asked.push(question);
         appendUser(question);
         var pending = appendPending();
         setStatus('Working…', 'text-muted');
@@ -379,6 +401,7 @@
         }).then(function (turn) {
             if (turn.status === 'denied') { dropConversation(); }
             renderTurn(turn, pending);
+            renderSuggestions(turn.suggestions);
             setStatus(turn.status === 'complete' ? 'Verified against the chart.' : turn.status === 'fallback' ? 'Records only; narrative unavailable.' : 'Partially verified; see limitations.', turn.status === 'complete' ? 'text-success' : 'text-warning');
         }).catch(function (error) {
             var code = error && error.name === 'AbortError' ? 'AbortError' : (error && error.message ? error.message : 'error');
@@ -402,19 +425,19 @@
             if (!r.ok || !r.data || !Array.isArray(r.data.turns)) { dropConversation(); return false; }
             if (r.data.closed) { dropConversation(); return false; }
             r.data.turns.forEach(function (past) {
+                asked.push(past.question || '');
                 appendUser(past.question || '');
                 var msg = el('div', 'copilot-msg copilot-msg-assistant');
                 transcript.appendChild(msg);
                 renderTurn(past, msg);
             });
+            if (r.data.turns.length) { renderSuggestions(r.data.turns[r.data.turns.length - 1].suggestions); }
             return r.data.turns.length > 0;
         }).catch(function () { dropConversation(); return false; });
     }
 
     // ---- composer (fixed below the transcript) ----
-    var chip = el('button', 'btn btn-sm btn-outline-primary copilot-chip', FIRST_QUESTION);
-    chip.type = 'button';
-    chip.addEventListener('click', function () { ask(FIRST_QUESTION); });
+    var suggestions = el('div', 'copilot-suggestions');
     var form = el('form', 'copilot-form');
     var input = el('input', 'form-control form-control-sm');
     input.type = 'text';
@@ -430,9 +453,10 @@
         var q = input.value.trim();
         if (q) { ask(q); input.value = ''; }
     });
-    composer.appendChild(chip);
+    composer.appendChild(suggestions);
     composer.appendChild(form);
-    transcript.appendChild(el('div', 'copilot-hint small text-muted', 'Nothing is retrieved until you ask. Start with the pre-visit question or type your own.'));
+    renderSuggestions([]);
+    transcript.appendChild(el('div', 'copilot-hint small text-muted', 'Nothing is retrieved until you ask. Pick a question or type your own.'));
 
     // Agent reachability through the edge; the chart does not depend on it.
     fetchJson(apiBase + '/health', {}, 4000).then(function (r) {

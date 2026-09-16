@@ -93,6 +93,25 @@ async def test_model_summary_shown_only_when_every_claim_verifies() -> None:
     final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
     assert final["status"] == "complete" and final["summary_basis"] == "deterministic" and len(final["accepted"]) == 1
 
+    # Suggestions: the model's questions pass a shape and lexicon filter; bad ones are replaced by deterministic follow-ups.
+    model = FakeModel(claims=[good], summary="One result is flagged abnormal: hemoglobin A1c at 6.8 % on 2026-08-31.",
+                      suggestions=["Was the A1c result discussed in a note?", "Should the dose be increased?", "What changed since the last visit?"])
+    final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["suggestions"][0] == "Was the A1c result discussed in a note?"
+    assert all("dose" not in s and s != "What changed since the last visit?" for s in final["suggestions"]) and 2 <= len(final["suggestions"]) <= 3
+    assert final["history"][-1]["suggestions"] == final["suggestions"]
+
+    # Trajectory judgments in the summary are replaced too; claims stay.
+    model = FakeModel(claims=[good], summary="A1c is improving at 6.8 %.")
+    final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["summary_basis"] == "deterministic" and len(final["accepted"]) == 1
+
+    # Management-shaped suggestions are dropped even when phrased as questions.
+    model = FakeModel(claims=[good], summary="One result is flagged abnormal: hemoglobin A1c at 6.8 % on 2026-08-31.",
+                      suggestions=["Does the A1c need addressing?", "What is the management plan for A1c?", "Are there earlier A1c results to compare?"])
+    final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["suggestions"][0] == "Are there earlier A1c results to compare?" and not any("addressing" in s or "plan" in s for s in final["suggestions"])
+
     # Advice language in the summary is rejected by the same lexicon as claims.
     model = FakeModel(claims=[good], summary="A1c is abnormal; you should recheck it.")
     final = await make_graph(model).ainvoke(turn_input("What changed since the last visit?"), CFG)

@@ -37,6 +37,7 @@ assert {
   res.body.contract_version: eq 1.1.0
   res.body.summary: isString
   res.body.summary_basis: isDefined
+  res.body.suggestions: isDefined
 }
 
 tests {
@@ -52,6 +53,11 @@ tests {
     const body = res.getBody();
     if (body.withheld_count > 0) { expect(body.summary_basis).to.equal("deterministic"); }
     expect(body.summary.length).to.be.greaterThan(0);
+  });
+  test("follow-up suggestions are questions and never the one just asked", function () {
+    const s = res.getBody().suggestions || [];
+    expect(s.length).to.be.greaterThan(0);
+    s.forEach(q => { expect(q.endsWith("?")).to.equal(true); expect(q).to.not.equal("What changed since the last visit?"); });
   });
   test("correlation id echoed in header", function () {
     expect(res.getHeader("x-correlation-id")).to.equal(bru.getVar("turn_correlation"));

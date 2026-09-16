@@ -222,6 +222,18 @@ def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
 
 NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
 MAX_SUMMARY_CHARS = 600
+# Judgments about a trajectory or control state are not facts a record carries; the
+# verifier checks lab direction on typed claims, prose may not editorialize it.
+SUMMARY_FORBIDDEN = [
+    (r"\bimprov", "judgment"),
+    (r"\bworsen", "judgment"),
+    (r"\b(better|worse)\b", "judgment"),
+    (r"\b(well[- ])?controlled\b", "judgment"),
+    (r"\buncontrolled\b", "judgment"),
+    (r"\bstable\b", "judgment"),
+    (r"\bnormaliz", "judgment"),
+    (r"\bconcern", "judgment"),
+]
 
 
 def verify_summary(summary: str, accepted: list[Claim], rejected: list[dict[str, str]], known_values: Iterable[str] = ()) -> tuple[bool, str]:
@@ -242,7 +254,7 @@ def verify_summary(summary: str, accepted: list[Claim], rejected: list[dict[str,
         return False, "claims_withheld"
     if not accepted:
         return False, "no_verified_claims"
-    for pattern, rule in FORBIDDEN:
+    for pattern, rule in FORBIDDEN + SUMMARY_FORBIDDEN:
         if re.search(pattern, text, re.IGNORECASE):
             return False, "lexicon:" + rule
     grounded = " ".join(
@@ -289,3 +301,58 @@ def deterministic_summary(accepted: list[Claim], withheld: int, window_since: st
     body = f"The chart shows {joined} {scope}."
     tail = f" {withheld} statement(s) were withheld because they could not be verified." if withheld else ""
     return " ".join(s for s in (lead, body + tail) if s)
+
+
+# ---------------------------------------------------------------- suggestions
+
+STARTER_QUESTIONS = [
+    "What changed since the last visit?",
+    "Which recent abnormal labs still have no later result or documented follow-up?",
+    "What does the chart say about why each current medication is on the list?",
+]
+MAX_SUGGESTION_CHARS = 120
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9 ]+", "", " ".join(text.lower().split()))
+
+
+def filter_suggestions(raw: list[str], asked: list[str]) -> list[str]:
+    """Follow-up questions the panel may offer. They assert nothing, so the
+    gate is shape and lexicon: a question, short, not already asked, not
+    advice, not about anything outside the open chart."""
+    out: list[str] = []
+    seen = {_norm(q) for q in asked}
+    for item in raw:
+        text = " ".join(item.split())
+        if not text.endswith("?") or len(text) > MAX_SUGGESTION_CHARS or len(text) < 8:
+            continue
+        if any(re.search(p, text, re.IGNORECASE) for p, _ in FORBIDDEN):
+            continue
+        if any(re.search(p, text, re.IGNORECASE) for p, _ in SUMMARY_FORBIDDEN):
+            continue
+        # Questions that ask for management, adherence, targets, or anything outside the chart are not answerable here.
+        if re.search(r"\b(other patients?|schedule|appointment|guideline|dos(e|es|ing|age)|prescrib|manag|plan|adher|taking|taken|need|address|target|goal|next step|prompted|cause)", text, re.IGNORECASE):
+            continue
+        key = _norm(text)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(text)
+        if len(out) == 3:
+            break
+    return out
+
+
+def default_suggestions(accepted: list[Claim], asked: list[str]) -> list[str]:
+    """Deterministic follow-ups from the verified claims, then the starters not yet asked."""
+    candidates: list[str] = []
+    types = {c.type for c in accepted}
+    if ClaimType.lab_result in types or ClaimType.change_event in types:
+        candidates.append("Which of these lab results are flagged abnormal?")
+    if ClaimType.conflict in types:
+        candidates.append("Was the conflicting medication change documented in a note?")
+    if ClaimType.change_event in types:
+        candidates.append("What does the chart say about the newest problem?")
+    candidates.extend(STARTER_QUESTIONS)
+    return filter_suggestions(candidates, asked)

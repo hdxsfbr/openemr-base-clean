@@ -43,6 +43,7 @@
     padding-top: 0.5rem;
     margin-top: 0.25rem;
 }
-#copilot-panel .copilot-chip { margin-bottom: 0.4rem; }
+#copilot-panel .copilot-suggestions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.45rem; }
+#copilot-panel .copilot-chip { text-align: left; white-space: normal; line-height: 1.2; }
 #copilot-panel .copilot-form { display: flex; gap: 0.4rem; }
 #copilot-panel .copilot-form input { flex: 1 1 auto; min-width: 0; }

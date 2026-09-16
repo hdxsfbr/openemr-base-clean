@@ -45,6 +45,7 @@ def test_turn_returns_contract_shaped_response_with_correlation_id(client: TestC
     assert {e["tool"] for e in body["evidence"]} >= {"encounters", "lab_results"}
     assert body["contract_version"] == "1.1.0"
     assert body["summary"] and body["summary_basis"] in ("model", "deterministic")
+    assert isinstance(body["suggestions"], list) and body["suggestions"] and all(s.endswith("?") for s in body["suggestions"])
     got = client.get(f"/v1/conversations/{CID}", headers={"X-Copilot-Token": token})
     assert got.status_code == 200 and len(got.json()["turns"]) == 1
 

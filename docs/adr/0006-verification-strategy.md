@@ -66,6 +66,15 @@ retrieved in that turn. It makes no model call.
    count-only summary built from the verified claims and is labeled
    `summary_basis=deterministic`. Owner request: a list of rows without a
    direct answer was not readable.
+8. **Follow-up suggestions (added 2026-09-15).** The same narrate call
+   returns up to three follow-up questions. They assert nothing, so the gate
+   is shape and lexicon only: ends in `?`, under 120 characters, not a
+   question already asked in the conversation, passes the claim lexicon, and
+   names nothing outside the open chart (other patients, schedule,
+   guidelines, dosing). Fewer than two survivors are topped up from
+   deterministic follow-ups derived from the verified claim types, then the
+   three starter questions. Cost is roughly 50 output tokens per turn; no
+   extra model call.
 
 ## Alternatives Considered
 

@@ -77,6 +77,7 @@ class TurnClaims(StrictModel):
 
     claims: list[Claim] = Field(default_factory=list, max_length=40)
     summary: str = Field(default="", max_length=600, description="One to three sentences that answer the question by restating the claims; shown only when every claim verified")
+    suggestions: list[str] = Field(default_factory=list, max_length=3, description="Follow-up questions about this chart the physician could ask next")
 
 
 class Limitation(StrictModel):
@@ -132,6 +133,7 @@ class TurnResponse(StrictModel):
     withheld_count: int = 0
     summary: str = Field(default="", max_length=600, description="Paragraph shown above the claims")
     summary_basis: str = Field(default="none", pattern=r"^(model|deterministic|none)$", description="model: the model's summary, accepted because every claim verified; deterministic: built from verified claims")
+    suggestions: list[str] = Field(default_factory=list, max_length=3, description="Follow-up questions offered as chips; lexicon-filtered, never facts")
     verification: Verification
     usage: dict[str, int | float] = Field(default_factory=dict)
     correlation_id: CorrelationId

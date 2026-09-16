@@ -558,6 +558,15 @@
       "title": "Status",
       "type": "string"
     },
+    "suggestions": {
+      "description": "Follow-up questions offered as chips; lexicon-filtered, never facts",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3,
+      "title": "Suggestions",
+      "type": "array"
+    },
     "summary": {
       "default": "",
       "description": "Paragraph shown above the claims",
