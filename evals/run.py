@@ -474,9 +474,11 @@ def load_cases(only: str | None, case_id: str | None) -> list[dict[str, Any]]:
 
 def git_sha() -> str:
     try:
-        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     except OSError:
-        return "unknown"
+        sha = ""
+    # CI images may lack git; GitLab exposes the commit as a variable.
+    return sha or os.environ.get("CI_COMMIT_SHORT_SHA", "") or "unknown"
 
 
 def _pct(values: list[float], p: float) -> float | None:

@@ -262,6 +262,15 @@ set -a; source ~/.config/agentforge/do.env; set +a
 ./runner/register.sh "$(./tf.sh -chdir=runner output -raw runner_ip)" ~/.config/agentforge/gitlab_runner_token
 ```
 
+Why no pipeline existed before 2026-09-16 06:01: the lab GitLab account had
+no confirmed email (`confirmed_at: null` on `/api/v4/user`), and GitLab
+refuses pipeline creation to unconfirmed users even for project owners (the
+symptoms: no "Run pipeline" button, `/-/pipelines/new` 404, the pipeline
+editor "Unable to validate", the lint API "Insufficient permissions to create
+a new pipeline"). Resending the confirmation from
+`/users/confirmation/new` to the account's primary address fixed it. The
+runner was never the problem; it was Online and Idle throughout.
+
 The token comes from GitLab: Settings → CI/CD → Runners → the runner's page
 (shown once at creation). Rotating it: reset the token on that page, put the
 new value in the file, re-run `register.sh`. Retiring the runner:

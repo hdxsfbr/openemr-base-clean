@@ -64,11 +64,13 @@ conflict with OpenEMR's own `README.md`.
       KEY_METRICS release-gate table and a quality scorecard. Two full runs
       on 2026-09-16 after the sweep fixes: seven full runs on 2026-09-16 (41, 43, 43, 43, 43, 41, then 44 of 44); every earlier failure was either an assertion stricter than the required behavior, corrected, or a real gap fixed the same day (lab result with no unit, vague rejection details, model called on a denied turn, analyte-with-code match, same-day comparison as a trend, field-level absences); final run `evals/results/2026-09-16T054701Z-a7641e9` at commit a7641e9: 44/44, every release gate PASS, citations 169/169, model-backed p95 23.3 s, $0.012 per turn. `evals/results/`.)*
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
-- [ ] GitLab pipeline green on the submitted commit. *(The lab GitLab had no
-      runners and no pipeline was ever created as of 2026-09-16; a dedicated
-      $6 runner Droplet was provisioned, `docs/deployment/digitalocean.md`
-      "CI Runner". Until the first pipeline runs, the CI evidence is the
-      local `make`-equivalent: agent pytest 55/55 and the offline eval subset.)*
+- [x] GitLab pipeline green on the submitted commit. *(Pipeline 23777 on
+      3415bac, 2026-09-16: four lints, agent tests, offline evals green on the
+      dedicated runner Droplet; the manual `test:evals-live` job (job 76210)
+      ran all 44 cases against the deployment, 44/44, no blocking gate failed,
+      results attached as an artifact. Root cause of "no pipelines" was the
+      lab account's unconfirmed email; `docs/deployment/digitalocean.md`
+      "CI Runner".)*
 - [x] Runnable API collection covers core endpoints. *(Bruno, 21/21 on the
       deployment 2026-09-16.)*
 - [x] No credentials, tokens, session IDs, PHI, or private trace URLs are
