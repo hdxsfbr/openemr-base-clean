@@ -5,20 +5,25 @@ Project "My Project" in Andre's Organization on Langfuse Cloud US
 holds the PRD's operational panels; the Langfuse-maintained Agent, Latency,
 Cost, and Usage dashboards complement it. Built 2026-09-16 with the
 Langfuse Assistant from the descriptions below; anyone with project access
-can rebuild it the same way.
+can rebuild it the same way. Two first drafts were replaced on review: a
+combined p50/p95 widget and a combined input/output token widget each drew
+a single line (the chart renderer collapses two metrics), so they became
+separate widgets; a "traces with errors" widget filtered on trace level
+and never fired, so it became an observation-level error count.
 
 ## Panels and the PRD metric each covers
 
 | Panel | Definition | PRD metric |
 | --- | --- | --- |
 | copilot.turn traces over time | Count of traces named `copilot.turn` per hour | Requests |
-| copilot.turn latency p50 / p95 | p50 and p95 latency of `copilot.turn` traces over time | p50 / p95 latency |
+| copilot.turn latency p50 | p50 latency of `copilot.turn` traces over time | p50 latency |
+| copilot.turn latency p95 | p95 latency of `copilot.turn` traces over time | p95 latency |
 | Total model cost over time | Sum of model cost per time bucket | Cost |
-| Input and output tokens over time | Token usage per time bucket | Tokens |
+| Tokens by usage type over time | Token usage grouped by usage type (input, output, cache read) per time bucket | Tokens |
 | Generations by name over time | Count of GENERATION observations grouped by name (`plan`, `narrate`, `repair`) | Retry count: every `repair` is one verifier-driven retry |
 | Tool calls by name over time | Count of TOOL observations grouped by name (`encounters`, `problems`, `medications`, `allergies`, `lab_results`, `clinical_notes`, `patient_context`) | Tool calls |
 | Tool errors by name | TOOL observations with level ERROR grouped by name | Tool failures |
-| copilot.turn traces with errors over time | Distinct `copilot.turn` traces containing an ERROR-level observation | Errors |
+| ERROR-level observations over time | Count of observations of any type with level ERROR, grouped by observation type | Errors (a model call that fails and a tool that returns `unavailable` both land here) |
 
 The Langfuse Agent Dashboard adds p95 latency per tool and observation
 types; the Latency dashboard adds p95 by trace name and by model.
