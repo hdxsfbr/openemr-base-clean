@@ -7,7 +7,9 @@ stages:
 
 lint:whitespace:
   stage: lint
-  image: alpine/git:2.47.2
+  image:
+    name: alpine/git:2.47.2
+    entrypoint: [""]  # the image's entrypoint is git itself; the runner needs a shell
   script:
     - git diff-tree --check --root HEAD
 
