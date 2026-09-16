@@ -21,8 +21,10 @@ steps:
       claims_include:
       - type: lab_result
         text: creatinine.*1\.2|1\.2.*creatinine
-      - type: lab_result
-        text: correct
       claims_exclude:
       - type: lab_comparison
         text: creatinine
+      limitations_include:
+      - kind: conflict
+        section: labs
+        detail: creatinine.*corrected result

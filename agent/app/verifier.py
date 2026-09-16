@@ -75,6 +75,13 @@ def _in_window(day: date | None, pack: EvidencePack) -> bool:
     return (pack.window_since is None or day >= pack.window_since) and (pack.window_until is None or day <= pack.window_until)
 
 
+def _analyte_matches(claimed: str, rec: LabResultRecord) -> bool:
+    """The pack renders 'Analyte (code)'; accept the name, the name with its code, or the code."""
+    c = re.sub(r"\s*\([^)]*\)\s*$", "", claimed).strip().lower()
+    name = rec.analyte.strip().lower()
+    return bool(c) and (c in name or name in c or (rec.analyte_code or "").lower() == c)
+
+
 def verify(claims: list[Claim], pack: EvidencePack) -> VerifyResult:
     result = VerifyResult(rules_applied=["source_exists", "type_facts", "window", "lexicon", "absence_requires_retrieval"])
     for claim in claims:
@@ -163,7 +170,7 @@ def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
             mismatch = f"date {f.get('date')!r} differs from the record's {_day(rec.date)}"
         elif str(f.get("flag", "")) != rec.flag:
             mismatch = f"flag {f.get('flag')!r} differs from the record's {rec.flag!r}"
-        elif str(f.get("analyte", "")).lower() not in rec.analyte.lower():
+        elif not _analyte_matches(str(f.get("analyte", "")), rec):
             mismatch = f"analyte {f.get('analyte')!r} is not the record's {rec.analyte!r}"
         if mismatch:
             _reject(result, claim, "type_facts", mismatch)
@@ -183,6 +190,9 @@ def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
             return
         if (_day(earlier.date) or date.min) > (_day(later.date) or date.min):
             _reject(result, claim, "lab_rules", "earlier is not earlier")
+            return
+        if _day(earlier.date) is not None and _day(earlier.date) == _day(later.date):
+            _reject(result, claim, "lab_rules", "same-day results are not a trend; a corrected result supersedes the earlier value for that date")
             return
         direction = "up" if later.numeric_value > earlier.numeric_value else "down" if later.numeric_value < earlier.numeric_value else "same"  # type: ignore[operator]
         if f.get("direction") != direction:

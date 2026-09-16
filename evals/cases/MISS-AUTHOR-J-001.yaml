@@ -25,3 +25,7 @@ steps:
       - unknown|not (recorded|documented)
       text_must_not_match:
       - (written|authored|signed|wrote) by (the )?(physician|dr\b|doctor|provider)
+      limitations_include:
+      - kind: not_documented
+        section: notes
+        detail: author not recorded

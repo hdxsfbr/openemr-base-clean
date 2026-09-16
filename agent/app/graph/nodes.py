@@ -336,6 +336,10 @@ def pack_limitations(pack: EvidencePack) -> list[dict[str, Any]]:
         if hasattr(rec, "substance") and (rec.reaction is None or rec.severity is None):
             missing = " and ".join(f for f, v in (("reaction", rec.reaction), ("severity", rec.severity)) if v is None)
             out.append({"kind": "not_documented", "section": "allergies", "detail": f"{rec.substance}: {missing} not documented.", "source_ids": [rec.source.source_id]})
+        if hasattr(rec, "note_type") and not rec.author.username:
+            out.append({"kind": "not_documented", "section": "notes", "detail": f"Note {_day(rec.date) or 'undated'}: author not recorded.", "source_ids": [rec.source.source_id]})
+        if hasattr(rec, "analyte") and rec.corrected:
+            out.append({"kind": "conflict", "section": "labs", "detail": f"{rec.analyte} ({_day(rec.date) or 'undated'}): corrected result {rec.value_text} {rec.unit or ''}; it supersedes any earlier value for that date and is not a trend.".replace("  ", " "), "source_ids": [rec.source.source_id]})
         if hasattr(rec, "analyte") and rec.unit is None:
             out.append({"kind": "not_documented", "section": "labs", "detail": f"{rec.analyte} ({_day(rec.date) or 'undated'}): unit not recorded; value {rec.value_text} is not comparable.", "source_ids": [rec.source.source_id]})
     if pack.truncated:

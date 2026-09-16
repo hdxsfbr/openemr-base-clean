@@ -238,3 +238,31 @@ def test_field_level_absences_become_limitation_lines() -> None:
     lims = pack_limitations(pack)
     assert any(l["kind"] == "not_documented" and l["section"] == "allergies" and "reaction and severity not documented" in l["detail"] and l["source_ids"] == [allergy.source.source_id] for l in lims)
     assert any(l["kind"] == "not_documented" and l["section"] == "labs" and "unit not recorded" in l["detail"] for l in lims)
+
+
+def test_analyte_with_code_suffix_verifies_and_same_day_pairs_are_not_trends() -> None:
+    pack = _pack("lab_results")
+    recs = [r for r in pack.responses["lab_results"].records if r.analyte == "Hemoglobin A1c"]
+    latest = recs[0]
+    claim = {"id": "c1", "type": "lab_result", "text": "A1c 6.8 %.", "source_ids": [latest.source.source_id],
+             "facts": {"analyte": f"{latest.analyte} ({latest.analyte_code})", "value_text": latest.value_text, "unit": latest.unit, "date": latest.date.value.date().isoformat(), "flag": latest.flag}}
+    assert [c.id for c in verify([Claim.model_validate(claim)], pack).accepted] == ["c1"]
+    twin = latest.model_copy(update={"value_text": "6.9", "numeric_value": 6.9, "corrected": True, "source": latest.source.model_copy(update={"source_id": latest.source.source_id + ":twin", "id": latest.source.id + 1})})
+    pack.records[twin.source.source_id] = twin
+    cmp = {"id": "c2", "type": "lab_comparison", "text": "A1c changed within the day.", "source_ids": [latest.source.source_id, twin.source.source_id],
+           "facts": {"analyte": "Hemoglobin A1c", "earlier_source_id": latest.source.source_id, "later_source_id": twin.source.source_id, "direction": "up"}}
+    res = verify([Claim.model_validate(cmp)], pack)
+    assert res.rejected and "same-day" in res.rejected[0]["detail"]
+
+
+def test_unknown_author_and_corrected_result_become_limitation_lines() -> None:
+    from app.graph.nodes import pack_limitations
+    pack = _pack("clinical_notes", "lab_results")
+    note = pack.responses["clinical_notes"].records[0]
+    note = note.model_copy(update={"author": note.author.model_copy(update={"username": None})})
+    lab = pack.responses["lab_results"].records[0].model_copy(update={"corrected": True})
+    pack.records[note.source.source_id] = note
+    pack.records[lab.source.source_id] = lab
+    lims = pack_limitations(pack)
+    assert any(l["kind"] == "not_documented" and l["section"] == "notes" and "author not recorded" in l["detail"] for l in lims)
+    assert any(l["kind"] == "conflict" and l["section"] == "labs" and "corrected result" in l["detail"] and l["source_ids"] == [lab.source.source_id] for l in lims)

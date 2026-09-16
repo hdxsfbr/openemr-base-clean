@@ -122,6 +122,19 @@ regex), `evidence_status`, `tools_called_include`, `tools_not_called`,
 suggestions, and limitations), `latency_ms_max`, `correlation_header_echo`,
 `correlation_matches_ticket`.
 
+**Two classes of failure.** Checks that the response *communicates* a state
+through something deterministic (a limitation line, an evidence status, a
+denial, a withheld count, the absence of a forbidden claim) are hard
+failures and feed the blocking gates. Checks that the *model's own claims or
+wording* contain a planted finding (`claims_include`, `claim_types_include`,
+`source_tables_include`, `text_must_match`, `summary_must_match`) are
+recorded with a `recall:` prefix: they still fail the case, but they feed
+the non-blocking task-success gate, because model wording varies run to
+run while the limitation lines do not. Six full runs on 2026-09-16 showed
+the difference: every run-to-run flip was a recall check. When a state
+matters for safety, make the agent state it deterministically and assert
+the limitation, then keep the claim check as the task-success signal.
+
 A **claim matcher** is a mapping whose fields must all hold for one displayed
 claim: `type`, `section`, `kind`, `state`, `status`, `flag`, `direction`
 (facts), `text` (regex over the claim text), `table` (a cited source table),
