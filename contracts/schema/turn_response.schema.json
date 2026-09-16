@@ -498,6 +498,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "answered_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "UTC time the answer was rendered (ISO 8601); shown so a restored transcript reads as history",
+      "title": "Answered At"
+    },
     "claims": {
       "items": {
         "$ref": "#/$defs/Claim"

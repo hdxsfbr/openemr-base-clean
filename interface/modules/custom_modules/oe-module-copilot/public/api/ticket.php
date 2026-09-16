@@ -54,6 +54,12 @@ $baseCorrelation = (string) $conversation['correlation_id'];
 if ($conversation['closed_at'] !== null) {
     Json::error(409, 'conversation_closed', 'This conversation is closed.', $baseCorrelation);
 }
+if ($conversations->isIdle($conversation, new DateTimeImmutable())) {
+    // Idle timeout (ARCHITECTURE.md, conversation state): a transcript left open is not
+    // restored after 30 minutes without a turn; the next question starts a new conversation.
+    $conversations->close($conversation['id'], 'idle');
+    Json::error(409, 'conversation_closed', 'This conversation timed out; start a new one.', $baseCorrelation);
+}
 
 $user = QueryUtils::fetchRecords('SELECT active FROM users WHERE id = ?', [$userId]);
 if ((int) ($user[0]['active'] ?? 0) !== 1) {

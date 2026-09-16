@@ -21,6 +21,7 @@ use OpenEMR\Common\Database\QueryUtils;
 final class ConversationRepository
 {
     public const RETENTION_HOURS_AFTER_CLOSE = 24;
+    public const IDLE_MINUTES = 30;
 
     /** @return array{id: string, correlation_id: string} */
     public function start(string $siteId, int $userId, string $username, int $pid): array
@@ -54,6 +55,20 @@ final class ConversationRepository
         );
         $rows = QueryUtils::fetchRecords('SELECT turn_count FROM copilot_conversation WHERE id = ?', [$id]);
         return (int) ($rows[0]['turn_count'] ?? 0);
+    }
+
+    /** True when the conversation's last turn is older than the idle window. */
+    public function isIdle(array $conversation, \DateTimeImmutable $now): bool
+    {
+        $last = $conversation['last_turn_at'] ?? $conversation['created_at'] ?? null;
+        if (!is_string($last) || $last === '') {
+            return true;
+        }
+        $lastTurn = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $last);
+        if ($lastTurn === false) {
+            return true;
+        }
+        return $now->getTimestamp() - $lastTurn->getTimestamp() > self::IDLE_MINUTES * 60;
     }
 
     public function close(string $id, string $reason): void

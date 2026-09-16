@@ -8,7 +8,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Callable
 
 from pydantic import ValidationError
@@ -254,9 +254,11 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         suggestions = filter_suggestions(state.get("raw_suggestions") or [], asked) if not state.get("narrate_error") else []
         if len(suggestions) < 2:
             suggestions = filter_suggestions(suggestions + default_suggestions(accepted, asked), asked)
+        answered_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         history = list(state.get("history") or [])
         history.append({
             "turn_id": state["turn_id"],
+            "answered_at": answered_at,
             "question": state["question"][:200],
             "turn_type": state["turn_type"],
             "summary": summary,
@@ -278,6 +280,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             "summary": summary,
             "summary_basis": summary_basis,
             "suggestions": suggestions,
+            "answered_at": answered_at,
             "status": status,
             "history": history,
             "conversation_tokens": int(state.get("conversation_tokens") or 0) + int(usage.get("input_tokens", 0) + usage.get("output_tokens", 0)),

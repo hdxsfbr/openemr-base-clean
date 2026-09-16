@@ -266,8 +266,18 @@
         wrap.appendChild(table);
         return wrap;
     }
+    function clockTime(iso) {
+        if (!iso) { return null; }
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) { return null; }
+        var sameDay = d.toDateString() === new Date().toDateString();
+        var time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return sameDay ? time : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+    }
     function evidenceLine(turn) {
         var parts = [];
+        var when = clockTime(turn.answered_at);
+        if (when) { parts.push('Answered ' + when); }
         if (turn.window_since) { parts.push('Window since ' + turn.window_since); }
         (turn.evidence || []).forEach(function (e) {
             parts.push(e.tool.replace(/_/g, ' ') + ': ' + (e.status === 'ok' || e.status === 'empty' ? e.record_count : e.status));
@@ -433,6 +443,10 @@
         }).then(function (r) {
             if (!r.ok || !r.data || !Array.isArray(r.data.turns)) { dropConversation(); return false; }
             if (r.data.closed) { dropConversation(); return false; }
+            if (r.data.turns.length) {
+                clearPlaceholder();
+                transcript.appendChild(el('div', 'copilot-divider small text-muted', 'Earlier in this session. Each answer reflects the chart at the time shown; ask again for the current state.'));
+            }
             r.data.turns.forEach(function (past) {
                 asked.push(past.question || '');
                 appendUser(past.question || '');

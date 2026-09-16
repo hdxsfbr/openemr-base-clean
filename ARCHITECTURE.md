@@ -380,7 +380,7 @@ runner loads it. Hand-written parallel definitions are not permitted.
 - `TurnRequest{message, correlation_id?, stream?}`,
   `TurnResponse{turn_id, status, evidence[], summary, summary_basis,
   suggestions[], claims[], sources[], limitations[], withheld_count,
-  verification, usage, correlation_id}`. `summary` is the one-paragraph answer shown above the
+  answered_at, verification, usage, correlation_id}`. `summary` is the one-paragraph answer shown above the
   claims; `summary_basis` says whether it is the model's prose (`model`,
   allowed only when no claim was withheld this turn and the prose passes the
   lexicon and cites no number absent from the verified claims) or a
@@ -422,7 +422,7 @@ minor; anything else is a new tool name. Eval reports record both.
 
 | Store | Where | Holds | TTL |
 | --- | --- | --- | --- |
-| Binding | OpenEMR database, module table `copilot_conversation` | site, user, pid, correlation id, timestamps, close reason | Closed on logout hook, patient switch, 30 min idle, or panel close; rows kept 24 h for audit reconciliation then deleted |
+| Binding | OpenEMR database, module table `copilot_conversation` | site, user, pid, correlation id, timestamps, close reason | Closed on patient switch, user inactive, break-glass, or 30 min without a turn (checked at every ticket, `close_reason=idle`); rows kept 24 h for audit reconciliation then deleted. A restored transcript is labeled "Earlier in this session" with each answer's time |
 | Checkpoint | Agent container, LangGraph SQLite checkpointer on a named volume, `thread_id` = conversation id | Graph state per conversation: user messages, verified claims and limitations, tool log (tool, params hash, record source ids, status), reference encounter and window, usage and budget counters | 24 h, then deleted by the agent's sweeper; deleted immediately when the binding closes |
 
 Tool records are **not** in graph state and are never checkpointed; they

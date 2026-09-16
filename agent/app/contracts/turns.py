@@ -134,6 +134,7 @@ class TurnResponse(StrictModel):
     summary: str = Field(default="", max_length=600, description="Paragraph shown above the claims")
     summary_basis: str = Field(default="none", pattern=r"^(model|deterministic|none)$", description="model: the model's summary, accepted because every claim verified; deterministic: built from verified claims")
     suggestions: list[str] = Field(default_factory=list, max_length=3, description="Follow-up questions offered as chips; lexicon-filtered, never facts")
+    answered_at: str | None = Field(default=None, description="UTC time the answer was rendered (ISO 8601); shown so a restored transcript reads as history")
     verification: Verification
     usage: dict[str, int | float] = Field(default_factory=dict)
     correlation_id: CorrelationId

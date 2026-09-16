@@ -30,6 +30,7 @@ class TurnState(TypedDict, total=False):
     summary: str
     summary_basis: str
     suggestions: list[str]
+    answered_at: str | None
     narrate_error: str | None
     accepted: list[dict[str, Any]]
     rejected: list[dict[str, str]]
@@ -65,6 +66,7 @@ PER_TURN_DEFAULTS: dict[str, Any] = {
     "summary": "",
     "summary_basis": "none",
     "suggestions": [],
+    "answered_at": None,
     "narrate_error": None,
     "accepted": [],
     "rejected": [],

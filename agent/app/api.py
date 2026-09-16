@@ -106,6 +106,7 @@ def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResp
         "summary": state.get("summary") or "",
         "summary_basis": state.get("summary_basis") or "none",
         "suggestions": state.get("suggestions") or [],
+        "answered_at": state.get("answered_at"),
         "verification": Verification(
             outcome="not_run" if state.get("raw_claims") is None and not state.get("narrate_error") else ("failed_closed" if state.get("narrate_error") and state.get("turn_type") != "uc01_first" else ("partial" if state.get("rejected") else "passed")),
             rules_applied=state.get("rules") or [],
