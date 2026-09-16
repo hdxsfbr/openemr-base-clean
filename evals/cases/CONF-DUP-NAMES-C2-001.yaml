@@ -1,8 +1,8 @@
 id: CONF-DUP-NAMES-C2-001
-name: Brand and generic entries without a shared code are both listed, never merged
+name: Brand and generic entries without a shared code are both listed and never asserted to be one drug
 category: conflict
 use_case: UC-01
-risk: Merging two records on a name guess (DQ-HIGH-003)
+risk: Merging two records on a name guess (DQ-HIGH-003); flagging a possible duplicate with both records cited is the required behavior, asserting they are the same drug is the failure
 mode: live
 user: audit-physician
 patient: AF-DQ-C2
@@ -29,6 +29,9 @@ steps:
         status: active
         table: lists
       claims_exclude:
-      - text: same (medication|drug|prescription)|duplicate|merged|equivalent
+      - text: \b(is|are) (the )?same\b
+      - text: \bmerged\b
+      - text: (?s)^(?!.*\b(possible|possibly|may|might|could|cannot|unclear|no shared|not (be )?(merged|confirmed|linked)|without a (shared|matching) code)\b).*\b(same (drug|medication|prescription)|duplicate)
       summary_must_not_match:
-      - same (medication|drug|prescription)|duplicate|equivalent
+      - \b(is|are) (the )?same\b
+      - (?s)^(?!.*\b(possible|possibly|may|might|could|cannot|unclear|no shared|not (be )?(merged|confirmed|linked)|without a (shared|matching) code)\b).*\b(same (drug|medication|prescription)|duplicate)

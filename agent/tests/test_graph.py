@@ -226,3 +226,15 @@ async def test_model_is_not_called_when_every_clinical_section_is_unavailable() 
     assert final["status"] == "partial" and final["accepted"] == []
     assert {l["kind"] for l in final["limitations"]} == {"unavailable"}
     assert "retrievable" in final["summary"]
+
+
+def test_field_level_absences_become_limitation_lines() -> None:
+    from app.graph.nodes import pack_limitations
+    pack = _pack("allergies", "lab_results")
+    allergy = pack.responses["allergies"].records[0].model_copy(update={"reaction": None, "severity": None})
+    lab = pack.responses["lab_results"].records[0].model_copy(update={"unit": None, "comparable": False})
+    pack.records[allergy.source.source_id] = allergy
+    pack.records[lab.source.source_id] = lab
+    lims = pack_limitations(pack)
+    assert any(l["kind"] == "not_documented" and l["section"] == "allergies" and "reaction and severity not documented" in l["detail"] and l["source_ids"] == [allergy.source.source_id] for l in lims)
+    assert any(l["kind"] == "not_documented" and l["section"] == "labs" and "unit not recorded" in l["detail"] for l in lims)

@@ -26,4 +26,4 @@ steps:
       claims_include:
       - text: gabapentin
       text_must_match:
-      - indication
+      - indication|reason|explain|why

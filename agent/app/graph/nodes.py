@@ -331,6 +331,13 @@ def pack_limitations(pack: EvidencePack) -> list[dict[str, Any]]:
             out.append({"kind": "undated", "section": rec.source.table, "detail": f"{getattr(rec, 'title', None) or getattr(rec, 'name', None) or getattr(rec, 'substance', 'record')}: no clinical date; cannot be placed in the timeline.", "source_ids": [rec.source.source_id]})
         if getattr(rec, "status_conflict", False):
             out.append({"kind": "conflict", "section": "medications", "detail": f"{rec.name}: end date and activity flag disagree (status shown by activity).", "source_ids": [rec.source.source_id]})
+        # Field-level absences are stated deterministically (DQ-MEDIUM-007, DQ-MEDIUM-009): the
+        # claim types carry no "reaction not documented", so the record's gaps are limitation lines.
+        if hasattr(rec, "substance") and (rec.reaction is None or rec.severity is None):
+            missing = " and ".join(f for f, v in (("reaction", rec.reaction), ("severity", rec.severity)) if v is None)
+            out.append({"kind": "not_documented", "section": "allergies", "detail": f"{rec.substance}: {missing} not documented.", "source_ids": [rec.source.source_id]})
+        if hasattr(rec, "analyte") and rec.unit is None:
+            out.append({"kind": "not_documented", "section": "labs", "detail": f"{rec.analyte} ({_day(rec.date) or 'undated'}): unit not recorded; value {rec.value_text} is not comparable.", "source_ids": [rec.source.source_id]})
     if pack.truncated:
         out.append({"kind": "truncated", "section": None, "detail": "Evidence pack truncated at its size cap.", "source_ids": []})
     return out

@@ -29,8 +29,10 @@ steps:
       claims_include:
       - type: lab_result
         text: potassium
-      text_must_match:
-      - unit
       claims_exclude:
       - type: lab_result
         text: potassium.*(mmol|mEq)
+      limitations_include:
+      - kind: not_documented
+        section: labs
+        detail: potassium.*unit not recorded

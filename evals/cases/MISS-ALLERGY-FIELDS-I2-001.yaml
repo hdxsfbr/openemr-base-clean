@@ -25,8 +25,6 @@ steps:
       claims_exclude:
       - type: absence
         section: allergies
-      text_must_match:
-      - reaction|severity
       text_must_not_match:
       - \bno known allerg
       - \bno allergies\b
@@ -35,3 +33,7 @@ steps:
       - \bhives\b
       - \bsevere\b
       - \bmild\b
+      limitations_include:
+      - kind: not_documented
+        section: allergies
+        detail: reaction and severity not documented

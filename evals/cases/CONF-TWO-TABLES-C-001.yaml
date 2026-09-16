@@ -2,7 +2,7 @@ id: CONF-TWO-TABLES-C-001
 name: 'Medication in prescriptions and the list with different status: one conflict citing both'
 category: conflict
 use_case: UC-01
-risk: Double-counting or silently picking one source (DQ-HIGH-003)
+risk: 'Double-counting or silently picking one source (DQ-HIGH-003): a conflict claim citing both records is required; per-record status claims that name their provenance may accompany it'
 mode: live
 user: audit-physician
 patient: AF-DQ-C
@@ -24,8 +24,10 @@ steps:
         - prescriptions
         - lists
       claims_exclude:
-      - type: medication_status
+      - type: change_event
+        kind: stopped
         text: metformin
+        table: prescriptions
 - turn:
     message: What does the chart say about metformin?
     expect:
@@ -36,5 +38,7 @@ steps:
       - type: conflict
         text: metformin
       claims_exclude:
-      - type: medication_status
+      - type: change_event
+        kind: stopped
         text: metformin
+        table: prescriptions
