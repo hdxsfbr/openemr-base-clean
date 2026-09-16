@@ -47,6 +47,7 @@ import json
 import random
 import re
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -153,26 +154,110 @@ def _entry(i: int, patient: str, question: str, body: dict[str, Any], latency_ms
     ]
 
 
-ISSUE_RE = re.compile(r"^##\s*(\d+)\.\s*(\S+)\s*—\s*(.+)$")
+HEADER_RE = re.compile(r"^##\s*(\d+)\.\s*(\S+)\s*—\s*(.+)$")
+FIRST_ISSUE_LABEL = "First issue (one only, blank if none)"
+NOTES_LABEL = "Notes"
+REVIEWED_BY_LABEL = "Reviewed by"
+
+
+@dataclass
+class JournalEntry:
+    """One trace in a journal, as the review UI and `report` both need it. `raw` is the exact
+    on-disk block text (header line through, but not including, the next entry's header) —
+    write_entry patches specific lines inside it rather than reconstructing the block, so a
+    save never touches formatting it didn't ask to change."""
+
+    index: int
+    patient: str
+    question: str
+    first_issue: str
+    notes: str
+    reviewed_by: str
+    raw: str
+
+
+def _field(block: str, label: str) -> str:
+    # [ \t]* only (not \s*): \s* would cross the following blank line into the next field when
+    # this one is empty, since . does not match \n but \s does.
+    m = re.search(r"\*\*" + re.escape(label) + r":\*\*[ \t]*(.*)", block)
+    return m.group(1).strip() if m else ""
+
+
+def _entry_spans(text: str) -> list[tuple[int, int]]:
+    """Byte ranges of every '## N. patient — question' block, from its header to the next
+    header (or EOF). Skips the file's own header/instructions preamble."""
+    starts = [m.start() for m in re.finditer(r"^## \d+\.", text, re.MULTILINE)]
+    return [(s, starts[i + 1] if i + 1 < len(starts) else len(text)) for i, s in enumerate(starts)]
+
+
+def parse_journal(path: Path) -> list[JournalEntry]:
+    text = path.read_text()
+    entries = []
+    for s, e in _entry_spans(text):
+        block = text[s:e]
+        header = HEADER_RE.match(block.splitlines()[0])
+        if not header:
+            continue
+        idx, patient, question = header.groups()
+        entries.append(JournalEntry(
+            index=int(idx), patient=patient, question=question,
+            first_issue=_field(block, FIRST_ISSUE_LABEL),
+            notes=_field(block, NOTES_LABEL),
+            reviewed_by=_field(block, REVIEWED_BY_LABEL),
+            raw=block,
+        ))
+    return entries
+
+
+def write_entry(path: Path, index: int, *, first_issue: str | None = None, notes: str | None = None, reviewer: str | None = None) -> JournalEntry:
+    """Update one entry's fields in place. Re-reads the file fresh (not a cached copy) and
+    writes back atomically, so a concurrent hand-edit or a second browser tab can't be silently
+    lost — the read-modify-write window is as short as one function call. Fields left as None
+    (vs. an explicit empty string) are left untouched."""
+    text = path.read_text()
+    spans = _entry_spans(text)
+    for s, e in spans:
+        block = text[s:e]
+        header = HEADER_RE.match(block.splitlines()[0])
+        if not header or int(header.group(1)) != index:
+            continue
+        lines = block.split("\n")
+
+        def _set(label: str, value: str, insert_after_label: str | None = None) -> None:
+            prefix = f"**{label}:** "
+            for i, line in enumerate(lines):
+                if line.startswith(f"**{label}:**"):
+                    lines[i] = prefix + value
+                    return
+            # Label not present yet (an older journal without a Reviewed-by line): insert a new
+            # line right after the anchor label's line.
+            for i, line in enumerate(lines):
+                if insert_after_label and line.startswith(f"**{insert_after_label}:**"):
+                    lines.insert(i + 1, prefix + value)
+                    return
+
+        if first_issue is not None:
+            _set(FIRST_ISSUE_LABEL, first_issue)
+        if notes is not None:
+            _set(NOTES_LABEL, notes)
+        if reviewer is not None:
+            _set(REVIEWED_BY_LABEL, reviewer, insert_after_label=NOTES_LABEL)
+        new_block = "\n".join(lines)
+        new_text = text[:s] + new_block + text[e:]
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(new_text)
+        tmp.replace(path)  # atomic on POSIX
+        updated = parse_journal(path)
+        return next(en for en in updated if en.index == index)
+    raise KeyError(f"no entry {index} in {path}")
 
 
 def report(journal_paths: list[Path]) -> None:
     issues: list[tuple[str, str, str]] = []  # (patient, question, issue text)
     for path in journal_paths:
-        text = path.read_text()
-        blocks = text.split("## ")[1:]
-        for block in blocks:
-            block = "## " + block
-            header_match = ISSUE_RE.match(block.splitlines()[0])
-            if not header_match:
-                continue
-            _, patient, question = header_match.groups()
-            # [ \t]* only (not \s*): \s* would cross the blank line into the Notes field when
-            # First issue is empty, since . does not match \n but \s does.
-            m = re.search(r"\*\*First issue \(one only, blank if none\):\*\*[ \t]*(.*)", block)
-            issue = (m.group(1).strip() if m else "")
-            if issue:
-                issues.append((patient, question, issue))
+        for entry in parse_journal(path):
+            if entry.first_issue:
+                issues.append((entry.patient, entry.question, entry.first_issue))
     if not issues:
         print("No filled-in 'First issue' entries found. Fill in the journal(s) before running report.")
         return
