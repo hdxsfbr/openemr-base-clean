@@ -59,9 +59,16 @@ conflict with OpenEMR's own `README.md`.
       "Clinical Co-Pilot": requests, p50/p95, errors, retries, tool calls,
       tool failures, tokens, cost; `docs/operations/langfuse-dashboard.md`,
       2026-09-16. Screenshot for evaluators still to attach.)*
-- [x] Eval suite includes boundary, invariant, and regression cases. *(33
-      cases, 33/33 after the DQ-HIGH-002 gateway fix, `evals/results/`.)*
+- [x] Eval suite includes boundary, invariant, and regression cases. *(44
+      cases, one per cohort defect; every results file opens with the
+      KEY_METRICS release-gate table and a quality scorecard. Two full runs
+      on 2026-09-16 after the sweep fixes: RUN_SUMMARY. `evals/results/`.)*
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
+- [ ] GitLab pipeline green on the submitted commit. *(The lab GitLab had no
+      runners and no pipeline was ever created as of 2026-09-16; a dedicated
+      $6 runner Droplet was provisioned, `docs/deployment/digitalocean.md`
+      "CI Runner". Until the first pipeline runs, the CI evidence is the
+      local `make`-equivalent: agent pytest 55/55 and the offline eval subset.)*
 - [x] Runnable API collection covers core endpoints. *(Bruno, 21/21 on the
       deployment 2026-09-16.)*
 - [x] No credentials, tokens, session IDs, PHI, or private trace URLs are

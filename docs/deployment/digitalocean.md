@@ -233,6 +233,41 @@ Terraform state remains local and ignored by Git. Application secrets are
 generated on the Droplet, stored with owner-only permissions, and are not
 placed in cloud-init or Terraform state.
 
+## CI Runner (2026-09-16)
+
+The lab GitLab (`labs.gauntletai.com`) had no shared runners available to
+the project and its pipeline subsystem was failing on 2026-09-16 (no pipeline
+ever created, "Unable to validate CI/CD configuration" in the editor), so the
+project has its own runner on a dedicated Droplet. It is deliberately not on
+the demo host and not on the owner's workstation: a runner executes whatever
+`.gitlab-ci.yml` says at the built commit and needs the Docker socket, so it
+lives on a machine that holds nothing else.
+
+| Item | Value |
+| --- | --- |
+| Terraform root | `infra/digitalocean/runner/` (own state; destroying it never touches the demo host) |
+| Droplet | `agentforge-ci-runner`, `s-1vcpu-1gb` ($6/month, $0.00893/h), `sfo3`, Ubuntu 24.04, 2 GB swap |
+| Firewall | inbound SSH from `allowed_ssh_cidrs` only; outbound open (the runner polls GitLab, nothing connects in) |
+| GitLab side | project runner #221 on the repository, untagged jobs allowed, not shared with any other project |
+| Executor | Docker, unprivileged, `concurrent = 1`, default image `alpine:3.20` |
+
+Create and register (the runner authentication token is read from a local
+file and never printed, stored in Terraform state, or put in user data):
+
+```bash
+cd infra/digitalocean
+set -a; source ~/.config/agentforge/do.env; set +a
+./tf.sh -chdir=runner init -input=false
+./tf.sh -chdir=runner apply -input=false -var-file=../terraform.tfvars
+./runner/register.sh "$(./tf.sh -chdir=runner output -raw runner_ip)" ~/.config/agentforge/gitlab_runner_token
+```
+
+The token comes from GitLab: Settings → CI/CD → Runners → the runner's page
+(shown once at creation). Rotating it: reset the token on that page, put the
+new value in the file, re-run `register.sh`. Retiring the runner:
+`./tf.sh -chdir=runner destroy -var-file=../terraform.tfvars`, then delete
+runner #221 on GitLab.
+
 ## Failure and Recovery
 
 - If TLS issuance is still converging, wait one minute and rerun `smoke.sh`.
