@@ -1,4 +1,5 @@
 id: CONF-DUP-NAMES-C2-001
+holdout: true
 name: Brand and generic entries without a shared code are both listed and never asserted to be one drug
 category: conflict
 use_case: UC-01

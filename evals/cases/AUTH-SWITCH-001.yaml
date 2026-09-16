@@ -1,4 +1,5 @@
 id: AUTH-SWITCH-001
+tier: golden
 name: Patient switch closes the conversation before any tool call
 category: authorization
 use_case: UC-01

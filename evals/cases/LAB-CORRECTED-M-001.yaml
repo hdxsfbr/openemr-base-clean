@@ -1,4 +1,5 @@
 id: LAB-CORRECTED-M-001
+holdout: true
 name: A corrected creatinine is shown as corrected
 category: lab
 use_case: UC-02

@@ -1,4 +1,5 @@
 id: CIT-CONTRACT-001
+tier: golden
 name: Recorded gateway responses match the exported contract; schema not drifted
 category: citation
 use_case: null

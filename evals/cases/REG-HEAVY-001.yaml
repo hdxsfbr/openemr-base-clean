@@ -1,4 +1,5 @@
 id: REG-HEAVY-001
+tier: golden
 name: 'Five-year chart: bounded retrieval, cited brief inside the latency budget'
 category: regression
 use_case: UC-01

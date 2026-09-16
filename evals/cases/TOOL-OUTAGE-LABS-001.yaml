@@ -1,4 +1,5 @@
 id: TOOL-OUTAGE-LABS-001
+tier: golden
 name: 'Lab tool outage: section unavailable, never reported as absent'
 category: tool_failure
 use_case: UC-01

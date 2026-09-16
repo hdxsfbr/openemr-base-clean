@@ -1,4 +1,5 @@
 id: ISO-NEW-CONVERSATION-001
+tier: golden
 name: A new conversation for the same chart starts empty
 category: isolation
 use_case: UC-01

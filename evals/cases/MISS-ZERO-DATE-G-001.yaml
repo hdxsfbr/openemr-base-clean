@@ -1,4 +1,5 @@
 id: MISS-ZERO-DATE-G-001
+tier: golden
 name: Zero-date onset never surfaces as a real date
 category: missing_data
 use_case: UC-01

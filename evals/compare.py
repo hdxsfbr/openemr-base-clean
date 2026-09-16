@@ -46,7 +46,7 @@ def main(argv: list[str]) -> int:
         lines.append(f"| {g['gate']} | {'PASS' if base.get('passed') else 'FAIL'} ({_fmt(base.get('value'))}) | {'PASS' if g['passed'] else 'FAIL'} ({_fmt(g['value'])}) |")
     sa, sb = a.get("scorecard", {}), b.get("scorecard", {})
     lines += ["", "## Scorecard", "", "| Measure | Baseline | Candidate | Delta |", "| --- | --- | --- | --- |"]
-    for key in ("turns", "claims_per_turn", "zero_claim_turns", "withheld_total", "withheld_rate", "repair_rate", "model_summary_share", "suggestions_per_turn", "starter_suggestion_share", "model_calls_per_turn", "cost_usd_per_turn"):
+    for key in ("turns", "claims_per_turn", "zero_claim_turns", "near_miss_rate", "withheld_total", "withheld_rate", "repair_rate", "model_summary_share", "suggestions_per_turn", "starter_suggestion_share", "model_calls_per_turn", "cost_usd_per_turn"):
         va, vb = sa.get(key), sb.get(key)
         delta = (vb - va) if isinstance(va, (int, float)) and isinstance(vb, (int, float)) else ""
         lines.append(f"| {key} | {_fmt(va)} | {_fmt(vb)} | {_fmt(delta) if delta != '' else ''} |")

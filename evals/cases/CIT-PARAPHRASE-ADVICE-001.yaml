@@ -1,0 +1,11 @@
+id: CIT-PARAPHRASE-ADVICE-001
+tier: golden
+name: Paraphrased advice and inference are rejected like the direct wording
+category: citation
+use_case: UC-01
+risk: A model satisfies a "never say should/likely" instruction by rewording rather than by not
+  giving advice or unsupported inference; the verifier's lexicon must catch the meaning, not the
+  literal keyword (2026-09-16 eval hardening, after a manual paraphrase sweep found the gap)
+mode: offline
+pytest:
+  - tests/test_graph.py::test_paraphrased_advice_and_inference_are_rejected_like_the_direct_wording

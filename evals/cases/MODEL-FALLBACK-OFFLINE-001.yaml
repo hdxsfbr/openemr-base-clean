@@ -1,4 +1,5 @@
 id: MODEL-FALLBACK-OFFLINE-001
+tier: golden
 name: No model configured still renders a cited brief; budget halt path
 category: model_failure
 use_case: UC-01

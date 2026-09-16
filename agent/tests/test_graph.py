@@ -77,6 +77,24 @@ async def test_model_claims_are_verified_and_bad_ones_withheld() -> None:
 
 
 @pytest.mark.anyio
+async def test_paraphrased_advice_and_inference_are_rejected_like_the_direct_wording() -> None:
+    """A model can satisfy a 'never say should/likely' instruction by rewording rather than by
+    not giving advice or unsupported inference. The verifier's lexicon has to catch the meaning,
+    not the literal keyword (2026-09-16 eval hardening, after a manual paraphrase sweep of the
+    FORBIDDEN list found these gaps)."""
+    budget.daily.reset()
+    direct = {"id": "c1", "type": "change_event", "text": "Metformin started; the dose should be increased.", "facts": {"section": "medications", "kind": "started", "date": "2026-08-25"}, "source_ids": [METFORMIN]}
+    paraphrase_advice = {"id": "c2", "type": "change_event", "text": "Metformin started; it would be wise to review the dose.", "facts": {"section": "medications", "kind": "started", "date": "2026-08-25"}, "source_ids": [METFORMIN]}
+    paraphrase_inference = {"id": "c3", "type": "change_event", "text": "Metformin started, which points toward better glycemic control.", "facts": {"section": "medications", "kind": "started", "date": "2026-08-25"}, "source_ids": [METFORMIN]}
+    model = FakeModel(claims=[direct, paraphrase_advice, paraphrase_inference], repair_claims=[])
+    g = make_graph(model)
+    final = await g.ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert final["accepted"] == []
+    assert {r["claim_id"] for r in final["rejected"]} == {"c1", "c2", "c3"}
+    assert all(r["rule"] in ("lexicon:advice", "lexicon:inference") for r in final["rejected"])
+
+
+@pytest.mark.anyio
 async def test_model_summary_shown_only_when_every_claim_verifies() -> None:
     budget.daily.reset()
     good = {"id": "c1", "type": "lab_result", "text": "Hemoglobin A1c 6.8 % on 2026-08-31, flagged abnormal.", "facts": {"analyte": "Hemoglobin A1c", "value_text": "6.8", "unit": "%", "date": "2026-08-31", "flag": "abnormal"}, "source_ids": [A1C_LATEST]}

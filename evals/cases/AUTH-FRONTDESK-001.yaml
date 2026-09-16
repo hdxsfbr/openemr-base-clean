@@ -1,4 +1,5 @@
 id: AUTH-FRONTDESK-001
+tier: golden
 name: Front Office user receives no clinical section
 category: authorization
 use_case: UC-01

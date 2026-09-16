@@ -1,4 +1,5 @@
 id: AUTH-CLOSED-CONVERSATION-001
+tier: golden
 name: A closed conversation is denied before any tool call
 category: authorization
 use_case: UC-01

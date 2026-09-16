@@ -1,4 +1,5 @@
 id: MODEL-BUDGET-001
+holdout: true
 name: Budget exhaustion routes to the deterministic fallback
 category: model_failure
 use_case: UC-01

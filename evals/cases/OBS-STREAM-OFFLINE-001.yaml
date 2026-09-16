@@ -1,4 +1,5 @@
 id: OBS-STREAM-OFFLINE-001
+tier: golden
 name: Streamed turns emit evidence and progress before claims; no claim text early
 category: observability
 use_case: UC-01

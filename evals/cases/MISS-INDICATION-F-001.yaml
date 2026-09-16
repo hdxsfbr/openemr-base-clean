@@ -1,4 +1,5 @@
 id: MISS-INDICATION-F-001
+holdout: true
 name: Medication with no documented indication is not given one
 category: missing_data
 use_case: UC-03

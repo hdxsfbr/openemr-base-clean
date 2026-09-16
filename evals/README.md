@@ -12,7 +12,10 @@ evals/
   cases/          # One YAML per case plus cohort.json (pubpid -> pid)
   fixtures/       # Synthetic cohort (af-cohort-v1) and demo users
   results/        # Versioned run reports (JSON + Markdown); no secrets or PHI
+  error_analysis/ # Hand-filled journals from error_analysis.py sample (not committed until reviewed)
   run.py          # Runner: live cases against a deployment, offline cases via pytest
+  compare.py      # Diff two run reports (gates, scorecard, per-case latency)
+  error_analysis.py  # Manual trace-review journal: sample unscripted turns, then report filled issues
   README.md
 ```
 
@@ -29,6 +32,13 @@ agent/.venv/bin/python evals/run.py --offline-only
 # One category or one case
 agent/.venv/bin/python evals/run.py --only authorization
 agent/.venv/bin/python evals/run.py --case INJ-NOTE-O-001
+
+# Fast smoke test: only the golden set (small, must always pass)
+agent/.venv/bin/python evals/run.py --golden-only
+
+# Pre-submission check only: include the holdout set in a filtered run
+# (a full run with no filters always includes it, since that IS the release check)
+agent/.venv/bin/python evals/run.py --only conflict --include-holdout
 ```
 
 Each run writes `evals/results/<UTC time>-<commit>.json` and `.md` with:
@@ -39,17 +49,24 @@ Each run writes `evals/results/<UTC time>-<commit>.json` and `.md` with:
   NOT MEASURED (the runner cannot measure it yet: citation correctness
   needs gold source ids, time to first evidence needs the streaming path),
   NOT CONFIGURED (no threshold yet: cost per turn). Only PASS is green. The
-  gates: authorization leakage (every authorization case, role, and ACL
-  fixture ran and none leaked), unsupported claim displayed, explicit
-  uncertainty recall (every blocking case asserts a deterministic positive
-  state such as a limitation line), safe degradation, healthy-stack tool
-  failures, citation resolution, task success (model recall; risk
-  acceptance allowed), latency p95, and error rate. A filtered run
-  (`--only`, `--case`, `--offline-only`) prints the table for information
-  and does not fail on NOT RUN; a full run does.
-- **Pass rate by category** and the release-blocking failures.
+  gates: **golden set integrity** (every `tier: golden` case ran and
+  passed — no exceptions, this is the smoke test), authorization leakage
+  (every authorization case, role, and ACL fixture ran and none leaked),
+  unsupported claim displayed, explicit uncertainty recall (every blocking
+  case asserts a deterministic positive state such as a limitation line),
+  safe degradation, healthy-stack tool failures, citation resolution, task
+  success (model recall; risk acceptance allowed), latency p95, and error
+  rate. A filtered run (`--only`, `--case`, `--offline-only`,
+  `--golden-only`) prints the table for information and does not fail on
+  NOT RUN; a full run does.
+- **Golden set** (Evals Lecture 1 Stage 1) as a flat pass/fail list, then
+  **behavioral coverage by category** (Stage 2) as the pass/fail counts per
+  `category`, then the **holdout set** when included (see below).
 - **Scorecard** over the model-backed turns (no injected fault, at least one
-  model call): claims per turn, zero-claim turns, withheld statements and
+  model call): claims per turn, zero-claim turns, a non-blocking **near-miss
+  rate** (hedge language such as "might"/"may"/"could" in displayed text — a
+  canary for drift toward advice-adjacent phrasing that has not yet tripped
+  the verifier's lexicon, not a failure by itself), withheld statements and
   rate, repair rate, status share, share of turns showing the model's
   summary, suggestions per turn and starter share, model calls, tokens and
   list-price cost per turn, latency p50/p95/p99 overall and by turn type,
@@ -64,6 +81,73 @@ Each run writes `evals/results/<UTC time>-<commit>.json` and `.md` with:
 on some attempts only); use it before trusting a single-run difference.
 `--label` stores a free-text label (the experiment) in the report.
 
+## Golden Set, Behavioral Coverage, and Holdout Set
+
+Three tiers, matching Evals Lecture 1's framework, all drawn from the same
+`evals/cases/` files — none of this is a separate suite:
+
+- **Golden set** (`tier: golden`): a small (currently 14), diverse subset of
+  existing cases that are deterministic (no `recall:`-prefixed checks, no
+  dependence on model wording) and represent the most foundational
+  invariants — auth denial, conversation isolation, the verifier's
+  withhold/summary-gate promise, safe degradation, injection resistance.
+  Target is **100%, always**; a failure here means something fundamental
+  broke, not that a scenario needs more prompt tuning. Run it alone with
+  `--golden-only` as a fast pre-flight check. This does not replace the
+  project's "no happy-path-only cases" rule (above) — every golden case
+  still protects a named boundary, it is just the minimal set whose failure
+  is unambiguous.
+- **Behavioral coverage**: every other case, organized by the existing
+  `category` field (already Byron's "labeled scenario" categories:
+  authorization, citation, missing_data, conflict, lab, untrusted,
+  tool_failure, model_failure, isolation, observability, regression).
+  Failures are expected here; a category sitting at 100% for a while is a
+  signal to add a harder case, not a stopping point (Evals Lecture 1: "if
+  you start to get close to 100, it's time to start introducing some harder
+  use cases").
+- **Holdout set** (`holdout: true`): a handful of behavioral-coverage cases
+  (currently 4: `CONF-DUP-NAMES-C2-001`, `LAB-CORRECTED-M-001`,
+  `MISS-INDICATION-F-001`, `MODEL-BUDGET-001`) reserved for a pre-submission
+  generalization check, never for iterating on the prompt (Evals Lecture 1
+  Stage 5 anti-pattern: eval-set overfitting). `run.py` excludes holdout
+  cases from every filtered/dev-loop run (`--only`, `--case`,
+  `--offline-only`) unless `--include-holdout` is passed explicitly; a full
+  run (no filters) always includes them, since that is the release check
+  the holdout set exists for. The discipline this depends on is human, not
+  just the flag: don't run with `--include-holdout` while tuning a prompt,
+  only right before a release or submission.
+
+## LLM-as-judge (deferred)
+
+Every check in this suite is deterministic (rung 1–2 of Evals Lecture 2's
+grader ladder: hard-coded assertions and structured-field matching). No LLM
+call grades anything here. This is a deliberate choice for the early
+submission, not an oversight — the structured-claim-plus-verifier design
+already covers most of what a judge would otherwise be needed for. If a
+judge is added later (rung 4, for genuinely subjective checks a deterministic
+assertion can't reach, such as prose helpfulness), it must be calibrated
+against human labels first (target correlation ≥ 0.8) and reported in its
+own field, never mixed into pass/fail — see the "Deterministic assertions
+only" line on every report.
+
+## Error Analysis
+
+`evals/error_analysis.py` is the manual trace-review process from Evals
+Lecture 1 Stage 3 — the mechanism that finds gaps the curated `cases/`
+matrix structurally can't, because every curated case was written top-down
+against a known planted defect. `sample` drives unscripted, differently
+phrased questions (not the wording already scripted in `cases/*.yaml`)
+across a spread of cohort patients and writes a journal with blank
+**First issue** / **Notes** fields per trace. Read each trace and fill in
+*at most one* issue — stop at the first thing that looks wrong, do not keep
+reading, do not score. `report` then prints every filled-in issue as a flat
+list to paste into a chat for categorization (categorizing after the fact is
+fine to delegate; finding the issue in a trace nobody has looked at yet is
+not — Evals Lecture 1 and 2 both make this point independently). A category
+that recurs becomes a new case here, with the "Required Case Metadata"
+below. Journals under `evals/error_analysis/` hold synthetic `af-cohort-v1`
+content only; never point `--base-url` at a deployment with real data.
+
 ## Case Format
 
 One YAML file per case, id as filename. Live cases drive the deployed
@@ -77,6 +161,10 @@ name: Lab tool outage: section unavailable, never reported as absent
 category: tool_failure        # authorization | citation | missing_data | conflict | lab |
                               # untrusted | tool_failure | model_failure | isolation |
                               # observability | regression
+tier: golden                  # golden | coverage (default coverage; see "Golden Set, Behavioral
+                              # Coverage, and Holdout Set" above); omit for an ordinary coverage case
+holdout: false                # true reserves the case for the pre-submission generalization check
+                              # only; omit unless deliberately adding to the holdout set
 use_case: UC-01
 risk: Silent omission or fabricated absence
 mode: live                    # live | offline

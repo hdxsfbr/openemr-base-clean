@@ -1,4 +1,5 @@
 id: CIT-SUMMARY-GATE-001
+tier: golden
 name: Model prose shown only when every claim verifies and every number is grounded
 category: citation
 use_case: UC-01
