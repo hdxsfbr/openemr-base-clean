@@ -60,6 +60,15 @@ sibling `search()` now works on seeded lab rows.
   `status ∈ {ok, empty, partial, unavailable}`, and the verifier forbids
   absence claims unless the status is `ok`/`empty`. This finding is the
   concrete case that justifies the rule.
+- **Co-pilot response status (2026-09-16):** Implemented. `LabResultsTool`
+  calls `ProcedureService::search()` only; any exception in a tool becomes
+  `status: unavailable` with a reason, never an empty list (`AbstractTool`,
+  `agent/app/gateway_client.py`); `pack_limitations` emits an `unavailable`
+  line and the verifier's `absence_requires_retrieval` rule rejects an
+  absence claim for a section not retrieved `ok`/`empty`. `TOOL-OUTAGE-LABS-001`
+  (golden, injected fault) passes live and the "Healthy-stack tool failures"
+  release gate is PASS in `evals/results/2026-09-16T073141Z-1ddf824.md`.
+  OpenEMR's `getAll()` is unchanged.
 
 ### `PERF-MED-002` Dashboard rendering issues ≈1,045 SQL statements per load, dominated by uncached lookups
 
@@ -92,6 +101,12 @@ sibling `search()` now works on seeded lab rows.
   ≤300 ms p95 in total (parallel fan-out), leaving the remainder for the model
   and verification. The co-pilot panel loads asynchronously after the
   dashboard so it never adds to chart-open time.
+- **Co-pilot response status (2026-09-16):** Tools call service classes and
+  never render or fetch pages (`src/Gateway/Tools/*.php`); the panel is inert
+  until the physician clicks and starts no retrieval on chart open. The
+  mixed load test has not been run (target 2026-09-19). Measured retrieval on
+  the deployment is about 1 s per turn including the agent→gateway HTTP hop
+  (`KEY_METRICS.md`), above the 300 ms line in the budget below.
 
 ### `PERF-MED-003` No realistic-volume baseline is possible with current data
 
@@ -122,6 +137,15 @@ sibling `search()` now works on seeded lab rows.
 - **Architecture consequence:** Tools have hard bounds: a time window, a max
   rows per resource, and note truncation with an explicit `truncated` flag.
   Payload size is a tracked metric, not an afterthought.
+- **Co-pilot response status (2026-09-16):** Bounds implemented: default
+  window since the reference encounter, 50 rows per tool and 20 notes with
+  `truncated`/`omitted_count` (`AbstractTool::DEFAULT_LIMIT`,
+  `ClinicalNotesTool::limit()`), note text capped, and an evidence-pack
+  character cap that marks the pack truncated (`agent/app/evidence.py`).
+  `REG-HEAVY-001` (golden) runs UC-01 on `AF-HEAVY` live inside 45 s on every
+  attempt. Not done: the 10/50-user load test; `EXPLAIN` on the window
+  queries; a heavier patient. Per-turn token counts are now measured from
+  API usage (PERF-MED-005 status) rather than by the bytes÷4 heuristic.
 
 ### `PERF-MED-005` Raw service payloads are too large to hand to the model
 
@@ -156,6 +180,16 @@ sibling `search()` now works on seeded lab rows.
 - **Architecture consequence:** Context construction is a deterministic tool
   layer responsibility, not the model's. Payload bytes and tokens per tool
   are first-class metrics on the dashboard.
+- **Co-pilot response status (2026-09-16):** Implemented. Tools return
+  projected typed records (`agent/app/contracts/tools.py`), the agent builds
+  a capped evidence pack, and the model sees the pack, never raw service
+  output. Measured on the deployment: 608 input, 1,170 output, and 5,106
+  cache-read tokens per model-backed turn (n=120, `AF-HEAVY` included; run
+  `1ddf824`), against the 42K-token raw payload. Per-tool record counts,
+  truncation, and gateway latency are Langfuse tool observations (commit
+  `74a1bf6`). Not done: an eval that forces the cap and asserts a visible
+  "partial" statement (the runner has an `evidence_truncated` key; no case
+  uses it).
 
 ### `PERF-LOW-004` Readiness probe bootstraps the full framework
 
@@ -180,6 +214,11 @@ sibling `search()` now works on seeded lab rows.
 - **Architecture consequence:** The co-pilot `/health` stays trivial. `/ready`
   caches dependency results for a few seconds so orchestration probes don't
   amplify load on OpenEMR or the LLM provider.
+- **Co-pilot response status (2026-09-16):** Implemented. `/health` returns a
+  constant; `/ready` caches its dependency report for 30 s
+  (`settings.ready_cache_seconds`, `agent/app/main.py`). Compose health
+  checks target `livez` and the agent's `/health`; `readyz` is unrouted at
+  Caddy (404 in the 2026-09-15 probe).
 
 ---
 
@@ -207,11 +246,27 @@ sibling `search()` now works on seeded lab rows.
 | Deterministic verification | 150 ms | in-process, no model call |
 | **End-to-end first answer** | **≈4.5–5 s p95** | Fits a 90-second pre-visit window |
 
+*Status 2026-09-16:* superseded by measurement, kept as the original design
+budget. The LLM stage was not 4 s: narration takes 5–9 s, repair 5–14 s, and
+planning 10–12 s on follow-ups with Sonnet 5 (`KEY_METRICS.md`). The owner
+accepted a provisional 30 s p95 for the complete verified response on
+2026-09-15 (ADR-0004), with the 8 s design goal tracked, not gated. Measured on
+the deployment in `evals/results/2026-09-16T073141Z-1ddf824.md`: p50 12.1 s,
+p95 27.6 s, p99 40.8 s over 120 model-backed turns; UC-01 first turns p95
+19.1 s; follow-ups p95 31.4 s. Retrieval is about 1 s per turn. Time to first
+evidence is not measured (the runner does not use the SSE path).
+
 ## Not measured (required later by the PRD)
 
 - Authenticated public-path latency on the Droplet. Unauthenticated pages were
   measured in the 2026-09-14 cloud window
   (`evidence/performance/page-timing-local.md`, public comparison).
-- CPU/memory/throughput under 10 and 50 concurrent users.
-- p99 at realistic data volume.
-- LLM latency, token counts, and cost per turn.
+- CPU/memory/throughput under 10 and 50 concurrent users. *Still not
+  measured as of 2026-09-16 (target 2026-09-19).*
+- p99 at realistic data volume. *Only the serial eval suite's p99 (40.8 s at
+  `1ddf824`) exists; no concurrent measurement.*
+- LLM latency, token counts, and cost per turn. *Measured 2026-09-15/16 on the
+  deployment: see the latency status above, `AI_COST_ANALYSIS.md` Part B, and
+  the eval scorecard ($0.0127 list price per model-backed turn at `1ddf824`).*
+- Authenticated dashboard render latency on the Droplet remains unmeasured;
+  the eval runner opens charts but does not time them.

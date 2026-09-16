@@ -78,7 +78,7 @@ chart is a note in the eval report, not a fix).
 
 | Field | Value |
 | --- | --- |
-| Metric | `copilot_requests_total{path,status}`; numerator `status="5xx"`, denominator all requests, both excluding the probe paths `health`, `ready`, `metrics` |
+| Metric | `copilot_requests_total{path,status}`; numerator `status="5xx"`, denominator all requests, both excluding the probe path classes `health`, `ready`, `metrics`, `root` (`PROBE_PATHS` in `app/alerts.py`) |
 | Window | The counter delta since the previous run (5 minutes with the cron line below; cumulative since process start on the first run) |
 | Warn | Above 0.5% |
 | Page | Above 2%, or `/ready` returning an error for 2 minutes (needs `--ready-url`) |
@@ -114,8 +114,10 @@ container. The deterministic fallback keeps turns answering while the model is
 unavailable, so a model outage alone should not raise the error rate; if it
 does, that is a bug in the fallback path and the eval for that failure row in
 `ARCHITECTURE.md` is the place to reproduce it. Rehearse with
-`COPILOT_FAULT_INJECTION=1` and `X-Copilot-Fault: tracer` or `budget`; both
-must degrade without a 5xx.
+`COPILOT_FAULT_INJECTION=1` and `X-Copilot-Fault: budget` (eval case
+`MODEL-BUDGET-001`); it must degrade to the deterministic fallback without a
+5xx. The value `tracer` is listed in `app/settings.py` but no graph node acts
+on it today, so it does not rehearse a tracer outage.
 
 Resolved when the rate over the last window is at or under 0.5% and `/ready`
 has been 200 for two consecutive runs. For a page caused by a defect, resolved
@@ -190,7 +192,8 @@ fires. Exit code 0 means no page, 2 means a page-severity alert fired, 1 means
 the metrics endpoint could not be fetched (which is itself worth a look;
 `/health` failing is the agent being down). `--interval 300` loops instead of
 exiting; `--webhook URL` POSTs each alert record as JSON and is off by
-default.
+default; `--timeout` sets the HTTP timeout (10 s default). The thresholds
+and the rate math are covered by `agent/tests/test_alerts.py`.
 
 Cron on the Droplet, every 5 minutes so that the rate window matches
 `KEY_METRICS.md`, using the container so no second Python install is needed:

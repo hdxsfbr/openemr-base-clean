@@ -1,6 +1,24 @@
 # ADR-0005: Conversation State, Isolation, and Per-Turn Delegation
 
 - **Status:** Accepted 2026-09-15 (owner approval)
+- **Status note (2026-09-16):** implemented in commits 83f33a6, 948620f, and
+  29b5c7b: `copilot_conversation` binding, per-turn HMAC ticket with a 90 s
+  TTL (`Gateway/DelegationToken.php`, checked in `agent/app/delegation.py`),
+  SQLite checkpointer as the only transcript store, per-turn record cache
+  (its TTL is 120 s in `agent/app/state_store.py`, not the 60 s written in
+  §3). Added beyond this record: a conversation whose last turn is older
+  than 30 minutes is closed as idle (`ConversationRepository::IDLE_MINUTES`,
+  commit 983657c). Verification status: done — new conversation empty
+  (`ISO-NEW-CONVERSATION-001`), patient switch closes (`AUTH-SWITCH-001`),
+  expired and tampered tickets (`AUTH-STALE-TICKET-001`, `AUTH-TAMPER-001`),
+  ticket after `end` (Bruno `3 Failure Examples/07 Ticket after end`), token
+  for another conversation refused
+  (`test_turn_requires_token_and_matching_conversation`), closed conversation
+  denied before any tool call (`AUTH-CLOSED-CONVERSATION-001`). Still open:
+  same question across fresh conversations, two users on one patient, reused
+  `jti`, ticket after logout, the 24 h TTL sweeper (no sweeper found in
+  `agent/app/` as of this note), and the checkpoint-content test
+  (`ARCHITECTURE.md` open item 6).
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (module and agent service)
 - **Related requirements:** PRD "multi-turn AI agent that can maintain

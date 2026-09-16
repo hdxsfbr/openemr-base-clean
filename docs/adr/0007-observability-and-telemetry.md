@@ -98,6 +98,39 @@ cohort saw tracer rate limits stall requests.
 - The hosted tracer remains a third party; the claim is "PHI-free", not
   "covered by a BAA".
 
+### Status notes (2026-09-16, implementation as built; the decision text above is unchanged)
+
+- Traces (`agent/app/telemetry.py`): one root span `copilot.turn` per turn
+  with session id = conversation id, a `generation` observation per model
+  call (`plan`, `narrate`, `repair`) carrying usage and cost, and since
+  commit `74a1bf6` one `tool`-type observation per gateway call carrying
+  status, reason, record count, truncation flag, and gateway latency.
+  The `mask` function is passed to the Langfuse client at construction;
+  the startup guard that exists is the refusal to run when any LangSmith
+  tracing variable is set (`FORBIDDEN_ENV`). Dashboard panels:
+  `docs/operations/langfuse-dashboard.md`.
+- Alerts (decision 6): the three PRD alerts are implemented as pure
+  functions in `agent/app/alerts.py` with the `KEY_METRICS.md` thresholds,
+  run by `python -m app.alerts` (`agent/app/alerts_cli.py`; optional
+  `--webhook`, `--ready-url`, `--interval`), and covered by
+  `agent/tests/test_alerts.py`. The cron line is documented in
+  `docs/operations/alerts.md`; whether it is installed on the Droplet is
+  not recorded in the repository.
+- `/ready` reports the tracer dependency as `configured` or
+  `not_configured` from the presence of the key files
+  (`agent/app/readiness.py`), not the exporter's last-success age as
+  decision 6 planned.
+- Of the Verification items below: the correlation eval exists
+  (`OBS-CORRELATION-001`; walkthrough in
+  `docs/operations/correlation-id-walkthrough.md`) and the alert evals
+  exist (`test_alerts.py`). No automated export-grep eval for fixture PHI
+  exists yet; the PHI-free read-backs of 2026-09-15 and 2026-09-16 were
+  manual (API and UI). No tracer-down eval exists: the `X-Copilot-Fault`
+  value `tracer` is listed in `settings.py` but no graph node acts on it
+  (only `model`, `tool:<name>`, and `budget` change behavior), and the
+  handler's failure path is exercised only by the try/except in
+  `telemetry.py`.
+
 ## Verification
 
 - **Observed 2026-09-15 on the deployment:** one Langfuse trace per turn

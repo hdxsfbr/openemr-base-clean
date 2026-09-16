@@ -228,6 +228,8 @@ behalf (164.502(e), 164.504(e), 164.308(b)).
 | 14 | Backups / DB dumps / log backups (`/tmp` default) | **Yes** | Encrypt; exclude from repo | Policy-defined; demo: none | Ops only | Yes, if third-party storage |
 | 15 | Error/exception reports | Risk of **Yes** (exception messages, SQL) | Scrub; generic user messages (CLAUDE.md error rules) | Operational | Ops | Yes, if SaaS and not scrubbed |
 
+*Status 2026-09-16 (what exists against this inventory):* #2 tools return projected, windowed, capped records with source ids; `patient_context` carries an age band and sex only (commit `83f33a6`). #3 the prompt receives the evidence pack, not raw payloads; the model key is a file secret in the agent container only. #5 the LangGraph SQLite checkpointer holds claims, limitations, and source ids; raw records live in a 120 s per-turn memory cache (`agent/app/state_store.py`, ADR-0005); no TTL purge of closed checkpoints yet. #6 agent logs are JSON with correlation ids and no payloads. #7 hosted Langfuse with a client-side mask that replaces every input and output with a digest, plus a LangSmith environment guard (`agent/app/telemetry.py`, ADR-0007); read-back on the deployment found no fixture PHI (commit `ab694d8`). #8 implemented as `copilot-session-start`, `copilot-tool-read`, `copilot-denied`, `copilot-session-end` (Section 5 status). #9 not used: the gateway is in-process and REST/FHIR stay disabled. #10 per-turn record cache only, keyed by turn id. #11 the browser keeps one opaque conversation id in `sessionStorage` to re-fetch the transcript behind a fresh ticket (`copilot.js`); no claim or record text is stored client-side. #12 synthetic cohort only.
+
 **BAA implications of sending PHI to an LLM (assumed BAA):**
 
 - A BAA (164.504(e)) must limit use and disclosure to our purposes, require
@@ -276,6 +278,23 @@ patient id in the `patient_id` column.
 | `copilot-session-end` / `copilot` | Module / TTL expiry | conversation_id, turns, reason (logout, patient switch, TTL) | 1 |
 | `copilot-conversation-deleted` / `copilot` | Agent state store | conversation_id, actor, reason | 1 |
 | `copilot-config-change` / `security-administration` | Admin UI | setting name, old/new enabled flag (like `auditSQLAuditTamper`) | 1 |
+
+*Status 2026-09-16:* implemented through `EventAuditLogger::newEvent()` in
+`oe-module-copilot/src/Gateway/Audit.php`, `public/api/conversation.php`,
+`public/api/ticket.php`, and `public/gateway/tools.php`:
+`copilot-session-start`; `copilot-tool-read` (written before data; the tool
+answers `unavailable` if the insert fails); `copilot-denied` with reason
+`forbidden`, `squad`, `breakglass`, `user_inactive`, or
+`patient_context_changed` (this single event covers the proposed
+`copilot-access-denied` and `copilot-patient-context-mismatch` rows);
+`copilot-session-end` on panel close. Verified in the deployment's `log`
+table on 2026-09-15 (commit `2dc51a0`). Not implemented in the OpenEMR log:
+`copilot-llm-call`, `copilot-verification-result`,
+`copilot-response-rendered`, `copilot-dependency-failure`,
+`copilot-conversation-deleted`, `copilot-config-change`; model calls,
+verifier outcomes, and dependency failures are recorded in the PHI-masked
+Langfuse trace and the agent's `/metrics` instead. The idle close (30 min)
+is not audited as a session-end event.
 
 ## 6. Procedures: demo project vs. real deployment
 
@@ -429,6 +448,11 @@ patient id in the `patient_id` column.
 - **Architecture consequence:** The gateway does not depend on `api_log` for
   auditing. It emits its own PHI-free events, and deployment config pins
   `api_log_option=1`.
+- **Co-pilot response status (2026-09-16):** The gateway is in-process and
+  produces no `api_log` rows; REST/FHIR stay disabled and unrouted at Caddy.
+  `api_log_option=1` is **not** pinned anywhere in `infra/` (the deployed value
+  was 2 on 2026-09-14 and was not re-dumped after the redeploy); the finding
+  is moot on the current data path, not fixed.
 
 ### COMP-MED-003: Record-level PHI reads by the co-pilot would not be audited by default
 
@@ -460,6 +484,14 @@ patient id in the `patient_id` column.
   clinical values in `comments`.
 - **Architecture consequence:** Audit emission is part of each tool's contract
   and is tested like authorization.
+- **Co-pilot response status (2026-09-16):** Implemented: every tool call
+  writes `copilot-tool-read` before returning data and fails to `unavailable`
+  if it cannot (`public/gateway/tools.php`); denials write `copilot-denied`.
+  Verified by hand in the deployment's `log` table (commit `2dc51a0`). The
+  eval that would assert exactly one row per tool call with the matching
+  correlation id is not automated (`evals/run.py` does not query `log`); the
+  suite asserts correlation-id propagation and tool statuses only.
+  `copilot-llm-call` is not written to the OpenEMR log (Section 5 status).
 
 ### COMP-HIGH-004: Observability traces will capture PHI and create an uncovered business associate unless designed otherwise
 
@@ -467,7 +499,8 @@ patient id in the `patient_id` column.
 - **Severity:** High.
 - **Observed evidence:**
   - The plan requires traces with tokens, cost, and tool order
-    (`docs/PROJECT_PLAN.md:42, 207-210`).
+    (`docs/PROJECT_PLAN.md:42, 207-210`; line numbers as of `fc95374`, the
+    plan has since been revised).
   - Project rules forbid raw PHI in traces (`AGENTS.md:11, 52-53`;
     `ARCHITECTURE.md:57-60`).
   - INFERRED: Langfuse and LangSmith SDK integrations capture LLM
@@ -492,6 +525,15 @@ patient id in the `patient_id` column.
 - **Architecture consequence:** The trace schema is allowlist-based, with a
   separate PHI-free telemetry contract. Vendor choice is constrained by BAA
   availability or self-hosting.
+- **Co-pilot response status (2026-09-16):** Implemented as PHI-free hosted
+  tracing, not self-hosting: Langfuse's LangGraph callback handler with a
+  `mask` that replaces every input and output payload with a type/size digest,
+  and a startup guard that refuses to run if any LangSmith tracing variable is
+  set (`agent/app/telemetry.py`, ADR-0007). Read-back of one deployed trace on
+  2026-09-15 found no fixture PHI (commit `ab694d8`;
+  `docs/operations/langfuse-dashboard.md`). Not done: the CI eval that greps
+  exported traces for fixture strings (none in `evals/`), and self-hosting.
+  The hosted tracer therefore remains a third party for any real deployment.
 
 ### COMP-MED-005: No retention, backup, or deletion policy for logs, conversation state, or deployment data
 
@@ -501,7 +543,9 @@ patient id in the `patient_id` column.
   - No purge mechanism; logs date back to 2014 (evidence 02).
   - `backups=false` (`main.tf:22`), plus the runbook statements
     (`digitalocean.md:167-168, 206`).
-  - Conversation-state retention is a TODO (`ARCHITECTURE.md:104`).
+  - Conversation-state retention is a TODO (`ARCHITECTURE.md:104` as of
+    `fc95374`; the document was rewritten on 2026-09-15 and the state design
+    now lives in ADR-0005).
   - `backup_log_dir=/tmp`.
 - **Affected assets/users:** All PHI stores in Section 4.
 - **Failure scenario:** Conversation transcripts and traces pile up with no
@@ -526,6 +570,13 @@ patient id in the `patient_id` column.
 - **Architecture consequence:** The conversation store stores claims and source
   IDs rather than raw tool payloads, has a TTL, and is bound to user and
   patient.
+- **Co-pilot response status (2026-09-16):** Partly implemented. Claims and
+  source ids, not raw payloads, are checkpointed (ADR-0005); a conversation
+  idle for 30 minutes is closed (`ConversationRepository::IDLE_MINUTES`,
+  commit `983657c`) and panel close is audited as `copilot-session-end`. Not
+  implemented: a purge of closed checkpoints from the agent's SQLite store,
+  the `copilot-conversation-deleted` event, a trace TTL setting, and backups
+  (still `backups = false`).
 
 ### COMP-MED-006: Encryption keys co-located with data; DB and internal transport unencrypted
 
@@ -557,6 +608,12 @@ patient id in the `patient_id` column.
 - **Architecture consequence:** The agent service must not introduce a new
   plaintext PHI store. Its secrets (LLM and trace keys) go in a secret store,
   not `sites/`.
+- **Co-pilot response status (2026-09-16):** Secrets are Compose file secrets
+  mounted only into the agent (`runtime/compose.yaml`), not under `sites/`.
+  The agent's SQLite checkpoint store (`agent_state` volume) holds verified
+  claims and limitations for synthetic patients with no application-level
+  encryption found in `agent/app/state_store.py`; it is a new store of
+  derived PHI for any real deployment. DB TLS and internal TLS are unchanged.
 
 ### COMP-LOW-007: Existing logs themselves contain PHI and are readable with `admin/users`
 
@@ -583,6 +640,11 @@ patient id in the `patient_id` column.
   co-pilot endpoints contain only ids.
 - **Architecture consequence:** The co-pilot API uses POST with JSON bodies. No
   question text or patient names in URLs.
+- **Co-pilot response status (2026-09-16):** Implemented: `session.php`,
+  `conversation.php`, `ticket.php`, and the tool gateway take POST JSON bodies;
+  the agent's turn endpoint is `POST /v1/conversations/{id}/turns` with the
+  question in the body. The `http-request` rows for these paths were not
+  reviewed on the deployment.
 
 ### COMP-INFO-008: Local audit configuration deviates from code defaults
 
@@ -605,6 +667,11 @@ patient id in the `patient_id` column.
 - **Verification:** `smoke.sh` asserts the expected globals.
 - **Architecture consequence:** The deployment baseline includes an audit
   configuration check.
+- **Co-pilot response status (2026-09-16):** Not done. `infra/digitalocean/smoke.sh`
+  does not assert any globals, and no audit global is codified in
+  provisioning. The deployed values in `evidence/security/cloud-runtime-2026-09-14.md`
+  (`audit_events_query=1`, `api_log_option=2`) were read once from the
+  upstream-image deployment and not re-dumped after the project-image redeploy.
 
 ## Known limitations of this audit
 
@@ -612,7 +679,9 @@ patient id in the `patient_id` column.
   inspected, because the environment was destroyed. Local dev values may
   differ.
 - The co-pilot does not exist yet. Section 4-5 are design requirements, not
-  observed behavior.
+  observed behavior. *Status 2026-09-16: the co-pilot now exists; the status
+  notes under Sections 4 and 5 and under each finding record what is
+  implemented and what is still a requirement.*
 - No BAA, provider data-retention terms, or observability vendor terms were
   reviewed. The LLM BAA is assumed per the PRD.
 - The coverage of `database_encryption` over specific columns was not

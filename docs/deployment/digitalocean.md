@@ -124,14 +124,19 @@ the disposable test; use an owned hostname for the evaluator deployment.
 Set `KEEP_INFRA=1` only when intentionally retaining the environment for
 debugging. It remains billable until `./destroy.sh --yes` succeeds.
 
-## Current Deployment (2026-09-15)
+## Current Deployment (2026-09-16)
 
-Tag `v0.2.0-slice` (2026-09-15, superseding `v0.1.0-skeleton`) is live at
-`https://openemr-137-184-4-22.sslip.io`: the UC-01 turn runs end to end
-through the panel, per-turn ticket, agent, gateway, and verifier, and the
-Bruno collection passes 20/20 against it as `audit-physician`. Until the
-model key is written the narrative is replaced by the deterministic
-source-cited brief. Earlier baseline `v0.1.0-skeleton` was live at the same URL
+The deployment is live at `https://openemr-137-184-4-22.sslip.io` (Droplet
+`137.184.4.22`). Tag `v0.2.0-slice` (2026-09-15, superseding
+`v0.1.0-skeleton`) was the last tagged deploy; later commits were pushed to
+the same host with `deploy.sh` without a new tag. The model and tracer keys
+were pushed with `push-secrets.sh` on 2026-09-15, so turns run with
+`claude-sonnet-5` and trace to Langfuse; the nine eval reports in
+`evals/results/` (2026-09-16) and the manual CI job `test:evals-live`
+(below) target this hostname, and the Bruno collection passes 21/21 against
+it as `audit-physician` (`docs/SUBMISSION_CHECKLIST.md`). Without the model
+key the narrative falls back to the deterministic source-cited brief
+(`MODEL-OUTAGE-001`). Earlier baseline `v0.1.0-skeleton` was live at the same URL
 (Droplet `137.184.4.22`, kept up during build days at about $0.86/day):
 project OpenEMR image with the co-pilot module, the agent service
 (`/copilot-api/health` 200, `/copilot-api/ready` 503 until the model and
@@ -182,8 +187,9 @@ ssh "deployer@$DROPLET_IP" cat /opt/agentforge/secrets/demo_user_password
 Operator-supplied secrets (`anthropic_api_key`, `langfuse_public_key`,
 `langfuse_secret_key`, and `anthropic_workspace_id` only when the Anthropic key
 is organization-level rather than workspace-scoped) live on the operator's machine as one file each in
-`~/.config/agentforge/`, next to `do.env`, and are never committed. Push
-whichever exist and restart the agent with:
+`~/.config/agentforge/` (override the directory with `AGENTFORGE_SECRETS_DIR`),
+next to `do.env`, and are never committed. Push whichever exist, restart the
+agent, and print `/ready` with:
 
 ```bash
 ./push-secrets.sh "$DROPLET_IP"
@@ -276,6 +282,27 @@ The token comes from GitLab: Settings → CI/CD → Runners → the runner's pag
 new value in the file, re-run `register.sh`. Retiring the runner:
 `./tf.sh -chdir=runner destroy -var-file=../terraform.tfvars`, then delete
 runner #222 on GitLab.
+
+### What the pipeline runs
+
+`.gitlab-ci.yml` has two stages. `lint`: `lint:whitespace`, `lint:php` (the
+module), `lint:caddy` (`runtime/Caddyfile`), `lint:compose` (`runtime/compose.yaml`
+with placeholder secrets). `test`: `test:agent` (pytest plus the contract
+export drift check) and `test:evals-offline` (`python evals/run.py
+--offline-only`, results kept as a 30-day artifact). The first green pipeline
+on this runner is recorded in `docs/SUBMISSION_CHECKLIST.md`.
+
+`test:evals-live` is a **manual** job (`when: manual`, `allow_failure: false`)
+that runs the full suite against the deployment with
+`python evals/run.py --base-url "$COPILOT_EVAL_BASE_URL" --label "gitlab-ci $CI_PIPELINE_ID"`;
+`COPILOT_EVAL_BASE_URL` defaults to `https://openemr-137-184-4-22.sslip.io`
+and must follow the hostname if it changes. It exits 2 unless the masked CI
+variable `DEMO_PASSWORD` (the shared demo clinician password from
+`/opt/agentforge/secrets/demo_user_password`) is set on the project. Results
+under `evals/results/` attach as a 90-day artifact; the job's exit code
+follows the release gates (a non-blocking recall miss is reported, not
+fatal). It is manual so a push never spends model budget by itself (about
+$0.50 and 12 minutes per run).
 
 ## Failure and Recovery
 

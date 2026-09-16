@@ -85,6 +85,11 @@ edge that forwarded every path."
   IDs, counts, latency, tokens, cost, verification outcome only, or the
   tracer is self-hosted (Langfuse). Prompts and responses never go to
   ordinary logs.
+  As built (2026-09-16): events are `copilot-session-start`,
+  `copilot-tool-read`, `copilot-denied`, `copilot-session-end`; the tracer is
+  hosted Langfuse with a client-side mask that digests every payload
+  (ADR-0007), verified by read-back, not self-hosted. Model and verifier
+  outcomes go to the trace and `/metrics`, not the OpenEMR log.
 - **BAA answer:** the PRD lets us assume one with the LLM provider. Minimum
   necessary still applies: tools send projected, windowed fields, no direct
   identifiers where avoidable. An LLM BAA does not cover a tracing vendor.
@@ -103,6 +108,9 @@ edge that forwarded every path."
   `sites/*/documents`, so per-site OAuth keys were not exposed.
 - **What we did:** deny-by-default Caddy path allowlist is P0 before any
   agent component or LLM key deploys. CVEs documented, not patched.
+  Done 2026-09-15: the probe rerun shows every sensitive, API, and OAuth path
+  at 404 (`evidence/security/cloud-probe-2026-09-15-allowlist.txt`); the
+  co-pilot ships in a project image that adds only the module.
 - **Ranking honesty:** this was #2 in an earlier draft on evidence strength.
   It moved to #5 because it changes a config file, not the design.
 
@@ -121,6 +129,12 @@ edge that forwarded every path."
 - Apache prefork, 60 s PHP limit: model calls cannot run inside PHP.
 - Not measured: authenticated latency on the Droplet, 10/50-user load, p99,
   model latency, real tokenizer counts. Scheduled, not claimed.
+- Update 2026-09-16: model latency and per-turn tokens are now measured on
+  the deployment (Sonnet 5): p50 12.1 s, p95 27.6 s, p99 40.8 s over 120
+  model-backed turns; 608 in / 1,170 out / 5,106 cache-read tokens and about
+  $0.013 per turn (`evals/results/2026-09-16T073141Z-1ddf824.md`). The 30 s
+  p95 is provisional (ADR-0004); the 8 s goal is tracked, not met. Still not
+  measured: load at 10/50 users, authenticated dashboard latency.
 
 ## Key decisions and why
 
@@ -143,9 +157,18 @@ edge that forwarded every path."
 - **Limitation, stated everywhere:** any clinician can summarize any chart.
   Bounded by one patient per conversation, no patient lookup tool, and an
   audit row per read.
-- **Upstream drift:** we call the same three functions OpenEMR's API layer
-  calls. The gateway also dispatches `ViewEvent`, so a future patient filter
-  applies to us for free.
+- **Upstream drift:** we call the same ACL checks the chart pages make
+  (`aclCheckCore`, `aclCheckAcoSpec` on `issue_types.aco_spec`, the squad
+  check). Dispatching `ViewEvent` so a future patient filter applies to us is
+  planned in ADR-0002 but **not implemented** as of 2026-09-16 (no reference
+  in the module); say "planned", not "does".
+- **What broke once:** `AclMain::aclCheckIssue()` returned true for every
+  user in the session-less gateway request because the issue-type table is
+  loaded at page scope. Front Office briefly received problems and allergies
+  through the co-pilot on the first live role test (2026-09-15). Fixed the
+  same day by reading `issue_types.aco_spec` directly and failing closed;
+  `bin/acl_matrix.php` and `AUTH-FRONTDESK-001` are the regression checks.
+  Good answer to "what did the parity decision cost you."
 
 ### In-process module gateway, SMART on FHIR deferred (ADR-0003)
 
@@ -225,7 +248,12 @@ edge that forwarded every path."
 - **"What is unverified?"** Two-tab session test, squad-restricted live test,
   bearer-token request, CSRF triage, authenticated Droplet latency, load,
   model latency and cost, real data distributions, clinician validation of
-  the workflow.
+  the workflow. (As of 2026-09-16: the squad case is live-tested through the
+  gateway (`AUTH-SQUAD-001`), and model latency and cost are measured. Still
+  open: browser two-tab test, `audit-nurse` role eval, break-glass eval,
+  bearer-token request, CSRF triage, authenticated dashboard latency, load,
+  real data distributions, clinician validation, `ViewEvent` dispatch, CSP on
+  the panel, egress restriction.)
 - **"Are you HIPAA compliant?"** No, and we say so. Demo system, synthetic
   data, no BAAs, no backups, no retention schedule, no tamper-evident audit
   sink. The audit lists what a real deployment would need.
@@ -252,6 +280,8 @@ edge that forwarded every path."
 | 8 / 6 | fixable Critical CVEs, OpenEMR and Caddy images |
 | 26 | synthetic patients in `af-cohort-v1` |
 | 60 s | PHP execution limit under Apache prefork |
+| 45 / 44 | eval cases on disk (2026-09-16) / cases in the last recorded full runs |
+| 27.6 s / $0.013 | p95 complete verified response / list-price cost per model-backed turn (run `1ddf824`, n=120) |
 
 ## Things not to say
 

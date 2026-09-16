@@ -31,7 +31,10 @@ types; the Latency dashboard adds p95 by trace name and by model.
 ## What a trace carries
 
 - One trace per turn named `copilot.turn`, session id = conversation id,
-  tags `copilot`, `turn`, metadata `correlation_id` and `conversation_id`.
+  tags `copilot` plus the turn type (`uc01_first` or `followup`; set in
+  `agent/app/telemetry.py`), metadata `correlation_id`, `conversation_id`,
+  and `turn_type`, plus PHI-free totals (`status`, `claims`, `withheld`,
+  `tool_calls`, `timings_ms`, `usage`) attached when the turn finishes.
 - Nested observations: the graph nodes (`authorize`, `classify`,
   `retrieve`, `plan`, `narrate`, `verify`, `repair`, `render`) as chains,
   one GENERATION per model call with token usage and cost, and one TOOL

@@ -1,13 +1,23 @@
 # AgentForge Clinical Co-Pilot — Challenge Submission
 
-**Deployment:** infrastructure is proven. On 2026-09-14 it was provisioned,
-TLS-verified, and loaded with demo data, then re-provisioned for the audit's
-public probe, and torn down after each run to control cost (see
-[docs/deployment/digitalocean.md](docs/deployment/digitalocean.md)). It is
-currently destroyed. Re-provision with `infra/digitalocean/tf.sh apply` and
-`infra/digitalocean/deploy.sh` before a demo, interview, or submission, and put
-the resulting URL here. The audit requires our own image carrying the co-pilot module and a Caddy
-path allowlist before the evaluator deployment.
+**Challenge README:** [README_AGENT_FORGE.md](README_AGENT_FORGE.md) is the
+evaluator-facing README for the co-pilot (deployed URL, demo credentials,
+architecture overview, test and eval commands, limitations). This file keeps
+OpenEMR's own README below the deliverables table.
+
+**Deployment:** tag `v0.2.0-slice` is live at
+<https://openemr-137-184-4-22.sslip.io> on a single DigitalOcean Droplet
+(`/copilot-api/health` and `/copilot-api/ready` answered 200 on 2026-09-16).
+It runs the project's own OpenEMR image carrying the co-pilot module behind a
+deny-by-default Caddy path allowlist, as the audit required before an
+evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections "Current
+Deployment" and "Before the Evaluator Deployment" in
+[docs/deployment/digitalocean.md](docs/deployment/digitalocean.md)). The
+`sslip.io` hostname is disposable and an owned hostname is still pending. The
+Droplet is disposable too: `infra/digitalocean/destroy.sh` tears it down and
+`infra/digitalocean/tf.sh apply` plus `infra/digitalocean/deploy.sh`
+re-provision it; the 2026-09-14 smoke test and audit probe cycles are recorded
+in the runbook.
 
 **Setup:** see [SETUP.md](SETUP.md) for the local stack, demo data, audit test
 users, and the synthetic cohort (`evals/fixtures/cohort/`).

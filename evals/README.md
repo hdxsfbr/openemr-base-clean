@@ -16,6 +16,7 @@ evals/
   run.py          # Runner: live cases against a deployment, offline cases via pytest
   compare.py      # Diff two run reports (gates, scorecard, per-case latency)
   error_analysis.py  # Manual trace-review journal: sample unscripted turns, then report filled issues
+  review_ui.py    # Local FastAPI browser UI for filling in a journal's First issue / Notes fields (no auth)
   README.md
 ```
 
@@ -80,6 +81,23 @@ Each run writes `evals/results/<UTC time>-<commit>.json` and `.md` with:
 `--repeat N` runs every live case N times and reports flaky cases (passed
 on some attempts only); use it before trusting a single-run difference.
 `--label` stores a free-text label (the experiment) in the report.
+
+All `run.py` flags (`evals/run.py`, `main()`): `--base-url` (default
+`$COPILOT_EVAL_BASE_URL` or the demo hostname), `--password-file` (a file, or
+`-` to read `DEMO_PASSWORD` from the environment; the default), `--cohort`
+(pubpid to pid map, default `evals/cases/cohort.json`), `--only CATEGORY`,
+`--case ID`, `--offline-only`, `--golden-only`, `--include-holdout`, `--model`
+(recorded in the report; default `$COPILOT_MODEL_ID` or `claude-sonnet-5`),
+`--repeat N`, `--label TEXT`.
+
+**Exit code.** A full run (no `--only`, `--case`, `--offline-only`,
+`--golden-only`) exits 1 only when a blocking gate is FAIL or NOT RUN; a
+non-blocking miss such as model recall is reported, not fatal. A filtered run
+is a debugging run and exits 1 on any failing case. Exit 2 means no case
+matched or no demo password was available for live cases. The suite has 45
+cases as of 2026-09-16 (`ls evals/cases/*.yaml | wc -l`); the report footer
+prints "Cases on disk" and "cases in this run" so a filtered run is visible
+as such.
 
 ## Golden Set, Behavioral Coverage, and Holdout Set
 
@@ -148,6 +166,38 @@ that recurs becomes a new case here, with the "Required Case Metadata"
 below. Journals under `evals/error_analysis/` hold synthetic `af-cohort-v1`
 content only; never point `--base-url` at a deployment with real data.
 
+```bash
+# 1. Sample unscripted turns into a blank journal (writes evals/error_analysis/<UTC time>-journal.md)
+DEMO_PASSWORD=... agent/.venv/bin/python evals/error_analysis.py sample --base-url https://<host> -n 20 [--seed N] [--password-file FILE|-]
+
+# 2. Fill in First issue / Notes by hand, either in an editor or in the local review UI
+agent/.venv/bin/python evals/review_ui.py [--dir evals/error_analysis] [--port 8765] [--host 127.0.0.1]
+
+# 3. Print the filled-in issues as a flat list for categorization
+agent/.venv/bin/python evals/error_analysis.py report --journal evals/error_analysis/<file>.md [more.md ...]
+```
+
+`sample` flags: `--base-url` (default the demo hostname), `--password-file`
+(`-`, the default, reads `DEMO_PASSWORD`), `-n` (traces to sample, default
+20), `--seed` (reproducible draw; omit for a fresh one). `report` takes one
+or more `--journal` files.
+
+`evals/review_ui.py` is a small local FastAPI app (it reuses the agent's
+`fastapi`/`uvicorn` dependencies, so run it from `agent/.venv`) that reads
+and writes the same journal markdown the CLI does, patching only the First
+issue / Notes / Reviewed by lines of one entry and leaving the rest of the
+file byte-identical (`parse_journal()` / `write_entry()` in
+`error_analysis.py`). It offers per-trace review status, filtering,
+keyboard navigation (arrow keys or `j`/`k`), and a Reviewed-by field for an
+SME reviewing alongside. It does not score or categorize. Flags: `--dir`
+(journal directory, default `evals/error_analysis`), `--port` (default
+8765), `--host` (default `127.0.0.1`; `0.0.0.0` exposes it to the network
+for an SME on the same LAN). **There is no authentication**, so bind beyond
+localhost only on a network you trust and only with synthetic journals.
+One journal is committed so far (`2026-09-16T190727Z-journal.md`, 20
+traces across 14 patients, commit `413c788`); its First-issue and Notes
+fields are still blank, so it is unreviewed.
+
 ## Case Format
 
 One YAML file per case, id as filename. Live cases drive the deployed
@@ -201,7 +251,13 @@ absence and interpretation cited, every citation resolvable in `sources[]`,
 no advice wording in claims or summary, absence claims only for sections
 retrieved ok or empty, `withheld_count` equal to the verifier's rejections,
 the model summary shown only with nothing withheld, at most three
-suggestions, `answered_at` set. A 5xx on any turn fails the case.
+suggestions, `answered_at` set. A 5xx on any turn fails the case. The
+advice check is the harness's own regex (`ADVICE_RE` in `run.py`), kept in
+step with the verifier's `FORBIDDEN` lexicon in `agent/app/verifier.py` so
+the suite does not trust the verifier to police itself; both were widened on
+2026-09-16 to paraphrases ("wise to", "worth discussing with", "points
+toward", "appears to indicate") after a manual sweep, with the offline golden
+case `CIT-PARAPHRASE-ADVICE-001` as the regression check.
 
 **Expectation keys:** `http_status`, `code`, `status`, `turn_type`,
 `window_since`, `claims_min`, `claims_max`, `every_claim_cited`,
@@ -253,7 +309,8 @@ Deterministic assertions only. LLM-judged or human-scored rubrics, when
 added, go in a separate field and are never mixed into the pass rate.
 
 Not automated in Week 1: break-glass denial (needs an `Emergency Login`
-group change on the deployment; verified by hand per ADR-0002), the
+group change on the deployment; code path only, no recorded run; ADR-0002
+lists it as an open verification item), the
 two-tab patient switch (covered by `AUTH-SWITCH-001` through the same ticket
 check the second tab would hit), and the vitals `0` sentinel (`AF-DQ-Q`,
 DQ-LOW-012): there is no vitals tool in Week 1, so the co-pilot cannot see
@@ -320,7 +377,15 @@ degradation are always release-blocking. A release run executes the whole
 suite; the deterministic subset (authorization, citation invariant, tool and
 model failure, isolation) runs on every change to the gateway, tools,
 verifier, or prompt, and the model-backed subset runs before each deploy.
-GitLab CI carries this from Week 1: a pipeline skeleton with `git diff
---check`, contract-schema validation, and the deterministic subset against
-the local stack, so Week 2's PR-blocking gate is a threshold change, not new
-infrastructure.
+GitLab CI carries this from Week 1 (`.gitlab-ci.yml`): a `lint` stage
+(`git diff-tree --check`, `php -l` over the module, Caddyfile and compose
+validation) and a `test` stage with `test:agent` (agent pytest plus
+`python -m app.contracts.export --check` for contract-schema drift) and
+`test:evals-offline` (`python evals/run.py --offline-only`; the offline
+cases delegate to pytest node ids and need no stack), so Week 2's
+PR-blocking gate is a threshold change, not new infrastructure. A manual
+`test:evals-live` job runs the full suite against the deployment; it needs
+the masked CI variable `DEMO_PASSWORD`, labels the report `gitlab-ci
+<pipeline id>`, keeps `evals/results/` as a 90-day artifact, and costs about
+$0.55 and 12 minutes per run (per the job comment), which is why it never
+runs on push.

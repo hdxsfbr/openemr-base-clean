@@ -34,16 +34,18 @@ unless a source is named. Where something is deferred, it says so.
   10K, and 100K users on the measured token mix.
 - **Latency.** Complete verified response p95 under 30 s for the early
   submission, owner-accepted 2026-09-15 with an 8 s design goal
-  (`KEY_METRICS.md`). Measured on the deployment across six full eval runs:
-  model-backed turns p50 11 to 13 s, p95 21 to 30 s; first turns p95 16 s,
-  follow-ups p95 27 to 31 s. Evidence (deterministic retrieval) streams to the
-  panel in about 1 s before the narrative.
+  (`KEY_METRICS.md`). Measured on the deployment across the full eval runs
+  with a scorecard recorded on 2026-09-16 (`evals/results/`): model-backed
+  turns p50 11 to 13 s, p95 21.5 to 29.5 s; first turns p95 15 to 23 s,
+  follow-ups p95 25 to 31 s.
+  Evidence (deterministic retrieval) streams to the panel in about 1 s before
+  the narrative.
 - **Concurrency.** One 2 vCPU / 4 GB Droplet; tool fan-out is bounded by a
   semaphore, one model call per node. Load tests at 10 and 50 concurrent users
   are a final-submission item.
 - **Cost constraints.** 20K tokens per turn, 60K per conversation, and a daily
   token halt that routes to the deterministic fallback (`agent/app/budget.py`,
-  ADR-0004). Measured $0.013 to $0.014 per model-backed turn at list price
+  ADR-0004). Measured $0.012 to $0.014 per model-backed turn at list price
   with prompt caching (eval scorecards).
 
 ### 3. Reliability requirements
@@ -74,9 +76,10 @@ unless a source is named. Where something is deferred, it says so.
   (`USERS.md`) and checked against OpenEMR's real data shapes in a two-day
   audit (`AUDIT.md`) before any agent code; the clinician interview is still
   open (`USERS.md` "Validation Work").
-- **Eval and testing.** Comfortable enough to write the suite ourselves: 44
-  YAML cases, a runner that drives the real login and chart handshake, pytest
-  for the offline invariants. No eval framework (see §9).
+- **Eval and testing.** Comfortable enough to write the suite ourselves: 45
+  YAML cases (14 of them a golden tier, 4 a holdout tier), a runner that
+  drives the real login and chart handshake, pytest for the offline
+  invariants. No eval framework (see §9).
 
 ## Phase 2: Architecture Discovery
 
@@ -107,8 +110,8 @@ unless a source is named. Where something is deferred, it says so.
 - **Context window.** Evidence packs are capped in characters and per-tool
   record limits (labs 50, notes 20) with a `truncated` flag; a five-year
   synthetic chart (`AF-HEAVY`) is in every eval run to keep this honest.
-- **Cost per query.** About $0.013 measured; acceptable against the
-  projection in `AI_COST_ANALYSIS.md`.
+- **Cost per query.** $0.012 to $0.014 measured per model-backed turn;
+  acceptable against the projection in `AI_COST_ANALYSIS.md`.
 
 ### 7. Tool design
 
@@ -157,10 +160,15 @@ unless a source is named. Where something is deferred, it says so.
   rubric (`USERS.md`) is human-scored and kept in a separate field, never
   aggregated with the deterministic pass rate.
 - **CI integration.** The offline subset (verifier and graph invariants via
-  pytest) runs on every push in `.gitlab-ci.yml`; the live suite is a
-  pre-deploy step because it needs the deployment and the demo password. A
-  dedicated runner Droplet was provisioned on 2026-09-16 because the lab
-  GitLab had none (`docs/deployment/digitalocean.md` "CI Runner").
+  pytest) runs on every push in `.gitlab-ci.yml`; the live suite is the
+  manual job `test:evals-live`, which needs the deployment and the masked
+  `DEMO_PASSWORD` variable and attaches its results as a 90-day artifact, so
+  a push never spends model budget by itself. A dedicated runner Droplet was
+  provisioned on 2026-09-16 because the lab GitLab had none
+  (`docs/deployment/digitalocean.md` "CI Runner"); the first green pipeline
+  is recorded in `docs/SUBMISSION_CHECKLIST.md`. The golden tier
+  (`--golden-only`) is the fast smoke run; the holdout tier is excluded from
+  filtered runs unless `--include-holdout` (`evals/README.md`).
 
 ### 10. Verification design
 
@@ -223,8 +231,8 @@ unless a source is named. Where something is deferred, it says so.
 ### 13. Testing strategy
 
 - **Unit tests.** Verifier rules, summary gate, suggestion filter, budget,
-  alerts, contracts (58 pytest cases in `agent/tests/`); PHP lint and a
-  recorded-response contract test for the tools.
+  alerts, contracts (60 pytest cases collected in `agent/tests/` on
+  2026-09-16); PHP lint and a recorded-response contract test for the tools.
 - **Integration.** The turn graph with recorded gateway fixtures and a
   scripted model; the live eval suite drives login, chart open, session,
   ticket, and turn against the deployment as different users; the Bruno
@@ -233,8 +241,11 @@ unless a source is named. Where something is deferred, it says so.
   tampered and stale tickets, forged pid, patient switch), injection,
   altered facts, fabricated sources, advice wording, budget exhaustion.
 - **Regression.** One case per discovered bug (the `activity=0` with no end
-  date conflict, DQ-HIGH-002) and one per cohort defect; results versioned
-  per commit in `evals/results/` with a compare script.
+  date conflict, DQ-HIGH-002; paraphrased advice slipping past the lexicon,
+  `CIT-PARAPHRASE-ADVICE-001`) and one per cohort defect; results versioned
+  per commit in `evals/results/` with a compare script and `--repeat` for
+  flakiness (one flaky model-recall case, `MISS-AUTHOR-J-001`, is known and
+  sits under the non-blocking task-success gate).
 
 ### 14. Open source planning
 
@@ -275,8 +286,12 @@ unless a source is named. Where something is deferred, it says so.
   of what physicians ask next.
 - **Eval-driven cycle.** Baseline run, change, run, compare with
   `evals/compare.py`; the scorecard (withheld rate, repair rate, summary
-  basis, cost, latency by turn type) is the quality signal, pass count alone
-  is not. Any model, prompt, effort, or planning experiment follows this.
+  basis, cost, latency by turn type, near-miss hedge-language rate) is the
+  quality signal, pass count alone is not. Any model, prompt, effort, or
+  planning experiment follows this. Unscripted questions go through a manual
+  error-analysis journal (`evals/error_analysis.py`, reviewed in
+  `evals/review_ui.py`); recurring issues become new cases. The first journal
+  (20 turns, 14 patients, sampled 2026-09-16) has not been reviewed yet.
 - **Prioritization.** P0 / P1 lists in `docs/PROJECT_PLAN.md`, tied to the
   release gates in `KEY_METRICS.md`; safety gates never trade against
   latency or cost.

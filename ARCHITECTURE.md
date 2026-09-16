@@ -66,9 +66,18 @@ its revisit trigger in `docs/adr/`.
 
 ## Status and Rules
 
-- Revised 2026-09-14 against `AUDIT.md` §8, ADR-0002, and ADR-0003. Nothing
-  described here is implemented yet unless marked **exists**. Do not read a
-  designed control as a deployed one.
+- Revised 2026-09-14 against `AUDIT.md` §8, ADR-0002, and ADR-0003, and
+  checked against the code on 2026-09-16. The module, gateway, agent service,
+  turn graph, verifier, contracts, telemetry, eval suite, and CI described
+  here are implemented and deployed (`v0.2.0-slice`,
+  `docs/deployment/digitalocean.md`). What remains design-only is marked
+  **planned** where it appears: agent egress restriction, the
+  within-conversation tool cache, the `copilot-llm-call` and
+  `copilot-verification-result` audit events, the 24 h purge of closed
+  bindings and checkpoints, PHP-side JSON Schema validation and generated
+  TypeScript types, the Bruno subset in CI, the trace-export PHI grep, the
+  alerts job on the Droplet, load tests, backup and rollback rehearsal. Do
+  not read a planned control as a deployed one.
 - All decisions this document relies on are accepted: ADR-0001 to ADR-0003
   on 2026-09-14, ADR-0004 to ADR-0007 on 2026-09-15 (Stage 5 gate passed).
 - Every capability, tool, and endpoint below names the `USERS.md` use case
@@ -111,7 +120,7 @@ flowchart LR
 
 | Component | Runs in | Owns | Never does |
 | --- | --- | --- | --- |
-| **Module UI** (`interface/modules/custom_modules/oe-module-copilot/`) | OpenEMR PHP, user session | Panel markup and JS injected by `PatientDemographics\RenderEvent`; a chat transcript per conversation with a fixed composer; rendering of the summary, claims table, citations, limitation states as text; live progress from the turn's node events; opening citations in the chart | Compute anything clinical; store conversation content in browser storage (only the opaque conversation id is kept in `sessionStorage` so the transcript can be re-fetched after a page reload, behind a fresh ticket) |
+| **Module UI** (`interface/modules/custom_modules/oe-module-copilot/`) | OpenEMR PHP, user session | Panel markup and JS injected by `PatientDemographics\RenderEvent`; a chat transcript per conversation with a fixed composer and follow-up chips; rendering of the summary, claims table, citations, limitation states as text, with each answer's time and an "Earlier in this session" divider on a restored transcript; live progress from the turn's node events; opening citations in the chart | Compute anything clinical; store conversation content in browser storage (only the opaque conversation id is kept in `sessionStorage` so the transcript can be re-fetched after a page reload, behind a fresh ticket) |
 | **Conversation and delegation endpoints** (module, `public/api/*.php`) | OpenEMR PHP, user session + CSRF | `conversation.start` (bind to site, user, pid; mint correlation ID), `turn.ticket` (re-check session and pid; mint delegation token), `conversation.end` | Accept a `pid` from the client; extend the OpenEMR session |
 | **Tool gateway** (module, `public/gateway/*.php`, `$ignoreAuth` with its own token check) | OpenEMR PHP, server-to-server from the agent | Validate the delegation token; build `AuthorizedPatientContext`; per-tool section ACL, squad, break-glass; audit event; call services in process; normalize; return typed records | Trust a patient identifier from the request; return raw service rows; run without an audit row |
 | **Agent service** (`agent/`, own container) | Python, FastAPI, Pydantic, LangGraph (ADR-0004) | Co-pilot HTTP API; the turn graph; evidence pack; model calls; verifier; checkpointed conversation state; budgets; telemetry; `/health`, `/ready` | Hold database credentials or the OpenEMR session; see a `pid`; render unverified text |
@@ -132,7 +141,7 @@ sequenceDiagram
   M-->>B: delegation token (90 s) or denial (closes conversation)
   B->>A: POST /v1/conversations/{id}/turns (token, message, correlation_id)
   A->>A: validate token signature and expiry; load conversation state
-  A->>G: GET /tools/encounters ... (token, correlation_id)
+  A->>G: POST gateway/tools.php?tool=encounters ... (token, correlation_id)
   G->>G: token valid? conversation open? section ACL for bound user? squad?
   G->>O: EventAuditLogger copilot-tool-read (before data)
   G->>O: EncounterService etc. in process
@@ -181,7 +190,7 @@ binding row. A mismatch denies, closes the conversation with
 | Conversation open and `last_turn_at` within 30 min | `copilot_conversation` | 403, `reason=conversation_closed` |
 | User `active = 1` | `users` | 403, `reason=user_inactive`; conversation closed |
 | Not in `Emergency Login` | ACL group membership by username | 403, `reason=breakglass`; conversation closed |
-| Section ACL for the tool | `AclMain::aclCheckCore` / `aclCheckIssue` with the bound username, the same calls `demographics.php` makes | Tool returns `unavailable, reason=forbidden`; other tools proceed |
+| Section ACL for the tool | `AclMain::aclCheckCore` with the bound username for demographics, encounters and notes, prescriptions, and labs; for problems, medications, and allergies the gateway reads `issue_types.aco_spec` directly and checks that spec, because `aclCheckIssue` returns true for every user outside a page context (found and fixed 2026-09-15); a missing spec denies | Tool returns `unavailable, reason=forbidden`; other tools proceed |
 | Squad | `patient_data.squad` and `aclCheckCore('squads', squad, username)` as `demographics.php:1069` | 403, `reason=squad`; conversation closed |
 | Audit | `EventAuditLogger::newEvent('copilot-tool-read', username, group, 1, json, pid)` before data leaves | If the audit insert fails, the tool returns `unavailable, reason=audit_unavailable` |
 
@@ -200,7 +209,7 @@ can be fed from a SMART token later.
 | Agent to gateway | Same delegation token; internal Docker network only | Table above; the gateway endpoint is not on the Caddy allowlist |
 | Agent to Claude API | HTTPS; key as file secret in the agent container only | Minimum-necessary evidence pack; provider under the PRD's assumed BAA; no direct identifiers where avoidable (age band, initials not needed: "the patient") |
 | Agent to tracer | HTTPS | Attribute allowlist; input and output capture disabled; eval greps exports for fixture PHI |
-| Model output to browser | JSON claims | Verifier; rendered as text nodes only; CSP on module assets (SEC-MED-003) |
+| Model output to browser | JSON claims | Verifier; rendered as text nodes only; a CSP on module assets (SEC-MED-003) is **planned**, none is set today |
 | Record text to model | Tool results | Wrapped as data with delimiters; system instruction that record text is data; verifier ignores any policy the model claims to have learned; `AF-DQ-O` eval |
 
 ### Proof obligations
@@ -237,9 +246,9 @@ return the same envelope. Each maps to a chart section the user could open.
 | --- | --- | --- | --- | --- |
 | `patient_context` | `PatientService::findByPid` | `patients/demo` | all | Age band, sex as recorded; no name, SSN, address, phone, insurance in the payload |
 | `encounters` | `EncounterService::getEncountersForPatientByPid` | `encounters/notes` | UC-01, UC-02, UC-03 | Clinical date with precision; category; provider; `is_clinical_visit` derived from category for the reference-encounter choice; zero-dates become `date_unknown` (DQ-MEDIUM-006) |
-| `clinical_notes` | `ClinicalNotesService::getClinicalNotesForPatient`; SOAP forms via the `forms` registry where present | `patients/notes` | UC-01, UC-02, UC-03 | Text capped per note with `truncated`; `author_unknown` (DQ-MEDIUM-008); orphan forms omitted with `partial` (DQ-LOW-013); bounded term search parameter for UC-03 |
-| `problems` | `ConditionService::getAll`, deduplicated by `condition_uuid`; `PatientIssuesService` for activity | `patients/med` via `aclCheckIssue('medical_problem')` | UC-01, UC-03 | One row per condition (DQ-MEDIUM-014); `begdate` NULL becomes `undated` (DQ-HIGH-004); code and title as written, no translation (DQ-HIGH-005) |
-| `medications` | `PrescriptionService` and `MedicationPatientIssueService`, kept as two provenances | `patients/rx`, `aclCheckIssue('medication')` | UC-01, UC-03 | `status_basis` (`enddate`, `activity`) with `status_conflict` when they disagree (DQ-HIGH-002); no merge across sources without a code match (DQ-HIGH-003); dose option ids resolved to labels (DQ-MEDIUM-010) |
+| `clinical_notes` | `ClinicalNotesService::getClinicalNotesForPatient` (`form_clinical_notes` only; SOAP and other encounter forms are not read, ARCH-MEDIUM-004) | `patients/notes` | UC-01, UC-02, UC-03 | Text capped per note with `truncated`; `author_unknown` (DQ-MEDIUM-008); orphan forms omitted with `partial` (DQ-LOW-013); bounded term search parameter for UC-03 |
+| `problems` | `ConditionService::getAll`, deduplicated by `condition_uuid`; activity from the `lists` row | `patients/med` via `aclCheckIssue('medical_problem')` | UC-01, UC-03 | One row per condition (DQ-MEDIUM-014); `begdate` NULL becomes `undated` (DQ-HIGH-004); code and title as written, no translation (DQ-HIGH-005) |
+| `medications` | `PrescriptionService` and a direct read of `lists` joined to `lists_medication`, kept as two provenances | `patients/rx`, `aclCheckIssue('medication')` | UC-01, UC-03 | `status_basis` (`enddate`, `activity`) with `status_conflict` when they disagree (DQ-HIGH-002); no merge across sources without a code match (DQ-HIGH-003); dose option ids resolved to labels (DQ-MEDIUM-010) |
 | `allergies` | `AllergyIntoleranceService` plus `lists_touch` | `aclCheckIssue('allergy')` | UC-01 | Absence state `documented / reviewed_none / not_documented` (DQ-MEDIUM-007); missing reaction or severity flagged |
 | `lab_results` | `ProcedureService::search()` by patient uuid; never `getAll()` (PERF-MED-001) | `patients/lab` | UC-01, UC-02 | Value kept as text plus `numeric_value` when strictly numeric; unit, range, flag optional and flagged when missing; `corrected` results linked to the original (DQ-MEDIUM-009); orphan results omitted with `partial` |
 
@@ -259,10 +268,13 @@ six-tool fan-out at most 300 ms p95 on `AF-HEAVY`, measured through the
 agent; per-tool timeout 2 s, no retry on timeout (a retry doubles the
 worst case; the tool reports `unavailable` instead).
 
-**Cache.** Within one conversation only, keyed by
-`(site, user, pid, tool, tool version, parameter hash)`, at most 60 s,
-dropped on conversation end or patient switch. Authorization is never
-cached; a cache hit still requires a fresh context (`AUDIT.md` §2.2).
+**Cache.** Today the only cache is per turn: retrieved records live in an
+in-memory map keyed by turn id for at most 120 s (`agent/app/state_store.py`)
+so the verifier and renderer read what the tools returned; every turn
+re-fetches. A within-conversation cache keyed by `(site, user, pid, tool,
+tool version, parameter hash)`, at most 60 s, dropped on conversation end or
+patient switch, is **planned**. Authorization is never cached; a cache hit
+would still require a fresh context (`AUDIT.md` §2.2).
 
 **Endpoint classes.** Gateway endpoints are grouped as `tools/` (read,
 section ACL at view level) and a reserved, empty `actions/` class for
@@ -287,7 +299,7 @@ turn graph the Week 2 subgraph.
 
 **Model (ADR-0004).** `claude-sonnet-5` (owner decision 2026-09-15 on
 measured latency: about 10.5 s per narration against 15 to 17 s for Opus 5)
-with adaptive thinking and `output_config.effort` tuned per turn type: `low`
+with `output_config.effort` tuned per turn type: `low`
 for the UC-01 first-turn narration (fixed evidence, fixed shape), `medium`
 for follow-ups that select tools. Claims are returned as JSON text and
 validated by the agent against the contract (the grammar-constrained
@@ -320,15 +332,19 @@ flowchart TD
 | `classify` | First turn of a conversation with the canonical UC-01 question, or a follow-up | `turn_type` |
 | `plan` | Follow-ups only: model call with the tool schemas, window and patient injected as data, resolver output for references; returns tool calls or "done" | tool calls, rounds counter |
 | `retrieve` | Parallel gateway calls with the delegation token; builds the evidence pack; caches records in the per-turn memory cache (never in state) | `evidence` stream event, tool log entries |
-| `narrate` | Model call with structured output over the evidence pack; effort per turn type | raw `TurnClaims` |
+| `narrate` | Model call with structured output over the evidence pack; effort per turn type. Skipped, with no model call, when no clinical section came back `ok` or `empty` (every section denied or unavailable; the Front Office turn records `model_calls 0`) | raw `TurnClaims` |
 | `verify` | Deterministic verifier (ADR-0006) against the per-turn record cache | verification outcome |
 | `repair` | One model call with the rejection list; then `verify` again | second `TurnClaims` |
 | `render` | Assembles `TurnResponse`; on model failure or budget exhaustion for a UC-01 first turn, renders the grouped record list from the evidence pack with sources and the limitation `narrative_unavailable` | `claims`, `done` stream events |
 
 **Bounds enforced by edges and the runner.** Per turn: 3 plan rounds, 8
-tool calls, 4 model calls including repair, 12 s wall clock around the
-graph run; tokens 20K per turn and 60K per conversation; a process-wide
-daily spend counter with a halt flag (`KEY_METRICS.md` cost row). Retries:
+tool calls, model calls bounded by the graph shape (at most 3 plan calls,
+one narrate, one repair), 45 s wall clock around the graph run
+(`COPILOT_TURN_WALL_CLOCK_SECONDS`; the 12 s design budget was exceeded by
+measured narration, see "Latency and Scale"); tokens 20K per turn and 60K
+per conversation; a process-wide daily token counter with a halt flag at
+2,000,000 tokens per UTC day (`agent/app/budget.py`; `KEY_METRICS.md` cost
+row). Retries:
 one on a 429 or 5xx from the model with jitter; none on timeouts. Every
 routing decision is a span attribute, so the trace shows why each edge was
 taken.
@@ -366,21 +382,28 @@ CI. Week 3's attacker uses the same switch.
 ## Canonical Contracts
 
 **Source of truth (ADR-0004):** Pydantic v2 models in
-`agent/contracts/`, exported as JSON Schema into `contracts/schema/*.json`
-by a build step. Consumers: the PHP gateway validates tool requests and its
-own responses against the exported schema (`opis/json-schema`, already a
-Composer dependency of OpenEMR), the module JS uses generated TypeScript
-types, the Bruno collection asserts against the same schema, and the eval
-runner loads it. Hand-written parallel definitions are not permitted.
+`agent/app/contracts/` (`CONTRACT_VERSION` is `1.2.0`), exported as JSON
+Schema into `contracts/schema/*.json` by `python -m app.contracts.export`
+(`--check` fails CI on drift). Consumers today: the agent validates every
+tool response and every model output against them; the PHP gateway enforces
+the same parameter allowlist and formats by hand (`ToolRegistry::params`)
+and rejects unknown keys such as `pid`; the eval runner checks
+`contract_version` on every turn. **Planned:** PHP validation against the
+exported schema (`opis/json-schema`, already a Composer dependency of
+OpenEMR), generated TypeScript types for the panel JS, and Bruno assertions
+against the same schema. Hand-written parallel definitions are not
+permitted.
 
 **Schemas.**
 
 - `ToolRequest{tool, params, correlation_id}` and `ToolResponse` (envelope
   above), one `params` model per tool, `additionalProperties: false`.
 - `TurnRequest{message, correlation_id?, stream?}`,
-  `TurnResponse{turn_id, status, evidence[], summary, summary_basis,
-  suggestions[], claims[], sources[], limitations[], withheld_count,
-  answered_at, verification, usage, correlation_id}`. `summary` is the one-paragraph answer shown above the
+  `TurnResponse{turn_id, conversation_id, turn_type, status,
+  reference_encounter_source_id?, window_since?, evidence[], summary,
+  summary_basis, suggestions[], claims[], sources[], limitations[],
+  withheld_count, answered_at, verification, usage, correlation_id,
+  contract_version}`. `summary` is the one-paragraph answer shown above the
   claims; `summary_basis` says whether it is the model's prose (`model`,
   allowed only when no claim was withheld this turn and the prose passes the
   lexicon and cites no number absent from the verified claims) or a
@@ -404,18 +427,28 @@ runner loads it. Hand-written parallel definitions are not permitted.
   `document:{uuid}:page:{n}` and `guideline:{doc}:{chunk}`. The module maps
   the `openemr:` scheme to chart URLs; the verifier resolves any scheme
   through a source registry keyed by the URI prefix.
-- `Limitation{kind, section, reason, source_ids?}` with `kind` in
+- `Limitation{kind, section, detail, source_ids?}` with `kind` in
   `not_documented | reviewed_none | unavailable | truncated | conflict |
-  undated | withheld | out_of_scope`.
-- `Verification{outcome, rules_applied[], rejected[{claim_id, rule, detail}]}`.
+  undated | withheld | out_of_scope | narrative_unavailable |
+  model_budget_exhausted`. Field-level absences (an allergy with no reaction
+  or severity, a lab result with no unit or a text value, a note with no
+  author, a medication with no documented indication, a corrected result, a
+  chart with no prior clinical visit) are emitted deterministically by
+  `pack_limitations` (`agent/app/graph/nodes.py`), cited to the record, so
+  those states never depend on the model's wording; the evals assert the
+  line.
+- `Verification{outcome, rules_applied[], rejected[{claim_id, rule, detail}],
+  repair_attempted}` with `outcome` in
+  `passed | partial | rejected | not_run | failed_closed`.
 - `ErrorEnvelope{code, message, correlation_id}` with codes
   `unauthorized | conversation_closed | patient_context_changed |
-  rate_limited | dependency_unavailable | invalid_request`. Messages are
-  generic; the audit log holds the specifics.
+  rate_limited | dependency_unavailable | invalid_request | internal_error`.
+  Messages are generic; the audit log holds the specifics.
 
-**Versioning.** Schemas carry `contract_version`; tool responses carry
-`source_version` (tool implementation version). Additive changes bump the
-minor; anything else is a new tool name. Eval reports record both.
+**Versioning.** Schemas carry `contract_version` (`1.2.0`; the minor bump
+added `problem_status`); tool responses carry `source_version` (tool
+implementation version). Additive changes bump the minor; anything else is a
+new tool name. Eval reports record both.
 
 ## Conversation State
 
@@ -423,12 +456,12 @@ minor; anything else is a new tool name. Eval reports record both.
 
 | Store | Where | Holds | TTL |
 | --- | --- | --- | --- |
-| Binding | OpenEMR database, module table `copilot_conversation` | site, user, pid, correlation id, timestamps, close reason | Closed on patient switch, user inactive, break-glass, or 30 min without a turn (checked at every ticket, `close_reason=idle`); rows kept 24 h for audit reconciliation then deleted. A restored transcript is labeled "Earlier in this session" with each answer's time |
-| Checkpoint | Agent container, LangGraph SQLite checkpointer on a named volume, `thread_id` = conversation id | Graph state per conversation: user messages, verified claims and limitations, tool log (tool, params hash, record source ids, status), reference encounter and window, usage and budget counters | 24 h, then deleted by the agent's sweeper; deleted immediately when the binding closes |
+| Binding | OpenEMR database, module table `copilot_conversation` | site, user, pid, correlation id, timestamps, turn count, close reason | Closed on patient switch, user inactive, break-glass, or 30 min without a turn (checked at every ticket, `close_reason=idle`, and at every gateway call, `idle_timeout`). Rows are meant to be kept 24 h for audit reconciliation then deleted; `ConversationRepository::purge()` implements the delete but nothing schedules it yet (**planned**). A restored transcript is labeled "Earlier in this session" with each answer's time |
+| Checkpoint | Agent container, LangGraph SQLite checkpointer on a named volume (`checkpoints.sqlite`), `thread_id` = conversation id | Graph state per conversation: user messages, verified claims and limitations, tool log (tool, params hash, record source ids, status), reference encounter and window, usage and budget counters | Design: 24 h, then deleted by a sweeper, and immediately when the binding closes. No sweeper exists yet (**planned**); today the volume is deleted with the deployment |
 
 Tool records are **not** in graph state and are never checkpointed; they
-live in a per-turn memory cache and each turn re-fetches (cache at most
-60 s), so the model's context is rebuilt from fresh tool output and stale
+live in a per-turn memory cache and each turn re-fetches (cache entries
+expire after 120 s), so the model's context is rebuilt from fresh tool output and stale
 data cannot outlive a minute. PHI at rest in the agent is therefore limited
 to claim text, and the volume is deleted with the deployment. No
 process-global state, no model-side memory, no conversation content in
@@ -470,10 +503,16 @@ claim. Week 1 registers only the `openemr:` scheme.
 
 **Domain rules.** Abnormality only from a recorded flag or a parseable
 numeric range in the same unit; never from the model. No comparison across
-units or with non-numeric values. No claim that an issue is resolved; the
+units or with non-numeric values, and no comparison between a superseded
+value and its same-day correction. No claim that an issue is resolved; the
 allowed wording is "no later result and no documented follow-up found". No
 indication, causal, dosing, interaction, or recommendation language: a
-lexicon check over claim text rejects the claim.
+lexicon check over claim text rejects the claim (`FORBIDDEN` in
+`agent/app/verifier.py`; widened on 2026-09-16 to paraphrases such as "it
+would be wise to", "worth discussing with", "points toward", "appears to
+indicate", after a manual sweep found the model rewording advice around the
+literal keywords). The eval runner applies its own independent copy of the
+advice pattern to every displayed turn.
 
 **Outcome.** Claims that pass render as facts with citations. Rejected
 claims are withheld; the response shows "N statements withheld" and the
@@ -515,12 +554,18 @@ rendered ≤2 s p95, model ≤4 s, verifier ≤150 ms, complete ≤8 s p95 with
 about 5 s expected. Measured 2026-09-15 on the deployment: retrieval about
 1 s, narration 5 to 9 s, repair 5 to 14 s, planning 10 to 12 s, turns 24 to
 27 s; the owner accepted a provisional 30 s complete-response target for the
-early submission (`KEY_METRICS.md`), with a 45 s turn wall clock. Tools run in parallel from the agent (six concurrent
-gateway requests, bounded by a per-conversation semaphore of 6). Prompt
-caching on the stable system prompt and the evidence pack prefix. Agent
-service: 2 workers, 32 in-flight turns, queue depth exposed as a metric.
-Load tests at 10 and 50 concurrent users (2026-09-19) validate the budget and
-size the Droplet; the first fallback is the 8 GiB size (ADR-0001).
+early submission (`KEY_METRICS.md`), with a 45 s turn wall clock. Full eval
+runs on 2026-09-16 measured model-backed turns at p50 about 12 s and p95
+between 23.3 and 27.6 s (`evals/results/`); time to first evidence is not
+yet measured by the runner (it uses non-streaming turns). Tools run in
+parallel from the agent (six concurrent gateway requests, bounded by a
+semaphore of 6, `COPILOT_TOOL_CONCURRENCY`). Prompt caching on the stable
+system prompt and the evidence pack prefix. Agent service: one uvicorn
+process (`agent/Dockerfile`) serving turns asynchronously, in-flight turns
+exposed as `copilot_in_flight`; worker count and a queue-depth metric are
+sized after the load test (**planned**). Load tests at 10 and 50 concurrent
+users (2026-09-19) validate the budget and size the Droplet; the first
+fallback is the 8 GiB size (ADR-0001).
 
 ## Observability
 
@@ -541,17 +586,26 @@ extended per turn (`{conversation_correlation}.{turn_seq}`), sent in
 `X-Correlation-Id`, carried into every audit comment, span, log line, and
 the `TurnResponse`. One ID reconstructs the turn from logs alone.
 
-**Dashboard.** Requests, error rate, p50/p95 per stage, tool call counts and
-failure rate per tool, retry count, verification pass/fail, tokens, cost,
-in-flight and queue depth, denial counts by reason. The agent also serves
-`/metrics` (Prometheus text) on the internal network for the alert
-evaluator.
+**Traces.** One `copilot.turn` span per turn with the node spans from the
+callback handler, a `generation` observation per model call carrying tokens
+and cost, and a `tool`-type observation per gateway call carrying tool name,
+status, and record count (`agent/app/telemetry.py`).
+
+**Dashboard.** The Langfuse dashboard "Clinical Co-Pilot"
+(`docs/operations/langfuse-dashboard.md`): requests, error rate, latency
+split by stage, tool call counts and failures per tool, retries, verification
+outcome, tokens by usage type, cost. The agent also serves `/metrics`
+(Prometheus text, `agent/app/metrics.py`: request, turn, denial, tool call,
+verifier rejection, and token counters, in-flight turns, 5-minute latency
+quantiles) for the alert evaluator.
 
 **Alerts.** The three PRD alerts and their responses are defined in
-`KEY_METRICS.md`, "Decision Thresholds". They are evaluated by a small
-scheduled job inside the agent container over its own 5-minute windows and
-emitted as `alert` log events and a webhook; a hosted alerting product is
-not required for the demo.
+`KEY_METRICS.md`, "Decision Thresholds", and evaluated by
+`agent/app/alerts.py` over two `/metrics` samples (`alerts_cli.py`, one-shot
+or `--interval 300`; JSON alert lines, exit code 2 on a page, optional
+webhook; runbook `docs/operations/alerts.md`). Running it as a scheduled job
+on the Droplet is **planned**; a hosted alerting product is not required for
+the demo.
 
 ## Agent HTTP API and the Runnable Collection
 
@@ -562,8 +616,8 @@ graders drive. It is versioned, header-authenticated, and served at
 | Method and path | Auth | Purpose |
 | --- | --- | --- |
 | `GET /health` | none | Process alive |
-| `GET /ready` | none | Dependency checks with cached results (30 s): gateway `ping` endpoint over the internal network, Claude API `models.retrieve` on the configured model, tracer exporter last-success age, state store writable. 503 with a per-dependency detail when any fails. Never proxies OpenEMR `readyz` (SEC-MED-007) |
-| `POST /v1/conversations/{id}/turns` | delegation token | One turn. JSON by default; `Accept: text/event-stream` streams `evidence`, `claims`, `done` events for the two-phase render |
+| `GET /ready` | none | Dependency checks with cached results (30 s): gateway `ping` endpoint over the internal network, Claude API `models.retrieve` on the configured model, tracer keys configured, delegation secret configured, state store writable. 503 with a per-dependency detail when any fails. Never proxies OpenEMR `readyz` (SEC-MED-007) |
+| `POST /v1/conversations/{id}/turns` | delegation token | One turn. JSON by default; `Accept: text/event-stream` streams `evidence`, `progress`, `claims`, `done` (or `error`) events for the two-phase render |
 | `GET /v1/conversations/{id}` | delegation token | State, turns, verified claims, close reason |
 | `DELETE /v1/conversations/{id}` | delegation token | Ends the conversation (panel close) |
 | `GET /metrics` | internal only | Prometheus text for alerts |
@@ -578,7 +632,7 @@ the OpenEMR session, because that is where the authorization facts live:
 | `POST .../public/api/ticket.php` | session + CSRF | Re-checks session, user, pid, break-glass; returns a 90 s delegation token |
 | `POST .../public/api/conversation.php` (`end`) | session + CSRF | Closes the conversation |
 | `GET  .../public/gateway/ping.php` | none, internal only | Readiness probe for the gateway (bootstraps OpenEMR, checks DB) |
-| `GET  .../public/gateway/tools/{tool}.php` | delegation token | Tool calls from the agent |
+| `POST .../public/gateway/tools.php?tool={tool}` (GET also accepted) | delegation token | Tool calls from the agent; JSON body `since`, `until`, `limit`, `term` (notes), `analyte` (labs); unknown keys such as `pid` are rejected |
 
 **The collection (`docs/api-collection/`, Bruno format, git-friendly).**
 Graders must run every workflow without reading source, so the collection
@@ -597,17 +651,21 @@ performs the same handshake the panel does:
 6. **UC-01 turn**, **UC-01 follow-up**, **UC-02 turn**, **UC-03 turn** —
    assert the schema, that every claim has source ids, that `verification`
    is present, and that the correlation ID is echoed.
-7. **Failure examples** — expired ticket (403), ticket after `end` (403),
-   turn after opening another chart (`patient_context_changed`), a tool
-   request with a `pid` argument (schema rejection), `audit-frontdesk`
-   login then UC-01 (every section `forbidden`), simulated model outage via
-   the `X-Copilot-Fault: model` header honored only when
-   `COPILOT_FAULT_INJECTION=1` on the deployment (the demo sets it).
+7. **Failure examples** — no token (401), tampered token (403), a tool
+   request with a `pid` argument (schema rejection), simulated model and
+   lab-tool outages via the `X-Copilot-Fault` header (honored only when
+   `COPILOT_FAULT_INJECTION=1` on the deployment; the demo sets it), a turn
+   and a ticket after `end` (closed conversation), `audit-frontdesk` login
+   then UC-01 (every clinical section unavailable). The expired-ticket and
+   patient-switch denials are covered by the eval cases
+   `AUTH-STALE-TICKET-001` and `AUTH-SWITCH-001` rather than the collection.
 8. **Health and readiness** — `/health` 200, `/ready` 200 with detail.
 
-Environment files: `local.bru.env` and `deployed.bru.env` with hostnames,
-demo credentials placeholders, and fixture pids. The CI job runs the
-deterministic subset (`bru run --env local`) against the local stack. A
+Environment files: `environments/local.bru` and `environments/deployed.bru`
+with hostnames, the demo password as a secret variable, and fixture pids. The
+collection passes 21/21 against the deployment (2026-09-16). Running its
+deterministic subset in CI against the local stack is **planned**; today the
+release gates come from the eval suite, which performs the same handshake. A
 documented fallback exists if the login form proves brittle in Bruno: a
 script run by the operator through `docker compose exec` that performs steps
 1 to 5 and prints a ticket; it is never a public endpoint.
@@ -625,8 +683,8 @@ required by the audit (`AUDIT.md` §7.2) and this design:
   where needed (the delegation secret in both OpenEMR and agent; the LLM key
   in the agent only); egress restricted to the model and tracer endpoints by
   a host firewall rule on the agent network, verified by a blocked-egress
-  test. If the egress rule is not in place by 2026-09-16 it is recorded as
-  residual risk, not claimed.
+  test (**planned**; not in place as of 2026-09-16 and recorded as residual
+  risk in `docs/deployment/digitalocean.md`).
 - **Caddy** deny-by-default: `/copilot-api/*` to the agent; an explicit
   allowlist of OpenEMR application paths (`/interface/*`, `/public/*`,
   `/portal` excluded, `/apis/*` excluded since APIs are disabled) to Apache;
@@ -637,10 +695,19 @@ required by the audit (`AUDIT.md` §7.2) and this design:
   mount outside the web root; never inside the image.
 - **Readiness** from the agent's `/ready`; Compose health for the agent uses
   `/health`.
-- **Release discipline:** tag each green checkpoint, deploy tags only,
-  rehearse rollback once before 2026-09-16 (`docs/PRIOR_COHORT_LESSONS.md`).
-- **Backup, restore, migration, rollback** are tested on 2026-09-19; until
+- **Release discipline:** tag each green checkpoint, deploy tags only
+  (`v0.1.0-skeleton`, `v0.2.0-slice` so far); the rollback rehearsal is
+  still open (`docs/PRIOR_COHORT_LESSONS.md`, `docs/SUBMISSION_CHECKLIST.md`).
+- **Backup, restore, migration, rollback** are planned for 2026-09-19; until
   then the deployment is disposable and holds synthetic data only.
+- **CI** runs on a dedicated project runner Droplet
+  (`infra/digitalocean/runner/`, its own Terraform root and state; the
+  runner token is read from a local file by `register.sh` and never enters
+  state), separate from the demo host. `.gitlab-ci.yml`: whitespace, PHP
+  lint, Caddy and Compose validation, agent tests plus schema drift, and the
+  offline eval subset on every push; the manual `test:evals-live` job runs
+  the full suite against the deployment with the masked `DEMO_PASSWORD`
+  variable and keeps the report as a 90-day artifact.
 
 ## Privacy and Compliance
 
@@ -651,11 +718,16 @@ are in `docs/audit/compliance.md` §2, §4, §5, §6. This design implements:
   identifiers in the evidence pack beyond what a claim needs ("the patient",
   age band, dates of records).
 - Access trail: `copilot-session-start`, `copilot-tool-read`,
-  `copilot-denied`, `copilot-llm-call` (counts only), `copilot-verification-result`,
-  `copilot-session-end` via `EventAuditLogger::newEvent`, written before data
-  is returned.
-- PHI-free telemetry by allowlist; the eval greps exported traces for
-  fixture names and values.
+  `copilot-denied`, and `copilot-session-end` via `EventAuditLogger::newEvent`
+  (`oe-module-copilot/src/Gateway/Audit.php`, `public/api/conversation.php`),
+  the tool-read event written before data is returned. `copilot-llm-call`
+  (counts only) and `copilot-verification-result` audit events are
+  **planned**; today model calls and verifier outcomes are recorded in the
+  Langfuse trace, `/metrics`, and the agent's JSON logs, and agent-level
+  denials leave no OpenEMR audit row (see Open Items).
+- PHI-free telemetry: the client-side mask replaces every input and output
+  payload with a digest (type, size, key names) before it leaves the agent;
+  a grep of exported traces for fixture names and values is **planned**.
 - Retention: transcripts 24 h, bindings 24 h after close, traces per the
   tracer project setting (30 days), synthetic data only.
 - This is a demo. No BAA is executed, no backups exist, the audit log is not
@@ -669,8 +741,36 @@ This design adds the following obligations: every tool has one eval per
 `AF-DQ-*` patient it touches; every gateway check has a negative test per
 role; every claim type has an altered-fact eval that the verifier must
 reject; every failure row above has a fault-injection eval; the trace export
-is grepped for fixture PHI; and the Bruno collection's deterministic subset
-runs in CI against the local stack.
+is grepped for fixture PHI (**planned**); and the Bruno collection's
+deterministic subset runs in CI against the local stack (**planned**).
+
+**What exists (2026-09-16).** 45 cases under `evals/cases/`, one YAML per
+case, every `AF-DQ-*` patient covered, in three tiers drawn from the same
+files: a 14-case **golden set** (`tier: golden`, deterministic, no
+model-wording checks, reported first and gated at 100%), **behavioral
+coverage** by category, and a 4-case **holdout set** (`holdout: true`,
+excluded from filtered runs unless `--include-holdout`, always in a full
+run). `evals/run.py` drives live cases through the panel's handshake and
+offline cases through pytest node ids, applies invariants to every 200 turn
+(citations resolve, verifier outcome present, no advice wording, absence
+only after retrieval, withheld count consistent), and prints the
+`KEY_METRICS.md` release-gate table at the top of every report with five
+states (PASS, FAIL, NOT RUN, NOT MEASURED, NOT CONFIGURED) judged against
+the case manifest, so an empty or filtered run can never pass a gate; a full
+run's exit code follows the blocking gates, and model-wording misses are
+prefixed `recall:` and counted under the non-blocking task-success gate.
+Each report also carries a scorecard over model-backed turns (claims,
+withheld and repair rates, summary basis, suggestions, tokens, list-price
+cost, latency p50/p95/p99 by turn type, rejection rules, a non-blocking
+hedge-language near-miss rate) and sanitized per-turn records. `--repeat N`
+reports flaky cases; `evals/compare.py` diffs two reports for A/B
+experiments; `evals/error_analysis.py` samples unscripted questions into a
+manual review journal and `evals/review_ui.py` is a local browser UI for
+filling it in. Results are versioned under `evals/results/`; the latest
+tracked full runs (2026-09-16) are 44/44 at `a7641e9` and 114/116 across a
+same-commit `--repeat 3` at `1ddf824`, every blocking gate PASS, with one
+model-recall miss. The offline subset runs in GitLab CI on every push; the
+full suite runs as the manual `test:evals-live` job.
 
 ## Decisions and Tradeoffs
 
@@ -679,10 +779,10 @@ runs in CI against the local stack.
 | Single ephemeral Droplet, Caddy edge | ADR-0001 | Accepted; revisit triggered by the audit (edge allowlist, project image) |
 | Patient-scope authorization: parity with the chart | ADR-0002 | Accepted |
 | Integration: in-process module gateway plus agent service; SMART deferred | ADR-0003 | Accepted; per-turn delegation refinement described above |
-| Agent runtime, contracts, and model: Python, FastAPI, Pydantic, LangGraph turn graph with nodes on the Anthropic SDK, Claude Opus 5 | ADR-0004 | Accepted 2026-09-15 |
+| Agent runtime, contracts, and model: Python, FastAPI, Pydantic, LangGraph turn graph with nodes on the Anthropic SDK, Claude Sonnet 5 (amended from Opus 5 the same day on measured latency) | ADR-0004 | Accepted 2026-09-15 |
 | Conversation state (LangGraph checkpointer) and per-turn delegation token | ADR-0005 | Accepted 2026-09-15 |
 | Verification: deterministic claim verifier with typed facts and domain rules | ADR-0006 | Accepted 2026-09-15 |
-| Observability: OpenTelemetry to Langfuse, PHI-free by allowlist; local logs as fallback | ADR-0007 | Accepted 2026-09-15 |
+| Observability: Langfuse through its LangGraph callback handler with a client-side PHI mask; local JSON logs as fallback | ADR-0007 | Accepted 2026-09-15 |
 
 Tradeoffs stated once: bespoke to OpenEMR (portability traded for a week
 of OAuth work and millisecond tools); isolation equal to the host's
@@ -700,7 +800,7 @@ now, no orchestration rewrite in Week 2).
 | Supervisor with two workers, checkpointing, human-in-the-loop | The turn graph is a LangGraph subgraph with a checkpointer; the supervisor becomes the parent graph |
 | Lab PDF and intake-form ingestion; round-tripping derived records without duplicates | `SourceId` URI scheme, open claim types, provenance fields, the reserved `actions/` endpoint class with idempotency keys; a write ADR is still required |
 | Guideline evidence through hybrid RAG | `guideline:` source scheme and `guideline_reference` claim type reserved; the "no general medical knowledge" refusal is Week 1 scope |
-| 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; the deterministic subset runs in GitLab CI from Week 1 |
+| 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; 45 cases with a 14-case golden tier and a 4-case holdout already reported separately and gated; the offline subset runs in GitLab CI on every push and the full suite as a manual job |
 | Adversarial platform driving this co-pilot unattended; cost amplification | Headless drive path (agent API, ticket script, eval client); fault-injection switch; loop bounds, rate limit, token budgets, daily halt; PHI-free trace export and audit log as queryable system state |
 
 ## Known Limitations
@@ -710,8 +810,9 @@ now, no orchestration rewrite in Week 2).
   (`aclCheckIssue`) fails open outside a page context and is bypassed in
   favor of the issue-type ACL specs read directly (found and fixed
   2026-09-15). Every role must stay covered by a live negative test.
-- Note coverage: Clinical Notes and SOAP forms; other encounter form types
-  are reported as "not covered", not absent.
+- Note coverage: Clinical Notes (`form_clinical_notes`) only. SOAP and
+  other encounter form types are not read; reporting them as "not covered"
+  in the response is **planned** (ARCH-MEDIUM-004).
 - Terminology: codes and titles as written; no ICD-9 to ICD-10 or RxNorm
   mapping, so two spellings of one problem may read as two problems.
 - Lab handling is proven on seeded rows; real HL7 feeds are unexercised.
@@ -734,11 +835,14 @@ now, no orchestration rewrite in Week 2).
 3. ~~Gateway bootstrap without a session~~ verified live with `$ignoreAuth`
    and the token check.
 4. ~~Bruno login step~~ verified against the local stack and the deployment.
-5. Decide the tracer project and confirm masking before the first model call
-   on the deployment (blocked on keys).
+5. ~~Decide the tracer project and confirm masking~~ Langfuse Cloud (US)
+   with the mask, traces verified live 2026-09-15 (`docs/SUBMISSION_CHECKLIST.md`,
+   `docs/operations/correlation-id-walkthrough.md`).
 6. ~~Graph state schema~~ done; the checkpoint-content test is still to add.
-7. GitLab CI runs lint, contract drift, and the agent tests; the Bruno
-   deterministic subset and eval cases are still to add.
+7. ~~GitLab CI~~ runs lint, contract drift, the agent tests, and the offline
+   eval subset on every push, plus the manual `test:evals-live` job (first
+   green pipeline 2026-09-16 on the dedicated runner Droplet). The Bruno
+   deterministic subset is still not in CI.
 8. Version drift between the repository (8.2.0-dev) and the release image
    (8.1.1) bit once (`PatientSessionUtil::getPid`, `OEGlobalsBag::getString`);
    `src/Compat.php` is the seam. Add a CI check that greps the module's

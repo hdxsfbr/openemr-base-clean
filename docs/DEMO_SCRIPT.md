@@ -3,6 +3,8 @@
 Recorded by the owner. Every proof point in `docs/SUBMISSION_CHECKLIST.md`
 "Demo Proof Points" appears once, in this order. Times are targets.
 
+Early-submission recording (2026-09-16): <https://youtu.be/oxm9xqJpiY8>.
+
 Before recording: log in as `audit-physician` in one tab, open AF-DQ-A2
 (pid 900001), and have Langfuse open in a second tab with the project's
 trace list filtered to the last hour. Keep a terminal ready with
@@ -20,7 +22,7 @@ trace list filtered to the last hour. Keep a terminal ready with
 | 2:30 | Log in as `audit-frontdesk` in another window, open AF-DQ-A2, ask the first question | "Front Office sees demographics in the chart and nothing clinical. The gateway denies each section before any model call, and the audit log records it." | authorization denial before LLM |
 | 2:55 | Terminal: run the Bruno "Tool outage" request, or curl with `X-Copilot-Fault: tool:lab_results` | "Fault injection: the lab tool is down. The section is marked unavailable, nothing claims labs are absent, and the rest of the brief still renders." | visible partial behavior during a tool failure |
 | 3:20 | Copy the `ref` from the panel's meta line; paste into the Langfuse search | "One correlation id runs the whole path: panel, ticket, gateway audit rows, agent logs, and this trace with nested tool, narrate, verify, and repair spans, token counts, and cost. No PHI in the trace." | correlation id through observability |
-| 3:50 | `evals/results/<latest>.md` in the editor | "Thirty-three eval cases: authorization, citation, missing data, conflicts, labs, injection, tool and model failure, isolation. Pass rate by category, latency p50 and p95, tokens." | eval results |
+| 3:50 | `evals/results/<latest>.md` in the editor | "Forty-five eval cases in three tiers: a fourteen-case golden set that must always pass, behavioral coverage by category (authorization, citation, missing data, conflicts, labs, injection, tool and model failure, isolation, observability, regression), and a four-case holdout set kept for the release check. Every report opens with the release-gate table, then pass rate by category and a scorecard: latency p50 and p95, tokens, cost per turn." | eval results |
 | 4:10 | `AI_COST_ANALYSIS.md` per-turn table | "About two cents a turn at list price; projections at four tiers with the assumptions written down." | cost |
 | 4:25 | Back on the panel | "Read-only, cited, verified, audited, and honest about what the chart does not say." | close |
 

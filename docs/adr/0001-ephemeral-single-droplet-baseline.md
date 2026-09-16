@@ -8,6 +8,19 @@
   co-pilot module, and a restricted agent container before the evaluator
   deployment (OpenEMR container hardening is documented, not changed:
   `AUDIT.md` §7.3)
+- **Status note (2026-09-16):** the three follow-ups above landed with
+  `v0.1.0-skeleton` on 2026-09-15: Caddy path allowlist
+  (`infra/digitalocean/runtime/Caddyfile`; probe evidence
+  `docs/audit/evidence/security/cloud-probe-2026-09-15-allowlist.txt`), the
+  project image (`infra/image/openemr.Dockerfile`), and the agent container
+  on the `frontend` network with file secrets. The demo-data workaround in
+  "Negative and residual risk" was retired by the one-shot `demo-seed` job
+  (read-only bind mount, not baked into the image, so the resolution differs
+  from the one written there). Since 2026-09-15 the Droplet is kept up during
+  build days instead of destroyed after each test (about $0.86/day). Still
+  open: agent egress restriction, an owned hostname, and the sizing revisit
+  after the load test. See `docs/deployment/digitalocean.md` "Before the
+  Evaluator Deployment".
 - **Date:** 2026-09-13
 - **Owners:** Project team
 - **Related requirements:** Public deployment, reproducible setup, TLS,

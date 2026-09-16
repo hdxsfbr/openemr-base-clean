@@ -84,8 +84,8 @@ structured response made of claims and source identifiers. A deterministic
 verifier will ensure cited records exist, enforce supported clinical rules, and
 withhold claims that cannot be validated.
 
-This was the pre-audit hypothesis. The audit is complete (2026-09-14, pending
-owner review), and `AUDIT.md` §8 records where it changed this shape:
+This was the pre-audit hypothesis. The audit is complete (2026-09-14,
+owner-reviewed the same day), and `AUDIT.md` §8 records where it changed this shape:
 - an explicit gateway patient-scope policy, because OpenEMR has no
   patient-level authorization;
 - server-bound conversations;
@@ -124,8 +124,11 @@ September 14–20, 2026.
 - [x] Select measurable product outcomes and thresholds in `KEY_METRICS.md`.
 - [x] Record the audit-driven architecture decisions in `ARCHITECTURE.md`
       and ADR-0004..0007 (accepted 2026-09-15).
-- [ ] Deploy a hardened OpenEMR baseline with demo-only data (edge allowlist,
-      project image, demo-seed job; moved to Tuesday with the stub deploy).
+- [x] Deploy a hardened OpenEMR baseline with demo-only data (edge allowlist,
+      project image, demo-seed job; moved to Tuesday and landed with
+      `v0.1.0-skeleton` on 2026-09-15: `docs/deployment/digitalocean.md`
+      "Before the Evaluator Deployment", probe evidence
+      `docs/audit/evidence/security/cloud-probe-2026-09-15-allowlist.txt`).
 
 **Gate:** no AI-layer implementation until the audit is complete.
 
@@ -167,8 +170,9 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
       (`v0.2.0-slice`, 2026-09-15): the UC-01 turn runs live on the
       deployment through panel, ticket, agent, gateway, verifier; without the
       model key it renders the deterministic source-cited brief.
-- [x] Wire traces (Langfuse, PHI-free, verified 2026-09-15); the dashboard
-      panels and alert job remain.
+- [x] Wire traces (Langfuse, PHI-free, verified 2026-09-15). The dashboard
+      panels (`docs/operations/langfuse-dashboard.md`) and the alert job
+      (`agent/app/alerts.py`, `docs/operations/alerts.md`) landed 2026-09-16.
 - [x] Deploy and smoke-test the vertical slice (Bruno collection 20/20
       against the deployment).
 - [x] First live model turns (2026-09-15, Sonnet 5): UC-01, a planned
@@ -176,23 +180,54 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
 
 ### Wednesday, September 16: early submission
 
-- Add multi-turn follow-up behavior.
-- Add authorization, missing-data, malformed-output, and tool-failure evals.
-- Confirm tokens, cost, latency, tool order, retries, and verification outcomes
-  are visible.
-- Export a runnable API collection.
-- Record the early demo with several hours of submission buffer.
-- Submit the live URL, repository, eval results, observability evidence, and
-  video by 11:59 PM CT.
+- [x] Add multi-turn follow-up behavior (transcript panel with follow-up
+      chips, history restored behind a fresh ticket, 30-minute idle close;
+      `ISO-FOLLOWUP-CHAIN-001` chains three turns on the deployment).
+- [x] Add authorization, missing-data, malformed-output, and tool-failure
+      evals (`evals/cases/`: 45 cases, 9 authorization, 12 missing data, 5
+      citation including altered facts and paraphrased advice, 2 tool
+      failure, 3 model failure; nine result reports in `evals/results/`).
+- [x] Confirm tokens, cost, latency, tool order, retries, and verification
+      outcomes are visible (Langfuse trace per turn with TOOL observations,
+      `docs/operations/correlation-id-walkthrough.md`,
+      `docs/operations/langfuse-dashboard.md`).
+- [x] Export a runnable API collection (`docs/api-collection/`, Bruno, 21
+      requests, 41 assertions).
+- [x] Record the early demo with several hours of submission buffer
+      (recorded and uploaded 2026-09-16: <https://youtu.be/oxm9xqJpiY8>;
+      script `docs/DEMO_SCRIPT.md`).
+- [ ] Submit the live URL, repository, eval results, observability evidence, and
+      video by 11:59 PM CT.
+
+**Status (2026-09-16):** the eval suite is tiered into a 14-case golden set
+(`tier: golden`, blocking "Golden set integrity" gate, `--golden-only`),
+behavioral coverage by category, and a 4-case holdout set (`holdout: true`,
+excluded from filtered runs unless `--include-holdout`); a full run's exit code
+follows the release gates, and every report opens with the five-state gate
+table (`evals/README.md`). The verifier's advice lexicon was widened after a
+manual paraphrase sweep (`CIT-PARAPHRASE-ADVICE-001`). A manual
+error-analysis journal (`evals/error_analysis.py`, 20 unscripted turns
+across 14 cohort patients) and a local review UI (`evals/review_ui.py`)
+exist; the journal's review fields are still blank. GitLab CI runs on a
+dedicated runner Droplet (`infra/digitalocean/runner/`); the first green
+pipeline and a manual `test:evals-live` job against the deployment are
+recorded in `docs/SUBMISSION_CHECKLIST.md`. The latest full run recorded in
+the tree predates the 45th case; no run on the 45-case suite has been
+recorded yet.
 
 ### Thursday–Friday, September 17–18: deepen reliability
 
 - Prepare for and complete the technical interview.
 - Apply feedback without destabilizing the early-submission path.
-- Add the abnormal-lab follow-up workflow.
+- Add the abnormal-lab follow-up workflow (the UC-02 turn already runs:
+  Bruno `2 Use Cases/03 UC-02 Unresolved labs`, `ISO-FOLLOWUP-CHAIN-001`;
+  deepening remains).
 - Strengthen note-level citations, prompt-injection resistance, context
-  isolation, and degradation behavior.
-- Finish meaningful `/health` and `/ready` checks and alert definitions.
+  isolation, and degradation behavior (baseline cases exist: `INJ-NOTE-O-001`,
+  `ISO-*`, `TOOL-OUTAGE-LABS-001`, `MODEL-OUTAGE-001`).
+- Finish meaningful `/health` and `/ready` checks and alert definitions
+  (alert rules and runbook landed 2026-09-16, `docs/operations/alerts.md`;
+  `/ready` dependency checks live; OpenEMR `readyz` stays unrouted).
 
 ### Saturday, September 19: production evidence
 
@@ -227,7 +262,10 @@ were made so those weeks extend rather than replace:
   and guideline chunks become sources without changing the verifier's shape.
 - A reserved, empty write-endpoint class in the gateway with idempotency and
   provenance, because round-tripping derived records will need a write ADR.
-- Eval case format usable as the golden set; GitLab CI skeleton in Week 1.
+- Eval case format usable as the golden set; GitLab CI skeleton in Week 1
+  (done 2026-09-16: `tier: golden` cases with a blocking integrity gate,
+  `run.py` exit code follows the gates, so Week 2's PR-blocking gate is a
+  threshold change in `.gitlab-ci.yml`, not new infrastructure).
 - Headless drive path (agent API, ticket script, eval client), fault
   injection switch, token budgets, and a daily spend halt, which are the
   Week 3 attack surface and cost defenses.

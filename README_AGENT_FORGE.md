@@ -22,6 +22,12 @@ come from `USERS.md`:
 - **UC-03** Chart evidence for a medication: timeline plus what the chart
   documents as a reason, or an explicit "no indication documented".
 
+## Demo video
+
+Early-submission demo, 3–5 minutes, recorded 2026-09-16:
+<https://youtu.be/oxm9xqJpiY8>. The script and the proof points it covers are in
+`docs/DEMO_SCRIPT.md`.
+
 ## Live deployment
 
 - OpenEMR: <https://openemr-137-184-4-22.sslip.io>
@@ -52,7 +58,12 @@ The panel at the top of the dashboard offers three starter questions: "What
 changed since the last visit?", "Which recent abnormal labs still have no
 later result or documented follow-up?", and "What does the chart say about
 why each current medication is on the list?". Follow-ups are typed in the
-composer.
+composer or picked from the follow-up chips under each answer (up to three,
+written by the model from that turn's records and lexicon-filtered; they
+assert nothing). While a turn runs the panel shows a progress line per graph
+node; each answer carries its time and a `ref …` correlation id; a transcript
+restored after a page reload is labeled "Earlier in this session"; a
+conversation idle for 30 minutes is closed at the next ticket.
 
 All data is synthetic; the deployment holds no real patient information. The
 dev stack is not to be exposed publicly beyond this demo (`SETUP.md`, "Known
@@ -71,7 +82,12 @@ which re-runs the chart's own section ACL, squad, and break-glass checks for
 the bound user, writes an audit row, then calls OpenEMR services in process.
 The agent holds the model key and nothing else. The first UC-01 turn is a
 fixed retrieval plan whose records render before any model call and survive
-a model outage. Langfuse receives PHI-free spans on the side.
+a model outage. Field-level absences (an allergy with no reaction or
+severity, a lab result with no unit or a text value, a note with no author, a
+medication with no documented indication, a corrected result) are emitted as
+deterministic limitation lines cited to the record, so those states never
+depend on the model's wording; when every clinical section is denied the
+model is not called at all. Langfuse receives PHI-free spans on the side.
 
 Decisions: ADR-0002 parity authorization; ADR-0003 in-process module
 gateway, separate agent service, delegation token; ADR-0004 LangGraph
@@ -96,13 +112,15 @@ flowchart LR
 | `USERS.md` | Target user, workflow moment, UC-01..03, capability table CAP-01..08 |
 | `ARCHITECTURE.md` | Components, trust boundaries, tools, contracts, failure matrix, known limitations |
 | `KEY_METRICS.md` | Success metrics, gaming defenses, release gates, the three alerts |
-| `AI_COST_ANALYSIS.md` | Cost analysis; measurements and projections are still TODO |
+| `AI_COST_ANALYSIS.md` | Development cost through 2026-09-15, measured runtime cost per turn, projections at 100 / 1K / 10K / 100K users, sensitivity; the per-turn release threshold is still to be set (the eval gate reads NOT CONFIGURED) |
 | `docs/adr/` | ADR-0001 to ADR-0007 |
 | `docs/api-collection/` | Bruno collection: session handshake, use-case turns, failure examples, health |
 | `docs/deployment/digitalocean.md` | Deployment runbook, current deployment status, secrets handling |
-| `evals/` | Eval design (`evals/README.md`) and the synthetic cohort seeders under `evals/fixtures/cohort/` |
+| `evals/` | Eval suite: `evals/README.md` (design), `cases/` (45 YAML cases in golden, coverage, and holdout tiers), `run.py` (runner, release-gate table, scorecard), `compare.py` (A/B diff of two runs), `error_analysis.py` and `review_ui.py` (manual trace-review journal and its local browser UI), `results/` (versioned run reports), synthetic cohort seeders under `fixtures/cohort/` |
+| `docs/operations/` | Alerts runbook, correlation-id walkthrough with a real turn, Langfuse dashboard notes |
+| `.gitlab-ci.yml` | GitLab CI: four lint jobs, agent tests plus schema drift, the offline eval subset on every push; a manual `test:evals-live` job for the full suite against the deployment |
 | `contracts/schema/` | JSON Schema exported from the agent's Pydantic contracts |
-| `infra/` | Terraform, Compose, Caddyfile, deploy and destroy scripts, project OpenEMR image |
+| `infra/` | Terraform, Compose, Caddyfile, deploy and destroy scripts, project OpenEMR image; `infra/digitalocean/runner/` is the CI runner Droplet's own Terraform root |
 | `interface/modules/custom_modules/oe-module-copilot/`, `agent/` | The module (panel, ticket, gateway) and the agent service with its tests |
 
 ## Running it
@@ -111,10 +129,30 @@ Local stack, demo database, audit users, module registration, and cohort
 load: `SETUP.md`.
 
 Agent tests (`agent/README.md` documents `pip install -e '.[dev]'` in a
-venv, then `pytest`):
+venv, then `pytest`; 60 tests):
 
 ```bash
 cd agent && .venv/bin/python -m pytest -q
+```
+
+Eval suite (`evals/README.md`; every report opens with the `KEY_METRICS.md`
+release-gate table, then the golden set, pass rate by category, the holdout
+set, and a scorecard):
+
+```bash
+# Offline subset (what CI runs on every push); needs no deployment or key
+agent/.venv/bin/python evals/run.py --offline-only
+
+# Golden set only (14 deterministic cases, fast smoke check) against the deployment
+DEMO_PASSWORD="$(ssh deployer@137.184.4.22 cat /opt/agentforge/secrets/demo_user_password)" \
+  agent/.venv/bin/python evals/run.py --golden-only
+
+# Full release run: all 45 cases including the holdout set; exit code follows the blocking gates
+DEMO_PASSWORD="..." agent/.venv/bin/python evals/run.py
+
+# Compare two runs; review an error-analysis journal in the browser (local only)
+agent/.venv/bin/python evals/compare.py evals/results/<baseline>.json evals/results/<candidate>.json
+agent/.venv/bin/python evals/review_ui.py   # http://127.0.0.1:8765/
 ```
 
 Bruno collection against the deployment (`docs/api-collection/README.md`):
@@ -134,7 +172,12 @@ python -m app.contracts.export --check
 Deployment: `docs/deployment/digitalocean.md` (Terraform plus `deploy.sh`,
 `push-secrets.sh`, the `demo-seed` job, `destroy.sh`). GitLab CI runs
 whitespace, PHP lint, Caddy and Compose validation, the agent tests, the
-schema drift check, and the offline eval subset (`.gitlab-ci.yml`).
+schema drift check, and the offline eval subset on every push
+(`.gitlab-ci.yml`), on a dedicated project runner Droplet
+(`infra/digitalocean/runner/`; `docs/deployment/digitalocean.md`, "CI
+Runner"). The manual `test:evals-live` job runs the full suite against the
+deployment and keeps the results as a 90-day artifact; it needs the masked CI
+variable `DEMO_PASSWORD`.
 
 ## Observability
 
@@ -142,7 +185,9 @@ Langfuse Cloud, US host (`us.cloud.langfuse.com` in `agent/app/settings.py`),
 receives one trace per turn through the LangGraph callback handler. A
 client-side mask replaces every input and output payload with a digest
 (type, size, key names), so no prompt, record text, or identifier leaves the
-agent (ADR-0007, `agent/app/telemetry.py`).
+agent (ADR-0007, `agent/app/telemetry.py`). Each gateway call is a
+tool-type observation nested under the turn's trace, next to the generation
+spans with token counts and cost.
 
 One correlation ID is minted per conversation and extended per turn. The
 panel shows it as "ref …" under each answer. The module writes it into the
@@ -153,7 +198,10 @@ and the agent's structured JSON logs carry the same ID.
 `/copilot-api/metrics` exposes `copilot_requests_total`,
 `copilot_turns_total`, `copilot_denials_total`, `copilot_tool_calls_total`,
 `copilot_verifier_rejections_total`, `copilot_tokens_total`, in-flight
-turns, and 5-minute p50/p95/p99 turn latency (`agent/app/metrics.py`).
+turns, and 5-minute p50/p95/p99 turn latency (`agent/app/metrics.py`). The
+three PRD runtime alerts are evaluated over that endpoint by
+`agent/app/alerts.py` (`alerts_cli.py`, one-shot or `--interval`); thresholds
+and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 
 ## Limitations
 
@@ -170,7 +218,11 @@ turns, and 5-minute p50/p95/p99 turn latency (`agent/app/metrics.py`).
   every clinical section is unavailable (ADR-0002, Verification).
 - **The verifier checks facts, not sentences** (ADR-0006). Two verified
   claims can be juxtaposed misleadingly; note matching is by string, so
-  paraphrase is missed both ways.
+  paraphrase is missed both ways. The advice and inference lexicon is a
+  pattern list (`FORBIDDEN` in `agent/app/verifier.py`); it was widened on
+  2026-09-16 to paraphrases such as "it would be wise to" and "points
+  toward", and the eval scorecard tracks a non-blocking hedge-language
+  near-miss rate as a drift canary.
 - **Summary paragraph gate.** The model's prose summary is shown only when
   no claim was withheld, it passes the lexicon, and every number in it
   appears in a verified claim; otherwise a count-only summary is shown and
@@ -189,17 +241,19 @@ turns, and 5-minute p50/p95/p99 turn latency (`agent/app/metrics.py`).
   resolution can pick the wrong candidate and is shown as an interpretation;
   a patient switch within a ticket's 90 seconds completes the in-flight turn
   and denies the next; turns measured at 24 to 27 seconds against an
-  8-second design goal; agent-level token denials leave no OpenEMR audit row
-  (counted in `/metrics` only).
+  8-second design goal (eval runs on 2026-09-16 put model-backed p95 between
+  23 and 28 s, `evals/results/`); agent-level token denials leave no OpenEMR
+  audit row (counted in `/metrics` only).
 
-## Status as of 2026-09-15
+## Status as of 2026-09-16
 
 | Item | Status |
 | --- | --- |
-| Bruno collection against the deployment as `audit-physician` | 21/21 requests passing |
-| Agent unit tests (`agent/tests/`) | 25 passed |
+| Bruno collection against the deployment as `audit-physician` | 21/21 requests passing (2026-09-16) |
+| Agent unit tests (`agent/tests/`) | 60 passed |
 | UC-01 turn, follow-up with tool chaining, Langfuse traces | Verified live |
-| Eval cases and results (`evals/cases/`, `evals/results/`) | Pending; format defined in `evals/README.md` |
+| Eval cases and results (`evals/cases/`, `evals/results/`) | 45 cases (14 golden, 4 holdout). Latest tracked full runs, 2026-09-16: 44/44 at `a7641e9` and 114/116 over a same-commit `--repeat 3` at `1ddf824`, every blocking gate PASS; the misses are one model-recall check (`MISS-AUTHOR-J-001`) under the non-blocking task-success gate. No full run yet since the 45th case and the golden-set gate were added (`831e1d8`) |
+| GitLab CI | Green on the dedicated runner (lints, agent tests, offline evals); manual `test:evals-live` job ran 44/44 against the deployment (`docs/SUBMISSION_CHECKLIST.md`) |
 | Load tests at 10 and 50 concurrent users | Pending (target 2026-09-19) |
-| Cost measurements and scale projections (`AI_COST_ANALYSIS.md`) | Pending |
+| Cost measurements and scale projections (`AI_COST_ANALYSIS.md`) | Measured per-turn cost and projections written; per-turn release threshold still to be set |
 | Owned hostname, backup and rollback rehearsal, agent egress restriction | Pending |

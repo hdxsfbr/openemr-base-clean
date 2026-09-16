@@ -4,7 +4,8 @@ This document is the source of truth for product scope. Every implemented
 agent capability must reference a use case here; `ARCHITECTURE.md` traces each
 capability and tool to the table in "What the Use Cases Require of the Agent".
 The profile and workflow are hypotheses until the validation work at the end
-is done. The clinician-proxy interview is still open (2026-09-14).
+is done. The clinician-proxy interview is still open (2026-09-14; still open
+as of 2026-09-16, `docs/SUBMISSION_CHECKLIST.md`).
 
 Patients named below (`AF-*`) are fictional members of the synthetic cohort
 `af-cohort-v1` (`evals/fixtures/cohort/README.md`). They make the examples
@@ -73,7 +74,7 @@ case below states its own variation.
 | Time | What the physician is doing | What the co-pilot does |
 | --- | --- | --- |
 | T−30 s | Signs the previous patient's note, looks at the calendar, sees the next appointment (name, time, a reason line such as "3-month follow-up"), and clicks it. The chart opens on the patient dashboard. | Nothing yet. No retrieval, no model call, no audit row until asked. |
-| T0 | Reads the dashboard header: name, age, last visit date. | The panel renders inside the dashboard, bound to this chart and this login (ADR-0002). It offers one question: "What changed since the last visit?" |
+| T0 | Reads the dashboard header: name, age, last visit date. | The panel renders inside the dashboard, bound to this chart and this login (ADR-0002). It offers one question: "What changed since the last visit?" *(As built 2026-09-16: three starter chips, one per use case, with this question first; after each answer the chips are the turn's own record-shaped follow-ups, topped up from the starters. `copilot.js`, ADR-0006 §8.)* |
 | T+2 s | Clicks the question. | The gateway checks the session, patient, and section permissions, audits the read, and renders the retrieved records first: counts by section, each row cited. |
 | T+5 s | Reads the brief. | The verified narrative arrives: changes grouped by section, every statement cited, absences and conflicts stated. |
 | T+5–40 s | Asks one follow-up in their own words: "which of those labs is still open?", "why is the gabapentin on the list?" | Resolves the reference, keeps the window and patient, runs the tools the follow-up needs, cites again. |
@@ -88,6 +89,16 @@ agenda, not documentation. Nothing is copied into the note.
 ambiguous, or unavailable, the physician scrolls the chart as they do today.
 The panel must never block the dashboard, and its failure states say what was
 not retrieved so the physician knows what to scroll to.
+
+*Status 2026-09-16:* the eight-second tolerance is still the hypothesis the
+interview must test. Measured on the deployment with Sonnet 5, the complete
+verified response takes p50 12.1 s, p95 27.6 s (120 model-backed turns,
+`evals/results/2026-09-16T073141Z-1ddf824.md`); `KEY_METRICS.md` carries a
+provisional 30 s p95 with the 8 s design goal tracked, not gated. The
+retrieved records stream before the narrative (SSE `evidence` event), but time
+to first evidence is not yet measured. Failure states are implemented: each
+unavailable section is a named limitation line, and the panel shows an
+explicit "Co-Pilot unavailable" message per error code (`copilot.js`).
 
 ## Use Case UC-01: Changes Since the Last Visit
 
@@ -145,6 +156,16 @@ change), `AF-DQ-D2` (clinical date, not entry date), `AF-HEAVY` (bounded
 retrieval at five-year volume), citation-correctness evals, latency, and
 record click-through rate.
 
+*Status 2026-09-16:* covered and passing live in
+`evals/results/2026-09-16T073141Z-1ddf824.md`: `CIT-UC01-A2-001` (`AF-DQ-A2`),
+`MISS-NO-PRIOR-VISIT-A-001` (`AF-DQ-A`; the "no prior visit" line is
+deterministic in `pack_limitations`), `MISS-UNDATED-PROBLEM-D-001`,
+`MISS-CLINICAL-DATE-D2-001`, `REG-HEAVY-001` (`AF-HEAVY`, golden, inside
+45 s). The follow-up note search runs through the `clinical_notes` tool's
+`term` parameter (`ISO-FOLLOWUP-CHAIN-001`, third turn). Citation
+*resolution* is 528/528; citation *correctness* against gold source ids is
+NOT MEASURED, and record click-through rate is not instrumented.
+
 ## Use Case UC-02: Unresolved Abnormal Laboratory Results
 
 **User question:** "Which recent abnormal labs still appear unresolved?"
@@ -198,6 +219,19 @@ result and no documented follow-up found", stated in those words.
 **Success evidence:** Unit-mismatch, missing-range, later-result,
 corrected-result, missing-note, and source-attribution evals on `AF-DQ-K`,
 `AF-DQ-L`, `AF-DQ-M`, `AF-DQ-A2`.
+
+*Status 2026-09-16:* covered and passing live: `LAB-UNIT-MISMATCH-K-001`
+(no `lab_comparison` across units; "unit not recorded" is a deterministic
+line), `LAB-TEXT-VALUES-L-001`, `LAB-CORRECTED-M-001` (holdout; the corrected
+result is a deterministic line and the verifier rejects a same-day pair as a
+trend), `ISO-FOLLOWUP-CHAIN-001` (`AF-DQ-A2`: flagged results, then a bounded
+note search). Comparison and abnormality are verifier rules
+(`agent/app/verifier.py`, `lab_rules`) on `numeric_value`, `unit`, `flag`, and
+`range_text` from the lab tool; the `lab_results` tool takes an `analyte`
+filter for the same-analyte lookup. The wording "unresolved" is in the
+verifier's forbidden lexicon (`resolution_claim`), so the co-pilot cannot
+state it. A "no follow-up found in the chart" eval on `AF-DQ-A2` LDL as such
+does not exist.
 
 ## Use Case UC-03: Chart Evidence for a Medication
 
@@ -254,6 +288,18 @@ discontinuation advice.
 **Success evidence:** Missing-indication (`AF-DQ-F`), false-association,
 note-versus-list (`AF-DQ-N`), conflicting-rows (`AF-DQ-C`, `AF-DQ-C2`) evals,
 citation precision, and follow-up reference-resolution evals.
+
+*Status 2026-09-16:* covered and passing live: `MISS-INDICATION-F-001`
+(holdout; "no documented indication" is a deterministic limitation line and
+the lexicon rejects "for pain"/"treats"), `CONF-NOTE-VS-LIST-N-001`,
+`CONF-TWO-TABLES-C-001`, `CONF-DUP-NAMES-C2-001` (holdout). The worked
+example's "searched the problem list, prescriptions, and 39 notes" wording
+is not produced; the limitation reads "no documented indication (nothing in
+the record says why it is listed)" and the searched sections appear as the
+turn's evidence summary. Reference resolution is exercised by name
+("what does the chart say about metformin?") in follow-ups; no eval asserts
+the pronoun form ("that blood-pressure medication") or the disambiguation
+reply ("reading that as lisinopril"), and no code path produces that reply.
 
 ## Why Per-Chart, Not a Schedule Sweep
 
@@ -324,6 +370,26 @@ case that requires it. This table is what `ARCHITECTURE.md` traces to.
 | CAP-07 | Deterministic verification, including lab comparison rules | yes | yes | yes | The verifier, not the model, decides what is displayed as fact and whether two results are comparable. |
 | CAP-08 | Deterministic sourced fallback when the model is unavailable | yes | no | no | The first turn of UC-01 is fixed-shape and must survive a model outage; UC-02 and UC-03 degrade to "unavailable, scroll to …". |
 
+*Status 2026-09-16 (implementation and eval coverage per capability):*
+CAP-01 chart-bound multi-turn conversation: implemented (SQLite checkpointer
+per conversation, ADR-0005; `ISO-FOLLOWUP-CHAIN-001`, `ISO-NEW-CONVERSATION-001`,
+`AUTH-SWITCH-001`). CAP-02 tool selection and chaining: the UC-01 first turn is
+a fixed retrieval plan; follow-ups let the model select strict-schema tools
+within bounded rounds (`ISO-FOLLOWUP-CHAIN-001` asserts `clinical_notes` is
+called). CAP-03 window carried across turns: implemented (`window_since`
+expectation in the runner; `ISO-FOLLOWUP-OFFLINE-001`). CAP-04 reference
+resolution: named references only; see the UC-03 status. CAP-05 per-claim
+citation opening the record: every displayed claim cites a source id that
+resolves to a retrieved record (runner invariant, 528/528 at `1ddf824`) and
+the panel renders chart links per cited source (`copilot.js`). CAP-06
+explicit states: implemented as deterministic limitation lines
+(`pack_limitations`) plus typed `absence`/`conflict`/`undated` claims; the
+"Explicit uncertainty recall" gate is PASS. CAP-07 deterministic verification:
+`agent/app/verifier.py` (ADR-0006); `CIT-ALTERED-FACTS-001`,
+`CIT-SUMMARY-GATE-001`, `CIT-PARAPHRASE-ADVICE-001`. CAP-08 fallback:
+`MODEL-OUTAGE-001` and `MODEL-FALLBACK-OFFLINE-001` pass; the fallback brief
+renders the change set and absence states as cited claims with no model call.
+
 Tools required, all read-only and patient-bound: patient context, encounters,
 clinical notes, problems, medications, allergies, laboratory observations. Each
 maps to a chart section the user could open, and each is used by at least one
@@ -349,6 +415,12 @@ fixtures) rather than in feature scope.
 - [ ] Determine which source click-throughs are most useful.
 - [ ] Confirm acceptable first-evidence and complete-response latency.
 - [ ] Record rejected use cases and why they were deferred.
+
+*Status 2026-09-16:* no clinician or proxy interview has taken place; all
+boxes above remain open (`docs/SUBMISSION_CHECKLIST.md`). The material for
+the last one exists as the table in "Rejected and Deferred Use Cases"; the
+box is left for the owner to tick. The metric thresholds that
+depend on the interview stay provisional in `KEY_METRICS.md`.
 
 Questions the interview should settle, tied to the decisions above:
 

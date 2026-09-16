@@ -63,9 +63,10 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
 
 ## Our project
 
-- **PRD**: the assignment brief (`PRD.pdf`).
+- **PRD**: the assignment brief (a PDF; not committed to the repository).
 - **UC-01/02/03**: the three use cases in `USERS.md`.
-- **CAP-01..08**: the eight required agent capabilities in `ARCHITECTURE.md`
+- **CAP-01..08**: the eight required agent capabilities defined in
+  `USERS.md` and traced to components and evals in `ARCHITECTURE.md`
   (chart-bound conversation, tool chaining, reference window, reference
   resolution, per-claim citation, absence/conflict states, deterministic
   verification, deterministic fallback). Metrics map to these: explicit
@@ -92,7 +93,56 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   see in the chart (ADR-0002).
 - **ADR**: Architecture Decision Record, the one-page "we chose X because"
   documents in `docs/adr/`.
-- **Eval**: an automated test of the agent's behavior against fixtures.
+- **Eval**: an automated test of the agent's behavior against fixtures. One
+  YAML file per case under `evals/cases/` (45 as of 2026-09-16), run by
+  `evals/run.py`; `live` cases drive a deployment, `offline` cases delegate
+  to pytest node ids under `agent/tests/`.
+- **Golden set**: the `tier: golden` cases (14), deterministic and free of
+  model-wording checks; the target is 100% always, and `--golden-only` runs
+  them alone as a smoke test. Their integrity is a blocking release gate.
+- **Behavioral coverage**: every non-golden case, reported per `category`
+  (authorization, citation, missing_data, conflict, lab, untrusted,
+  tool_failure, model_failure, isolation, observability, regression).
+- **Holdout set**: the `holdout: true` cases (4), reserved for a
+  pre-submission generalization check; excluded from filtered runs unless
+  `--include-holdout` is passed, always included in a full run, never used
+  while tuning a prompt.
+- **Release gate**: one row of the `KEY_METRICS.md` decision table, judged by
+  `evals/run.py` against the case manifest and printed at the top of every
+  report in one of five states: PASS, FAIL, NOT RUN (a case, role, or fixture
+  the gate needs did not execute; blocks like FAIL), NOT MEASURED (the runner
+  cannot measure it yet), NOT CONFIGURED (no threshold yet). A full run's
+  exit code follows the blocking gates.
+- **Recall check**: an eval assertion on the model's own claims or wording
+  (`claims_include`, `text_must_match`), reported with a `recall:` prefix;
+  it fails the case but feeds the non-blocking task-success gate, unlike the
+  deterministic checks on limitation lines, evidence status, and denials.
+- **Scorecard**: the per-run quality measures over model-backed turns
+  (claims per turn, withheld and repair rates, summary basis share, tokens,
+  list-price cost, latency p50/p95/p99, rejection rules); what a model or
+  prompt change moves before any pass/fail does. **Near-miss rate**: the
+  scorecard's non-blocking count of hedge language ("might", "may",
+  "could") in displayed text, a canary for drift toward advice.
+- **`compare.py`**: `evals/compare.py`, the diff of two run reports (gate
+  changes, scorecard deltas, per-case latency) for A/B experiments.
+- **Error-analysis journal**: the Markdown file `evals/error_analysis.py
+  sample` writes from unscripted questions across the cohort, with a blank
+  "First issue" and "Notes" per trace for a human to fill in; `report`
+  lists the filled issues. **Review UI**: `evals/review_ui.py`, a local
+  FastAPI page (127.0.0.1:8765 by default, `--host` to expose it, no auth)
+  for filling in a journal without hand-editing Markdown.
+- **Limitation line**: a `Limitation{kind, section, detail, source_ids}` in
+  the turn response. Field-level absences (allergy without reaction or
+  severity, lab result without a unit or with a text value, note without an
+  author, medication without a documented indication, corrected result) are
+  emitted deterministically by `pack_limitations`, cited to the record, so
+  the eval asserts the line rather than the model's wording.
+- **Fault injection**: the `X-Copilot-Fault` header (`model`, `tool:<name>`,
+  `tracer`, `budget`), honored only when `COPILOT_FAULT_INJECTION=1` (the
+  demo deployment and the evals); how outage cases are driven.
+- **Suggestions** (follow-up chips): up to three follow-up questions per
+  turn, written by the model from that turn's records, lexicon-filtered,
+  topped up from deterministic starters; offered as buttons, never facts.
 - **Cohort / fixtures**: the synthetic `AF-*` patients in
   `evals/fixtures/cohort/`. **`AF-HEAVY`**: the 5-year chronic patient (20
   encounters, ~120 lab results, 39 notes) used as the worst-case fixture for
@@ -123,6 +173,12 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
 - **Droplet**: a DigitalOcean virtual machine.
 - **Compose**: Docker Compose, the multi-container runtime definition.
 - **Terraform**: the infrastructure-as-code tool that provisions the Droplet.
+- **CI runner**: the dedicated `s-1vcpu-1gb` Droplet (`infra/digitalocean/
+  runner/`, GitLab project runner #222) that executes the project's GitLab
+  pipelines; separate from the demo host, registered by `register.sh` with a
+  token that never enters state.
+- **Bruno**: the git-friendly API client whose collection under
+  `docs/api-collection/` graders run headlessly with `bru run`.
 - **CSRF, XSS**: web attack classes (forged cross-site requests, injected
   scripts).
 - **CSP**: a browser header limiting what a page may load or run.

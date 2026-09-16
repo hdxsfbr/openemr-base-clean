@@ -102,6 +102,8 @@ INFERRED: Caddy→OpenEMR hop is plain HTTP on the Docker network; the upstream 
 
 Cloud window confirmation (2026-09-14): the containers, networks (`backend internal=true`), published ports (Caddy 80/443 only), and the absence of project code in the image were observed on a live Droplet (`evidence/security/cloud-runtime-2026-09-14.md`).
 
+*Status 2026-09-16:* the diagram above is the audit-date baseline. Since 2026-09-15 the Droplet runs a project image (`agentforge/openemr:local`: the pinned 8.1.1 base plus the co-pilot module, `infra/image/openemr.Dockerfile`), an agent service on the `frontend` network only with file secrets, and a deny-by-default `Caddyfile` that routes `/copilot-api/*` to the agent and 404s everything outside the OpenEMR application paths (`infra/digitalocean/runtime/compose.yaml`, `Caddyfile`; probe `evidence/security/cloud-probe-2026-09-15-allowlist.txt`). The Caddy→OpenEMR and app→DB hops are still plaintext on the host.
+
 ---
 
 ## 2. Active user and active patient context trace
@@ -282,6 +284,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** Issue a server-side conversation record bound to (`site_id`, `authUserID`, `pid`) at panel render; every request carries the conversation ID and the gateway rejects if session `pid` ≠ bound `pid`.
 - **Verification:** Two-tab Selenium test: switch patient in tab 2, send follow-up in tab 1, expect denial with explicit "patient context changed".
 - **Architecture consequence:** Patient context lock is a gateway invariant, not a UI convention; model/agent never receives a `pid` it could change.
+- **Co-pilot response status (2026-09-16):** Implemented. Conversations are bound server-side to (site, user, pid) at start (`ConversationRepository`); each per-turn ticket re-reads the session pid and closes the conversation with 409 `patient_context_changed` on a mismatch (`public/api/ticket.php`); tool schemas reject any patient argument (`extra="forbid"`, `AUTH-FORGED-PID-001`). `AUTH-SWITCH-001` (golden) covers the switch within one session and passes live. The two-tab Selenium test has not been run.
 
 ### `ARCH-HIGH-002` Clinical services do not enforce ACL; authorization lives in callers
 
@@ -295,6 +298,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** Define a per-tool ACL matrix mirroring the chart (e.g. problems/allergies/meds → `aclCheckIssue(type)`; prescriptions → `patients/rx`; notes → `patients/notes`; labs → `patients/lab`; encounters → `encounters` + `sensitivities`), check before each service call, and deny-by-default.
 - **Verification:** Negative tests per tool with a restricted ACL user; confirm no service call/LLM call happens on denial.
 - **Architecture consequence:** The gateway owns authorization; services are treated as unauthenticated data access.
+- **Co-pilot response status (2026-09-16):** Implemented. `ContextBuilder::sectionMatrix()` computes the per-tool matrix (demographics, encounters/notes, issue types via `issue_types.aco_spec`, `patients/rx`, `patients/lab`) and fails closed on a missing spec; `public/gateway/tools.php` denies and audits before any service call. The recommended `aclCheckIssue()` turned out to fail open in the session-less gateway request (found live 2026-09-15, commit `2dc51a0`), which is why the gateway reads `aco_spec` directly. `bin/acl_matrix.php` prints the effective matrix; `AUTH-FRONTDESK-001` (golden) asserts every clinical section `unavailable`, zero claims, and `model_calls_max: 0`, passing live.
 
 ### `ARCH-HIGH-003` No patient-level (care-relationship) authorization exists in OpenEMR
 
@@ -308,6 +312,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** Limit tools to the session-bound patient (no patient search/lookup tool), re-run the chart's section ACLs and squad check per tool, audit every access, and state the limitation that isolation equals the chart's. This track's recommendation was adopted as **parity** in `docs/adr/0002-patient-scope-authorization.md` after the owner reviewed a stricter care-relationship policy (schedule, encounter provider, care team) and deferred it as out of proportion for the timeline; that policy is recorded there as the deferred alternative.
 - **Verification:** Attempt tool call with a `pid` different from session; expect denial (`AF-ACL-UNSCHED` requested while another chart is open). `AF-ACL-OTHER` allowed for `audit-physician` with the chart open, audited, limitation text present. `AF-ACL-SQUAD` denied. No tool or model call on any denial.
 - **Architecture consequence:** The only patient selector is OpenEMR's own chart open (`setpid` → `view` audit), never agent input, and the chart open is a request that the gateway's relationship policy must still grant.
+- **Co-pilot response status (2026-09-16):** Implemented as parity (ADR-0002). The verification cases listed above exist and pass live: `AUTH-UNSCHED-DIRECT-001`, `AUTH-PARITY-OTHER-001` (allowed, audited), `AUTH-SQUAD-001` (denied at start), run `2026-09-16T073141Z-1ddf824`. The limitation text and the deferred care-relationship policy are unchanged.
 
 ### `ARCH-MEDIUM-004` UC-01 data is fragmented across heterogeneous tables
 
@@ -321,6 +326,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** One tool per source family with declared coverage; responses list which sources were queried and which note/form types are not supported.
 - **Verification:** Seed demo patient with meds in both sources and a non-clinical-notes form; eval expects both meds and an explicit limitation.
 - **Architecture consequence:** Tool contracts include a `coverage` field consumed by the verifier to produce limitations.
+- **Co-pilot response status (2026-09-16):** Partly implemented. One tool per source family exists (medications keep `lists` and `prescriptions` as separate provenances; problems and allergies from `lists`; labs via `ProcedureService::search()`). The notes tool covers `form_clinical_notes` only and reports `counts.form_types_covered = 1`; there is no `coverage` field in `ToolResponse` and no limitation line naming unsupported form types (SOAP/LBF), so a SOAP-only note is not surfaced as a gap. The synthetic cohort's notes are `form_clinical_notes` rows, so the evals do not exercise this.
 
 ### `ARCH-MEDIUM-005` Audit trail will not record agent reads by default; API path duplicates PHI into `api_log`
 
@@ -334,6 +340,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** Gateway calls `EventAuditLogger::newEvent` per tool with user, pid, tool name, record IDs (no values); avoid REST path or set `api_log_option` accordingly; never put PHI in module endpoint query strings (they are logged).
 - **Verification:** Run a co-pilot request; query `log` for the expected events; confirm no clinical values in `comments`.
 - **Architecture consequence:** Agent-specific audit events are a gateway deliverable; POST bodies only.
+- **Co-pilot response status (2026-09-16):** Implemented. `Gateway/Audit.php` writes `copilot-tool-read` (tool name, window, whether a term/analyte filter was used, no values) through `EventAuditLogger::newEvent()` before the tool returns data, and the tool answers `unavailable/audit_unavailable` if the insert fails (`public/gateway/tools.php`); `copilot-denied`, `copilot-session-start`, and `copilot-session-end` are also written. Module endpoints are POST with JSON bodies. Verified in the deployment's `log` table on 2026-09-15 (commit `2dc51a0`); no eval queries the `log` table automatically. REST/`api_log` is not on the data path.
 
 ### `ARCH-MEDIUM-006` PHP request model is unsuitable for LLM orchestration
 
@@ -347,6 +354,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** PHP gateway handles only auth, context binding and bounded tool calls; model orchestration runs in a separate service called with a short-lived, server-minted delegation token scoped to (user, site, pid, conversation).
 - **Verification:** Load test with the performance audit; measure worker utilization.
 - **Architecture consequence:** Confirms the hypothesis' separate agent service; adds a delegation-token contract the gateway validates on every tool callback.
+- **Co-pilot response status (2026-09-16):** Implemented. Orchestration runs in a separate FastAPI/LangGraph service (`agent/`, ADR-0004) called with a per-turn HMAC delegation token that carries no user or patient (`DelegationToken.php`, `agent/app/delegation.py`); the PHP side handles session, binding, ticket, and bounded tool calls only. The turn wall clock is 45 s in the agent, outside Apache. The load test that would measure worker utilization has not been run (target 2026-09-19).
 
 ### `ARCH-MEDIUM-007` Module failures are silent
 
@@ -360,6 +368,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** Keep bootstrap trivial; expose a module health endpoint included in `/ready`; render an explicit unavailable state.
 - **Verification:** Break bootstrap intentionally in dev; confirm readiness fails and UI shows the state.
 - **Architecture consequence:** Observability covers module-load success, not just request metrics.
+- **Co-pilot response status (2026-09-16):** Partly implemented. A panel render failure prints an explicit "Co-Pilot unavailable" card instead of nothing (`src/Bootstrap.php`), the panel shows named error states for every API failure (`copilot.js`), and the agent's `/ready` includes a gateway ping over the internal network. A failure inside `openemr.bootstrap.php` itself is still swallowed by `ModulesApplication` (OpenEMR unchanged), and no test breaks the bootstrap deliberately.
 
 ### `ARCH-LOW-008` Custom modules are not registered; deployment image contains no project code
 
@@ -373,6 +382,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** Build a pinned project image including the module; script module registration/enabling as part of deploy.
 - **Verification:** Smoke test asserts module row `mod_active=1` and panel render.
 - **Architecture consequence:** Deployment ADR must be updated to a project image.
+- **Co-pilot response status (2026-09-16):** Implemented. `infra/image/openemr.Dockerfile` builds the pinned 8.1.1 base plus the module only (root `.dockerignore` excludes everything else); the one-shot `copilot-setup` Compose job runs `bin/register_module.php`; verified on the Droplet 2026-09-15 (module registered, panel rendered for `audit-physician`, commit `06d1855`). ADR-0001 names this as its revisit trigger.
 
 ### `ARCH-LOW-009` Core session cookie is JavaScript-readable
 
@@ -386,6 +396,7 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 - **Recommendation:** Render all model/tool text via text nodes; strict allow-list for citations; CSP for module assets.
 - **Verification:** Eval with prompt-injection note containing `<img onerror>`; assert no execution.
 - **Architecture consequence:** Panel renderer is a security boundary.
+- **Co-pilot response status (2026-09-16):** Text-node rendering implemented (`copilot.js`); `INJ-NOTE-O-001` passes live at the response-text level. A CSP for module assets is not implemented, and no browser test asserts non-execution (see `security.md` SEC-MED-003 status).
 
 ### `ARCH-INFO-010` Minor code observations
 
@@ -421,3 +432,5 @@ Recommendation (INFERRED): use (a) — a thin, typed clinical-data gateway insid
 | Q7 | Is `sites/*/documents` or module `public/` reachable through Caddy in the DO runtime, and is TLS/secure cookie set? | Deployed smoke test |
 | Q8 | Behavior of `audit_events_query` on overhead and log volume if enabled | Performance + compliance audits |
 | Q9 | Does the `docker-leader` site share the DB with `default`? | Inspect site config keys (no values) |
+
+*Status 2026-09-16:* Q3 answered: `bin/acl_matrix.php` prints the effective per-user matrix; on the deployment `audit-frontdesk` resolves to demographics only (commit `2dc51a0`). Q4 answered by `evidence/performance/cohort-measurements.md`. Q7 answered for the allowlisted edge: `sites/default/documents/` and the module's gateway and CLI paths return 404 (`cloud-probe-2026-09-15-allowlist.txt`); the `Secure` cookie flag is still absent. Q2 partly answered: the panel renders from `EVENT_SECTION_LIST_RENDER_TOP` inside the dashboard on the deployment (`src/Bootstrap.php`); the tab-shell injection path was not used. Q1, Q5, Q6, Q8, Q9 remain open.

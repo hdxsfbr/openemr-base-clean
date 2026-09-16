@@ -15,3 +15,9 @@ record.
 Architecture consequence retained for synthesis: the deployed image must be
 project-built with a document root allowlist (or a Caddy path allowlist)
 before any agent service or secret is added to the Droplet.
+
+Superseded for the exposure claim (not for the measurements above):
+`../security/cloud-probe-2026-09-15-allowlist.txt` (2026-09-15, commit
+`06d1855`) shows HTTP 404 for the same paths after the Caddy deny-by-default
+allowlist and the project image were deployed. The 2026-09-14 results stand as
+the pre-fix baseline.

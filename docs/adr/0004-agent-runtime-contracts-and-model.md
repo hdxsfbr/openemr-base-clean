@@ -149,6 +149,33 @@ cache-friendly regardless of orchestration.
   eval (ADR-0007).
 - Opus-tier pricing per turn remains the cost driver.
 
+### Status notes (2026-09-16, implementation as built; the decision text above is unchanged)
+
+- Contracts live at `agent/app/contracts/` (not `agent/contracts/` as
+  written); `CONTRACT_VERSION` is `1.2.0` (`common.py`), bumped on
+  2026-09-16 for the `problem_status` claim type (ADR-0006). JSON Schema is
+  exported to `contracts/schema/` by `python -m app.contracts.export`;
+  `agent/tests/test_contracts.py` and the CI job `test:agent`
+  (`--check`) fail on drift. The PHP gateway's `ToolRegistry` validates
+  tool parameters against `contracts/schema/*_params.schema.json`; no
+  `opis/json-schema` dependency is present in the module. No generated
+  TypeScript types were found in the repository.
+- Turn wall clock is 45 s (`turn_wall_clock_seconds`,
+  `agent/app/settings.py`), not the 12 s in decision 2, matching the
+  provisional 30 s p95 target in `KEY_METRICS.md`; a turn past it returns
+  504. Plan rounds (3) and tool calls per turn (8) are as decided.
+- Budgets (decision 5) are in `agent/app/budget.py`: 20K tokens per turn,
+  60K per conversation, and a daily halt at `daily_token_halt` = 2,000,000
+  tokens per UTC day, all routing to the deterministic fallback with
+  `model_budget_exhausted`; `agent/tests/test_graph.py::test_budget_exhaustion_routes_to_deterministic_fallback`
+  and eval case `MODEL-BUDGET-001` cover it.
+- Model client (`agent/app/model.py`): one SDK retry (`max_retries=1`),
+  circuit breaker opens after 3 consecutive failures for 60 s, as decided.
+- Cost and latency per turn type are now summarized per run by the eval
+  scorecard (`evals/run.py`; latest tracked report
+  `evals/results/2026-09-16T073141Z-1ddf824.md`: $0.0127 list price per
+  model-backed turn, p95 27.6 s) and rolled up in `AI_COST_ANALYSIS.md`.
+
 ## Verification
 
 - Graph tests: each conditional edge exercised (round limit, budget

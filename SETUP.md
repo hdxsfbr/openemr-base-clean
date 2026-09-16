@@ -148,6 +148,24 @@ The command prints a JSON manifest and exits non-zero if a post-load check
 fails. Patient scenarios, guarantees, and side effects are documented in
 [`evals/fixtures/cohort/README.md`](evals/fixtures/cohort/README.md).
 
+## Run the Agent and the Evals
+
+The agent service is a separate Python process; [`agent/README.md`](agent/README.md)
+documents the venv, `pytest` (60 tests), and the environment variables that
+point a local agent at the dev stack's gateway. The eval suite is documented
+in [`evals/README.md`](evals/README.md); the offline subset needs no stack or
+model key and is what CI runs on every push:
+
+```bash
+cd agent && python -m venv .venv && .venv/bin/pip install -e '.[dev]' && cd ..
+agent/.venv/bin/python -m pytest -q agent/tests
+agent/.venv/bin/python evals/run.py --offline-only
+```
+
+Live cases (`--golden-only` for the 14-case smoke set, or a full run) drive a
+deployment through the same login handshake as the panel and need the demo
+clinician password in `DEMO_PASSWORD`; see `evals/README.md`, "Running".
+
 ## Local Services
 
 | Service | URL or address | Development credentials |
@@ -208,7 +226,11 @@ The easy-development stack is not suitable for public deployment:
 - [x] Load and verify OpenEMR's bundled demo database for application discovery.
 - [x] Define and seed realistic demo patients covering happy, incomplete,
       conflicting, and access-controlled scenarios (`evals/fixtures/cohort/`).
-- [ ] Add an automated smoke test for login and required dependencies.
+- [x] Add an automated smoke test for login and required dependencies
+      (`infra/digitalocean/smoke.sh` for TLS and OpenEMR liveness; the Bruno
+      collection's folder 1 and `evals/run.py` live cases log in through the
+      same handshake as the panel; `/copilot-api/ready` checks the gateway,
+      model, tracer keys, delegation secret, and state store).
 - [x] Select and document the initial DigitalOcean deployment environment.
 - [x] Create a production-oriented Compose and Terraform configuration.
 - [x] Add secret management, real TLS, and restricted networks (file secrets,
@@ -223,8 +245,14 @@ The initial DigitalOcean topology, cost-controlled smoke cycle, teardown rules,
 and known limitations are documented in
 [`docs/deployment/digitalocean.md`](docs/deployment/digitalocean.md). It was
 provisioned and externally verified on September 14, 2026 (public TLS smoke
-test, demo data loaded). It was re-provisioned the same evening for the
-audit's public probe, and both environments were destroyed afterwards to
-control cost. Re-provision before each demo, interview, or submission. Before
-the evaluator deployment, the audit requires our own image carrying the co-pilot module and a Caddy
-path allowlist (`AUDIT.md` SEC-HIGH-500).
+test, demo data loaded), re-provisioned the same evening for the audit's
+public probe, and destroyed after each of those runs to control cost. Since
+September 15, 2026 tag `v0.2.0-slice` has been live at
+`https://openemr-137-184-4-22.sslip.io` (health and readiness confirmed
+2026-09-16) with the project's own OpenEMR image carrying the co-pilot module
+and a deny-by-default Caddy path allowlist, which the audit required before an
+evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections "Current
+Deployment" and "Before the Evaluator Deployment"). Still open there: an owned
+hostname, backups and a rollback rehearsal, and restricting the agent's egress
+to the model and tracer endpoints. GitLab CI runs on a separate runner Droplet
+(`infra/digitalocean/runner/`, runbook section "CI Runner").

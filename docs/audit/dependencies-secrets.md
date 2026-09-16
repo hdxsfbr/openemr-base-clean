@@ -136,6 +136,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 - **Recommendation:** At Caddy, allowlist the paths OpenEMR needs, or deny `/docker/*`, `/tests/*`, `/ci/*`, `/contrib/*`, `/Documentation/*`, `/swagger/*` (unless the API docs are intended), `/*.lock`, `/*.json` at the root, `/*.md`, `/*.yml`, `/*.xml`, `/bin/*`, `/setup.php`, `/admin.php`, `/sql_upgrade.php`, `/acl_upgrade.php`. In the project-owned image, delete `docker/`, `tests/`, `ci/`, `contrib/`, dev tooling, and `/tmp/openemr` layers (multi-stage build, not `rm` in a later layer). Add a `.dockerignore`.
 - **Verification:** `smoke.sh` extension: `curl -s -o /dev/null -w '%{http_code}' https://$HOST/docker/development-easy/docker-compose.yml` (and the key/test/lock paths) must return 403/404. `trivy image --scanners secret` on the project image must report 0 private keys.
 - **Architecture consequence:** Caddy is the right control point for a deny-by-default path policy. The co-pilot's routes must be explicitly allowlisted there too.
+- **Deployment response status (2026-09-16):** Done for our edge and image. `infra/digitalocean/runtime/Caddyfile` is deny-by-default (only `/`, `index.php`, `controller.php`, `/interface/*`, `/public/*`, `/library/*`, `/sites/*/images/*`, `/meta/health/livez` reach Apache; `/copilot-api/*` goes to the agent; the module's gateway and CLI paths return 404). Probe on 2026-09-15 against the deployment: 14 of 15 sensitive paths 404 (`interface/main/backup.php` answers 400, because `/interface/*` is an allowlisted application path handled by OpenEMR's own auth), all 5 API/OAuth paths 404, `sites/default/documents/` 404 (`evidence/security/cloud-probe-2026-09-15-allowlist.txt`). The project image adds only the module to the pinned base and the root `.dockerignore` excludes everything else. Not done: `trivy image --scanners secret` on the project image, and a `smoke.sh` assertion for these paths. The upstream image contents are unchanged behind the allowlist.
 
 ### SEC-HIGH-501 — GitHub-token-format credentials committed in dev compose files (PRE-002)
 
@@ -149,6 +150,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 - **Recommendation:** Remove from all compose files in the fork and use `${GITHUB_COMPOSER_TOKEN:-}` from an untracked `.env`. Notify upstream/security@open-emr.org to confirm scope and revoke. Never pass these to any deployment env.
 - **Verification:** `git grep -n GITHUB_COMPOSER_TOKEN -- 'docker/**/docker-compose.yml'` shows only variable references. The fingerprint classifier in `COMMANDS.txt` finds no literals.
 - **Architecture consequence:** Establishes the policy that the co-pilot LLM key must never live in compose files, image layers, or the webroot (see §8).
+- **Status (2026-09-16):** Unchanged in the fork: the three token lines are still present in all four dev compose files (`git grep -c GITHUB_COMPOSER_TOKEN` = 3 each). They are not in the deployment environment, and the served path is now 404 behind the Caddy allowlist (SEC-HIGH-500 status). No removal, revocation, or upstream notification is recorded in this repository. The LLM key policy is followed: `anthropic_api_key` is a Compose file secret mounted only into the agent (`runtime/compose.yaml`).
 
 ### SEC-HIGH-502 — Internet-facing and application images carry fixable Critical/High CVEs; deployed PHP vendor tree lags the repo
 
@@ -162,6 +164,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 - **Recommendation:** Bump Caddy to the latest 2.11.x digest. Build a project-owned OpenEMR image from this repo's patched lock on a current Alpine base. Re-pin MariaDB to a current 11.8 digest shared by dev and infra. Add `trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1` to CI for every pinned digest, and renew pins on a schedule.
 - **Verification:** Re-run the Trivy commands in `COMMANDS.txt`: 0 fixable Critical and a documented, reviewed High exception list.
 - **Architecture consequence:** The co-pilot image must be built and pinned the same way (digest plus CI scan gate), not pulled as `:latest`.
+- **Status (2026-09-16):** Documented, not fixed. `runtime/compose.yaml` still pins `caddy:2.10.2-alpine@sha256:4c6e91c6…`, `mariadb:11.8.8@sha256:24e76fce…`, and the `openemr/openemr:8.1.1@sha256:796adaa7…` base for the project image. `.gitlab-ci.yml` runs whitespace, PHP, Caddy, and Compose lint, the agent tests, and the offline and manual live evals; there is no Trivy or secret-scan job. The agent image is built locally on the Droplet by `start.sh` and is not digest-pinned.
 
 ### SEC-MEDIUM-503 — Deployment containers run with default privileges and the app process holds the DB root password
 
@@ -175,6 +178,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 - **Recommendation:** After first install, remove `mysql_root_password` from the openemr service (a one-shot init job, or unset after setup) and do not export it. Add `cap_drop: [ALL]` with minimal `cap_add` (NET_BIND_SERVICE for Caddy), `security_opt: [no-new-privileges:true]`, `read_only: true` + `tmpfs` where feasible (Caddy, and the future agent service), mem/pids limits, and a Caddy healthcheck.
 - **Verification:** `docker compose exec openemr sh -c 'cat /proc/1/environ | tr "\0" "\n" | cut -d= -f1'` shows no `MYSQL_ROOT_PASS`. `docker inspect` shows CapDrop ALL and NoNewPrivileges.
 - **Architecture consequence:** The agent service holds **no database credentials of any kind** (`AGENTS.md`: the model or agent service never queries the OpenEMR database). Its only data path is the authenticated module gateway inside OpenEMR, called with a short-lived, user- and patient-bound delegation. The gateway runs in the OpenEMR process and therefore uses the existing `openemr` application account; only the LLM and tracing keys are the agent service's secrets, and they are mounted there alone (SEC-MEDIUM-504).
+- **Status (2026-09-16):** The agent-side consequence holds in `runtime/compose.yaml`: the `agent` service is on `frontend` only and receives `anthropic_api_key`, `anthropic_workspace_id`, `copilot_delegation_secret`, and the two Langfuse keys, with no MySQL secret; it runs as uid 10001. The OpenEMR container is unchanged: `openemr-entrypoint.sh:19` still exports `MYSQL_ROOT_PASS`, no service has `cap_drop`, `no-new-privileges`, `read_only`, or resource limits, and Caddy still has no healthcheck.
 
 ### SEC-MEDIUM-504 — Unrestricted Droplet egress
 
@@ -188,6 +192,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 - **Recommendation:** Restrict firewall egress to 443/80 (plus DNS 53). In the future agent service, enforce an application-level allowlist (the LLM provider hostname only) using a patched HTTP client that canonicalizes hosts (Guzzle ≥ 7.15.2). Consider an egress proxy.
 - **Verification:** `trivy config infra/digitalocean` shows no DIG-0003. From the agent container, a request to a non-allowlisted host fails.
 - **Architecture consequence:** The agent should call the LLM through one egress path that can log and enforce destinations.
+- **Status (2026-09-16):** Not done. `infra/digitalocean/main.tf` still allows all TCP, UDP, and ICMP egress; no application-level destination allowlist exists in the agent. `docs/deployment/digitalocean.md` records the gap as residual risk.
 
 ### SEC-MEDIUM-505 — Dev stack exposes data/admin services on all interfaces with default credentials and Xdebug (PRE-001, PRE-004)
 
@@ -214,6 +219,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 - **Recommendation:** Vendor or hash-pin napa archives (or replace them with npm packages). Update `tar`/`decompress` via overrides. Upgrade DOMPurify to ≥ 3.4.13. Pin the semgrep image digest. Build images in CI with `npm ci --omit=dev` output copied into a clean runtime stage.
 - **Verification:** `npm audit --omit=dev` shows 0 moderate+ (or documented exceptions); `npm audit` shows 0 critical. `grep -n 'semgrep/semgrep@sha256' run-semgrep.sh`.
 - **Architecture consequence:** The co-pilot's own dependencies need lockfile, integrity, and scan gates from day one.
+- **Status (2026-09-16):** Unchanged. `run-semgrep.sh:136` still uses `semgrep/semgrep:latest`; `napa` archives are not pinned; no scan gate in `.gitlab-ci.yml`.
 
 ### SEC-LOW-507 — Vulnerable prod PHP libraries in repo lock (Guzzle host bypass, dompdf file read, Smarty SSRF, PhpSpreadsheet)
 
@@ -240,6 +246,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 - **Recommendation:** Add a `.dockerignore` (`.git`, `infra/`, `docker/`, `tests/`, `ci/`, `docs/`, `*.tfstate*`, `*.tfvars`, `*.tfplan`, `.env*`, `node_modules`). `chmod 600` the local state. Keep application secrets out of Terraform (current design is correct).
 - **Verification:** `docker build` context listing excludes these paths; image `trivy --scanners secret` is clean.
 - **Architecture consequence:** Supports SEC-HIGH-500 remediation.
+- **Status (2026-09-16):** `.dockerignore` added at the repository root in allow-list form (`*` excluded, only `interface/modules/custom_modules/oe-module-copilot/` included), so a root build context carries nothing but the module. The local Terraform artifacts are still mode 0644 (`terraform.tfstate`, `deploy.tfplan`) and 0664 (`terraform.tfvars`), still untracked.
 
 ### SEC-INFO-509 — Semgrep baseline: 594 unreviewed results; sampled results are false positives
 
@@ -275,6 +282,7 @@ Unserialize (manual grep): 58 `unserialize(` occurrences in src/library/interfac
 
 - **LLM API key location:** Generate or place it on the Droplet as a compose file secret (e.g., `runtime/secrets/llm_api_key`, mode 600, covered by the existing `.gitignore:14`), mounted **only** into the agent service. Read it from `/run/secrets/…` in code at call time; do not export it to the process env and never pass it through OpenEMR, Caddy, cloud-init, Terraform variables/state, image layers, or the webroot. Use a provider key scoped to one project with a spend cap, and rotate on every redeploy of the evaluator environment. Redact it from logs and traces.
 - **Agent isolation:** Run the agent as a separate container on its own network. It reaches OpenEMR via the internal HTTP API (FHIR/REST with a read-only OAuth2 client and scopes), not by joining `backend`, and never gets DB credentials. If direct DB reads are unavoidable, create a dedicated SELECT-only MariaDB user on specific tables.
+  *Status 2026-09-16:* superseded in one respect by ADR-0003: the agent reaches OpenEMR through the module's tool gateway over the internal Docker network with a per-turn delegation token, not through FHIR/REST with an OAuth2 client. The rest holds: separate container, `frontend` network only, no DB credentials of any kind, no direct DB reads.
 - **Egress:** The agent is the only component that needs the LLM endpoint. Restrict Droplet egress (SEC-MEDIUM-504) and enforce an in-app destination allowlist with a patched HTTP client.
 - **Edge policy:** Make Caddy deny-by-default for non-application paths (SEC-HIGH-500) and add explicit routes for the co-pilot UI/API. Consider adding `-X-Powered-By` and a CSP.
 - **Image supply chain:** Build project-owned OpenEMR and agent images from this repo's lockfiles in a multi-stage build with `.dockerignore`, pin by digest, and gate on Trivy (Critical/High fixable) and secret scans. Share one digest per component between dev and infra.

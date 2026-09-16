@@ -24,7 +24,7 @@ This page shows the path with a real turn from the eval run of 2026-09-16
 | Module audit rows | OpenEMR `log` table; the JSON in `comments` (base64) carries `correlation_id` | `copilot-session-start` 1 row, `copilot-tool-read` 7 rows (one per tool call, written before data leaves) |
 | Agent logs | JSON lines on the agent container's stdout, field `correlation_id`, one per graph node | `authorize`, `classify`, `retrieve`, `narrate`, `verify` (twice), `repair`, `render` (twice) with `duration_ms` each |
 | Agent API | `X-Correlation-Id` response header and `correlation_id` in the turn body | Both equal the ticket's id (`OBS-CORRELATION-001` asserts this) |
-| Langfuse | Trace `copilot.turn`, session id = conversation id, tags `copilot`, `turn`; the correlation id is in the trace metadata | Trace `921f44e1de3dc19deb130609664fa3bc`: 19 observations (node spans plus `narrate` and `repair` generations), cost $0.028, latency 21.2 s, no PHI in inputs or outputs (masked) |
+| Langfuse | Trace `copilot.turn`, session id = conversation id, tags `copilot` plus the turn type (`uc01_first` or `followup`, set as `langfuse_tags` in `agent/app/telemetry.py`); the correlation id is in the trace metadata | Trace `921f44e1de3dc19deb130609664fa3bc`: 19 observations (node spans plus `narrate` and `repair` generations), cost $0.028, latency 21.2 s, no PHI in inputs or outputs (masked). Turns since commit `74a1bf6` (2026-09-15) also carry one `tool`-type observation per gateway call, so a comparable trace now has more observations than this one |
 
 ## Commands
 

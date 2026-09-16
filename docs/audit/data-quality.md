@@ -184,6 +184,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Build a versioned, deterministic synthetic cohort (section 7) before building the agent. Include the defect patients from section 6 plus happy-path multi-visit patients.
 - **Verification:** A cohort manifest query shows at least N patients with at least 2 encounters, labs with units and ranges, notes, and one patient per failure mode. The eval run records the dataset version.
 - **Architecture consequence:** Dataset versioning and fixture loading are part of the eval harness. Tool contracts are designed against the defect catalog, not against the demo data.
+- **Co-pilot response status (2026-09-16):** Done. `af-cohort-v1` (26 patients) is loaded on the deployment by the `demo-seed` job (commit `06d1855`); every eval report records `dataset af-cohort-v1` and the commit (`evals/results/*.md`); one case per cohort defect patient except `AF-DQ-Q` (commit `26a9a3d`). The bundled demo data is unchanged.
 
 ### DQ-HIGH-002: Conflicting definitions of "active" issue/medication
 - **Status:** Open
@@ -196,6 +197,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Pick one deterministic status function. Return both raw fields (`activity`, `enddate`, `outcome`) and a `status_conflict` flag when the UI rule and the API rule disagree. The agent must then say something like "listed as active on the chart summary but marked inactive; source rows X".
 - **Verification:** An eval fixture with patient DQ-B (section 6) must produce a claim that mentions both states, and a verifier check must pass.
 - **Architecture consequence:** A status-normalization layer in the read tools, with unit tests that pin OpenEMR's UI semantics.
+- **Co-pilot response status (2026-09-16):** Implemented. `MedicationsTool::reconcile()` returns `status`, `status_basis` (`enddate | activity | both | none`), and `status_conflict` (contract `MedicationRecord`); `activity=0` with no end date is a conflict (commit `c723920`, found by `CONF-STATUS-B-001` on the first full run). `pack_limitations` emits a deterministic `conflict` line for the record (`agent/app/graph/nodes.py`) and the verifier rejects a single-status claim on a conflicted record (`agent/app/verifier.py`). `CONF-STATUS-B-001` passes live (run `2026-09-16T073141Z-1ddf824`). No PHP unit tests pin the UI semantics; the eval is the pin.
 
 ### DQ-HIGH-003: Medications split across `lists` and `prescriptions` with no link, and conflicting
 - **Status:** Open
@@ -208,6 +210,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Keep a per-row `source_table` and id. Group candidate duplicates deterministically (normalized name; RxNorm when present) without merging them. Show conflicts with both sources. Never pick a winner.
 - **Verification:** A fixture like DQ-C must yield "conflicting records" with 2 citations.
 - **Architecture consequence:** The medication tool returns grouped candidates with provenance. The verifier rejects any single-status claim about a group that has a conflict.
+- **Co-pilot response status (2026-09-16):** Implemented. Each medication record carries `provenance: lists | prescriptions` and its own source id; records are never merged. When the same first-word name appears in both sources with different statuses, `pack_limitations` emits a deterministic `conflict` line citing both records (`nodes.py`, commit `950f357`); the model is not relied on to say it. `CONF-TWO-TABLES-C-001` (conflict claim citing both tables, `uncertainty_recall` gate) and `CONF-DUP-NAMES-C2-001` (brand/generic pair listed, not merged; holdout) pass live. No RxNorm matching exists yet, so "same drug" is never asserted.
 
 ### DQ-HIGH-004: Clinical start/end dates missing; audit timestamps misleading
 
@@ -231,6 +234,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Place events on the timeline using clinical dates only: `begdate`, `enddate`, `start_date`, encounter `date`, result/report `date`. Fall back to entry `date` only with the label "recorded on". Put undated items in an "undated, cannot place relative to last visit" group.
 - **Verification:** The DQ-D fixture must output "not dated" instead of including or excluding the item.
 - **Architecture consequence:** The time-window filter is deterministic code with explicit date provenance on each claim (`date_basis: clinical|recorded|none`).
+- **Co-pilot response status (2026-09-16):** Implemented. `Gateway/Dates.php` returns `{value, precision, basis}` for every date; the contract's `DateBasis` marks `modified` as unreliable (`agent/app/contracts/common.py`). Problems with no `begdate` carry `undated: true` and are excluded from the window, and `pack_limitations` emits an `undated` line ("cannot be placed in the timeline"). `MISS-UNDATED-PROBLEM-D-001` (undated item not a change) and `MISS-CLINICAL-DATE-D2-001` (clinical date, not entry date) pass live.
 
 ### DQ-HIGH-005: Clinical values mostly uncoded; local terminology incomplete
 - **Status:** Open
@@ -243,6 +247,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Treat codes as optional. Search titles and codes, and report the match method. Never infer an indication. Show legacy codes as written.
 - **Verification:** Fixtures DQ-E (ICD-9-only problem) and DQ-F (uncoded medication) must be found and cited.
 - **Architecture consequence:** No terminology-mapping dependency in v1. Matching logic lives in tools, not the LLM.
+- **Co-pilot response status (2026-09-16):** Implemented. `ProblemsTool` returns codes exactly as stored (`Code.as_written`, no translation); a `problem_status` claim type (contract 1.2.0, commit `26a9a3d`) lets "is X on the problem list" be answered from the title or code as written and is checked field by field by the verifier. `MISS-UNCODED-E-001` (ICD-9 and free-text problems found; no invented ICD-10) passes live. No terminology tables were added.
 
 ### DQ-MEDIUM-006: Zero-dates and time-zone-less datetimes
 - **Status:** Open
@@ -255,6 +260,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Convert zero-dates to NULL at the tool boundary. Carry date precision (`date` vs `datetime`). Treat same-day ordering across precisions as unknown. Record the site time-zone assumption (UTC here) in tool metadata.
 - **Verification:** Unit tests on the serializer. DQ-G fixture.
 - **Architecture consequence:** Typed date objects `{value, precision, tz_assumed}` in tool output schemas.
+- **Co-pilot response status (2026-09-16):** Partly implemented. `Dates.php` converts zero-dates and NULLs to `unknown` and carries `precision` (`ClinicalDate` in the contract); no `tz_assumed` field was added. Encounter `onset_date` is not exposed by the encounters tool, so no "onset not recorded" line exists; `MISS-ZERO-DATE-G-001` (golden) is therefore a hard negative check only (no `0000-00-00` or epoch date in any output) and passes live. Same-day ordering across precisions is not surfaced as "order unknown".
 
 ### DQ-MEDIUM-007: "None" vs "not documented" is ambiguous
 - **Status:** Open
@@ -267,6 +273,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Use three states: rows present / reviewed with none (`lists_touch` present and no rows) / not documented. Treat tool errors as a fourth state, "unavailable".
 - **Verification:** Fixtures DQ-H (reviewed, none) vs DQ-I (never documented) must produce different wording.
 - **Architecture consequence:** List tools return `absence_reason`. Response templates forbid "no X" without `reviewed_none`.
+- **Co-pilot response status (2026-09-16):** Implemented for allergies. `AllergiesTool` returns `absence_state: documented | reviewed_none | not_documented` from rows and `lists_touch`; `ToolStatus.unavailable` is the fourth state. `pack_limitations` emits the matching line, the fallback brief emits a typed `absence` claim, and the verifier rejects an absence claim whose state differs from the tool's or whose section was not retrieved `ok`/`empty` (`absence_requires_retrieval`). `MISS-ALLERGY-REVIEWED-H-001`, `MISS-ALLERGY-UNDOC-I-001`, and `MISS-ALLERGY-FIELDS-I2-001` (reaction/severity "not documented" as a deterministic line, commit `950f357`) pass live; the eval runner independently checks that no absence claim appears without a successful retrieval (`evals/run.py` invariants). Problems and medications have no review marker in OpenEMR, so they carry only `empty` vs `unavailable`.
 
 ### DQ-MEDIUM-008: Authorship/provenance fields empty
 - **Status:** Open
@@ -279,6 +286,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Cite by record type + id/uuid + date. Show an author only when a populated author field exists; otherwise "author not recorded".
 - **Verification:** DQ-J fixture.
 - **Architecture consequence:** The citation schema doesn't require author. The verifier rejects author names not found in the cited row.
+- **Co-pilot response status (2026-09-16):** Implemented. Notes carry `author: {username, display, unknown}` (`Person.unknown`, contract) and a note with no author produces the deterministic limitation line "author not recorded" (`pack_limitations`, commit `9e4f39c`), so the uncertainty gate no longer depends on the model's wording. `MISS-AUTHOR-J-001` passes its `uncertainty_recall` assertions on every attempt; its non-blocking model-recall check (a cited note claim on the follow-up) was flaky (1 of 3 attempts failed at `1ddf824`; 69560f05 run: fail) and is counted under task success, not the safety gate.
 
 ### DQ-MEDIUM-009: Lab schema allows text values, missing units/ranges/flags (absent in demo)
 - **Status:** Open (schema risk; could not be observed in data)
@@ -291,6 +299,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Deterministic lab comparator. Compare numbers only when both parse strictly and units match exactly after an explicit alias table. Otherwise say "cannot compare: unit mismatch/missing unit/non-numeric". Use only the recorded `abnormal` flag or a strictly parseable range.
 - **Verification:** Fixtures DQ-K, DQ-L, DQ-M.
 - **Architecture consequence:** Lab math is done by the verifier/tool, never by the LLM.
+- **Co-pilot response status (2026-09-16):** Implemented. `LabResultsTool` keeps `value_text` as stored, sets `numeric_value` only for strictly numeric text, `unit` null when empty, `comparable` only with a numeric value and a unit, `flag` from the recorded `abnormal` or a parseable range, and `corrected` from `result_status`. The verifier's `lab_rules` accept a `lab_comparison` only for the same analyte, both comparable, identical units, and different days (a same-day pair or a corrected value is not a trend; commit `9e4f39c`), and a corrected result must be stated as corrected. Deterministic limitation lines cover a missing unit, a text-valued result, and a corrected result (commits `950f357`, `9e4f39c`). `LAB-UNIT-MISMATCH-K-001`, `LAB-TEXT-VALUES-L-001`, and `LAB-CORRECTED-M-001` (holdout) pass live. No unit alias table exists; units must match exactly.
 
 ### DQ-MEDIUM-010: Prescription fields stored as local list-option ids
 - **Status:** Open
@@ -303,6 +312,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Resolve ids through `list_options` in the tool and return titles. Cite the raw id.
 - **Verification:** DQ-C fixture output contains resolved terms.
 - **Architecture consequence:** Prefer `PrescriptionService` / FHIR, which already join `list_options`, over raw SQL.
+- **Co-pilot response status (2026-09-16):** Implemented. `MedicationsTool` reads prescriptions with `PrescriptionService::getAll()` for the resolved labels and returns `dose_text` as labels, never option ids (contract `MedicationRecord.dose_text`; commit `83f33a6`, verified locally on `AF-DQ-C`). No eval asserts the dose text itself; `CONF-TWO-TABLES-C-001` covers the same fixture for the status conflict only.
 
 ### DQ-MEDIUM-011: No issue-to-encounter linkage
 - **Status:** Open
@@ -315,6 +325,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Claim a link to a visit only through an explicit link or a note that cites it. Otherwise report dates side by side.
 - **Verification:** Eval on AF-DQ-A2: problems and encounters are listed with dates but no "addressed at" claim appears without an `issue_encounter` row; the verifier rejects the claim type otherwise.
 - **Architecture consequence:** No "addressed at visit" claim type without a link record.
+- **Co-pilot response status (2026-09-16):** Implemented by omission: `ClaimType` (`agent/app/contracts/turns.py`) has no "addressed at visit" type, and a `documented_reference` claim is accepted only when a cited record carries the reference (`verifier.py`, `documented_reference` branch). `ProblemsTool` reports `linked_encounter_count` from `issue_encounter`. No eval asserts the absence of an "addressed at" statement on `AF-DQ-A2` specifically; the lexicon rejects causal wording (`because`, `due to`) on every claim.
 
 ### DQ-MEDIUM-014: Condition service returns one row per condition × linked encounter
 - **Status:** Open
@@ -327,6 +338,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Dedupe by `condition_uuid` in the tool layer and keep linked encounters as a nested list. Eval: AF-HEAVY problem list has exactly 7 entries.
 - **Verification:** Unit test on the condition tool with AF-HEAVY and AF-DQ-A2 fixtures.
 - **Architecture consequence:** Tool outputs are keyed by record identity; the verifier rejects duplicate claims citing the same source record.
+- **Co-pilot response status (2026-09-16):** Implemented. `ProblemsTool` deduplicates by `condition_uuid` and keeps `linked_encounter_count`; verified locally on `AF-HEAVY`: 26 rows to 7 records (commit `83f33a6`). `REG-HEAVY-001` (golden) passes live within the latency budget. The join producing the fan-out was still not traced in `ConditionService`.
 
 ### DQ-LOW-012: Vitals use 0 for "not measured" and store no per-row units
 - **Status:** Open
@@ -339,6 +351,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Treat 0 as missing for vitals where 0 is not physiologic. Attach the unit system to each value from the global at read time.
 - **Verification:** Unit test on the vitals normalizer: 0 → missing for non-physiologic fields; each value carries a unit system read from globals.
 - **Architecture consequence:** A vitals normalizer in the tool layer.
+- **Co-pilot response status (2026-09-16):** Not addressed in Week 1. There is no vitals tool (`ToolName` in `agent/app/contracts/tools.py` lists seven tools, none for `form_vitals`), so the co-pilot cannot see or misreport vitals; `AF-DQ-Q` has no eval case (`evals/README.md`).
 
 ### DQ-LOW-013: Referential integrity clean, but enforced only by application code
 - **Status:** Observed OK / monitor
@@ -351,6 +364,7 @@ plan. The demo data is not real clinical data.
 - **Recommendation:** Keep the orphan queries as fixture-load assertions. Tools must not assume joins succeed; they drop orphan rows and report them.
 - **Verification:** AF-DQ-P eval: the response carries `status=partial` with the orphan count, and the cohort post-load check still reports exactly one orphan of each kind.
 - **Architecture consequence:** A "partial result" status in tool responses.
+- **Co-pilot response status (2026-09-16):** Partly implemented; gap recorded. `ToolStatus.partial` exists and `LabResultsTool` sets it with reason `orphan_rows_omitted` when a result row inside a report lacks an id. The planted result-without-report never reaches the tool, because `ProcedureService::search()` joins results through reports, so the lab section reads `empty` and no orphan count is produced. `TOOL-ORPHAN-P-001` therefore asserts no crash and no cross-attachment, not the count, and records that closing the gap needs a direct orphan query (commit `1ddf824`). It passes live. The cohort post-load check still asserts one orphan of each kind.
 
 ---
 

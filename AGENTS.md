@@ -20,6 +20,7 @@ Read the documents relevant to the change:
 - `USERS.md` for the supported user and use cases.
 - `ARCHITECTURE.md` for accepted boundaries and known limitations.
 - `KEY_METRICS.md` and `evals/README.md` for success and test design.
+- `docs/adr/` for the accepted decisions a change must stay inside.
 
 Check `git status` before editing and preserve unrelated user changes. Inspect
 the existing OpenEMR pattern before introducing a new abstraction or dependency.
@@ -82,6 +83,11 @@ when risk or failures justify them. At minimum:
 - Validate modified Compose files with `docker compose ... config --quiet`.
 - Exercise affected endpoints or UI flows against the running development stack.
 - Run relevant existing PHP, JavaScript, module, contract, and eval tests.
+  For the agent: `cd agent && pytest` (60 tests) and `python -m
+  app.contracts.export --check`; for the evals, `python evals/run.py
+  --offline-only` needs no stack, `--golden-only` is the smoke set against a
+  deployment, and a full run (which includes the holdout set) is the release
+  check. Do not pass `--include-holdout` while tuning a prompt.
 - For authorization, verification, failure-handling, or patient-context changes,
   include a negative/adversarial test as well as the normal flow.
 

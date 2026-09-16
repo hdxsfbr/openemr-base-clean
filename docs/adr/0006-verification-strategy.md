@@ -120,6 +120,42 @@ retrieved in that turn. It makes no model call.
 - Withholding can make answers terse; the withheld count and the evidence
   list keep the physician informed of what was not said.
 
+### Status notes (2026-09-16, implementation as built; the decision text above is unchanged)
+
+- Lexicon (decision 4): `FORBIDDEN` in `agent/app/verifier.py` was widened
+  on 2026-09-16 to paraphrases that carry advice or inference meaning
+  without the literal keyword ("wise/prudent/advisable to", "might want
+  to", "worth discussing with", "would be a good idea", "points toward",
+  "indicative of", "appears to indicate", "may explain"); the eval harness
+  carries its own independent `ADVICE_RE` in `evals/run.py`, and offline
+  golden case `CIT-PARAPHRASE-ADVICE-001` is the regression check
+  (commit `831e1d8`).
+- Lab rules (decision 4): the analyte check accepts the pack's
+  "Analyte (code)" rendering or the code alone (`_analyte_matches`), and a
+  `lab_comparison` between two same-day results is rejected as "not a
+  trend" so a corrected result cannot be compared with the value it
+  supersedes (commit `9e4f39c`;
+  `test_analyte_with_code_suffix_verifies_and_same_day_pairs_are_not_trends`).
+- Deterministic limitation lines: field-level gaps the claim types cannot
+  express are now stated by `pack_limitations` in
+  `agent/app/graph/nodes.py`, cited to the record, without depending on
+  the model: allergy without reaction or severity, lab result without a
+  unit, text-valued lab result, note without an author, corrected result,
+  medication without a documented indication, and a medication whose
+  status differs between `lists` and `prescriptions` (commits `950f357`,
+  `9e4f39c`, `1ddf824`). The `Explicit uncertainty recall` gate asserts
+  these lines; model wording is counted separately under the non-blocking
+  task-success gate (`evals/README.md`, "Two classes of failure").
+- Audit event (decision 5): the `copilot-verification-result` OpenEMR
+  audit event is not written; the module logs `copilot-session-start`,
+  `copilot-tool-read`, `copilot-denied`, and `copilot-session-end` only
+  (`src/Gateway/Audit.php`). The verifier outcome is returned in
+  `TurnResponse.verification` and carried on the Langfuse trace; the audit
+  row remains **planned** (`ARCHITECTURE.md`, Privacy).
+- Summary and suggestion gates (decisions 7 and 8) are covered by
+  `CIT-SUMMARY-GATE-001` and the runner's per-turn invariants (model
+  summary shown only with nothing withheld, at most three suggestions).
+
 ## Verification
 
 - Altered-fact evals per claim type (value, unit, date, status, source

@@ -64,7 +64,7 @@ test:evals-offline:
       - evals/results/
     expire_in: 30 days
 
-# The full suite against the deployment: 44 cases, ~40 model-backed turns, about $0.55 and
+# The full suite against the deployment: 45 cases, ~40 model-backed turns, about $0.55 and
 # 12 minutes per run. Manual so a push never spends model budget by itself; needs the
 # masked CI variable DEMO_PASSWORD (the demo clinician password) set in the project.
 test:evals-live:

@@ -1,6 +1,22 @@
 # ADR-0003: Integration Point — In-Process Module Gateway, SMART on FHIR Deferred
 
 - **Status:** Accepted 2026-09-14
+- **Status note (2026-09-16):** implemented as decided (module gateway and
+  tools, agent service, delegation token: commits 83f33a6 and 948620f). The
+  single token issued at panel render (§Decision 2) was refined into a
+  per-turn ticket by ADR-0005 §2. Verification so far: the Bruno collection
+  (`docs/api-collection/`, 21 requests, 41 assertions) passes against the
+  deployed agent API as `audit-physician` (`docs/SUBMISSION_CHECKLIST.md`);
+  gateway denials return 403 with a reason and a denial audit event
+  (`Gateway/ContextBuilder.php`, `GatewayDenied`), and tampered or expired
+  tokens are refused at the agent (`AUTH-TAMPER-001`, `AUTH-STALE-TICKET-001`);
+  REST/FHIR remain unrouted at the edge
+  (`docs/audit/evidence/security/cloud-probe-2026-09-15-allowlist.txt`); a
+  single correlation id reconstructs a turn
+  (`docs/operations/correlation-id-walkthrough.md`). Not yet measured: the
+  tool fan-out p95 ≤ 300 ms on `AF-HEAVY` through the agent; `REG-HEAVY-001`
+  bounds the whole turn at 45 s only, and per-tool gateway latency is
+  recorded on Langfuse TOOL observations without a recorded p95.
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (project owner)
 - **Related requirements:** PRD "an AI agent embedded directly into OpenEMR";

@@ -1,5 +1,14 @@
 # Cloud Window: Deployed Runtime Configuration
 
+> Superseded for topology and public reachability by the 2026-09-15
+> deployment: the Droplet now runs the project image (`agentforge/openemr:local`,
+> pinned 8.1.1 base plus the co-pilot module), an agent service on the
+> `frontend` network, and a deny-by-default Caddyfile
+> (`infra/digitalocean/runtime/compose.yaml`, `Caddyfile`); the post-allowlist
+> probe is `cloud-probe-2026-09-15-allowlist.txt`. The globals, grants, and
+> container-hardening observations below were not re-collected after that
+> redeploy and remain the only recorded values. Nothing below is altered.
+
 Date: 2026-09-14. Commit `fc95374`. Provisioned 23:34:28Z via the reviewed saved
 Terraform plan (4 resources: Droplet `s-2vcpu-4gb`/sfo3/Ubuntu 24.04, firewall,
 project, SSH key). Deployed with `infra/digitalocean/deploy.sh` using the

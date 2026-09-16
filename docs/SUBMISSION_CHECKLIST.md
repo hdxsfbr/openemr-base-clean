@@ -47,7 +47,10 @@ conflict with OpenEMR's own `README.md`.
 - [x] Multi-turn follow-up and tool chaining work in the live environment.
       *(2026-09-15: follow-up planned a note search and cited two notes.)*
 - [x] Authorization is enforced for every retrieval. *(Parity gateway per
-      tool call; per-role matrix evals still to record.)*
+      tool call; per-role evidence recorded 2026-09-16: `AUTH-FRONTDESK-001`
+      asserts every clinical section `unavailable` for Front Office, the nine
+      authorization cases pass in every recorded run in `evals/results/`, and
+      `bin/acl_matrix.php` prints the effective per-user matrix.)*
 - [x] Every displayed factual claim passes verification and has a source.
       *(Verifier before render; `every_claim_cited` and `sources_resolve` on
       every live eval turn, 2026-09-16.)*
@@ -66,11 +69,20 @@ conflict with OpenEMR's own `README.md`.
       528/528 resolved, model-backed p95 27.6 s, $0.0127 per turn; the two
       misses are one model-recall case (MISS-AUTHOR-J-001, the note citation)
       counted under task success at 95%. Gates the runner cannot measure read
-      NOT MEASURED, not PASS. 44
-      cases, one per cohort defect; every results file opens with the
-      KEY_METRICS release-gate table and a quality scorecard. Two full runs
-      on 2026-09-16 after the sweep fixes: seven full runs on 2026-09-16 (41, 43, 43, 43, 43, 41, then 44 of 44); every earlier failure was either an assertion stricter than the required behavior, corrected, or a real gap fixed the same day (lab result with no unit, vague rejection details, model called on a denied turn, analyte-with-code match, same-day comparison as a trend, field-level absences); final run `evals/results/2026-09-16T054701Z-a7641e9` at commit a7641e9: 44/44, every release gate PASS, citations 169/169, model-backed p95 23.3 s, $0.012 per turn. `evals/results/`.)*
+      NOT MEASURED, not PASS. 45
+      cases on disk since 2026-09-16 (`CIT-PARAPHRASE-ADVICE-001` added with
+      the widened advice lexicon; the recorded runs cover the 44 before it),
+      one per cohort defect; a 14-case golden tier with a blocking "Golden
+      set integrity" gate and a 4-case holdout tier (`evals/README.md`); a
+      full run's exit code follows the release gates. Every results file
+      opens with the KEY_METRICS release-gate table and a quality scorecard.
+      Seven full single runs on 2026-09-16 after the sweep fixes (41, 43, 43, 43, 43, 41, then 44 of 44); every earlier failure was either an assertion stricter than the required behavior, corrected, or a real gap fixed the same day (lab result with no unit, vague rejection details, model called on a denied turn, analyte-with-code match, same-day comparison as a trend, field-level absences); final single run `evals/results/2026-09-16T054701Z-a7641e9` at commit a7641e9: 44/44, every release gate PASS, citations 169/169, model-backed p95 23.3 s, $0.012 per turn. `evals/results/`.)*
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
+      *(`agent/tests/test_health.py`: liveness echoes or mints the correlation
+      id, `/ready` is 503 when a dependency fails and 200 when all pass; runs
+      in CI `test:agent`; Bruno `4 Health` requests against the deployment.
+      OpenEMR's own `readyz` stays unrouted, so the traceability row is still
+      "In progress".)*
 - [x] GitLab pipeline green on the submitted commit. *(Pipeline 23777 on
       3415bac, 2026-09-16: four lints, agent tests, offline evals green on the
       dedicated runner Droplet; the manual `test:evals-live` job (job 76210)
@@ -93,7 +105,8 @@ conflict with OpenEMR's own `README.md`.
 - [ ] Repository URL and exact commit recorded.
 - [ ] Dashboard access or sanitized evidence prepared for evaluators.
 - [x] Eval dataset and results included. *(`evals/cases/`, `evals/results/`.)*
-- [ ] 3–5 minute demo recorded, reviewed, and uploaded.
+- [x] 3–5 minute demo recorded, reviewed, and uploaded. *(Early demo,
+      2026-09-16: <https://youtu.be/oxm9xqJpiY8>; script `docs/DEMO_SCRIPT.md`.)*
 - [ ] AI interview instructions confirmed. *(Prep: `docs/INTERVIEW_NOTES.md`
       answers every question in the PRD's pre-search checklist with evidence
       pointers, 2026-09-16.)*

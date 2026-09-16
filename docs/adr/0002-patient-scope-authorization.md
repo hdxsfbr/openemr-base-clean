@@ -195,6 +195,32 @@ the deferred path.
 - The model never emits a patient identifier that the gateway honors: a tool
   call with any `pid` argument is rejected by schema.
 
+**Status note (2026-09-16).** Recorded evidence for the items above, in
+`evals/cases/` and `evals/results/` (nine authorization cases, passing in every
+full run through 2026-09-16):
+
+- `audit-frontdesk`: `AUTH-FRONTDESK-001` asserts every clinical section
+  `unavailable`; the no-model-call rule is
+  `test_model_is_not_called_when_every_clinical_section_is_unavailable`
+  (offline). Audit-event order and tracer spans are not asserted by the case.
+- Patient switch: `AUTH-SWITCH-001` (chart switched after `start`, ticket
+  answers 409 `patient_context_changed`), through the ticket path rather than
+  two browser tabs.
+- `AF-ACL-UNSCHED`: `AUTH-UNSCHED-DIRECT-001` covers the "opened directly,
+  allowed" half; the "requested while a different chart is open" half is
+  `AUTH-SWITCH-001`.
+- `AF-ACL-SQUAD`: `AUTH-SQUAD-001` (denied at conversation start).
+- `AF-ACL-OTHER`: `AUTH-PARITY-OTHER-001` asserts the turn is allowed and
+  every claim cited; it does not yet assert the "isolation equals chart"
+  limitation text named in §5.
+- Patient identifier in tool parameters: `AUTH-FORGED-PID-001` (live) and
+  `test_tool_request_rejects_patient_identifier` (offline).
+- Break-glass: no eval case; `docs/REQUIREMENTS_TRACEABILITY.md` records a
+  manual check only.
+- §2 `ViewEvent` dispatch: not present in the module source as of this note
+  (`grep ViewEvent interface/modules/custom_modules/oe-module-copilot/src`
+  matches nothing); the audit event per call (`Gateway/Audit.php`) is.
+
 ## Revisit Triggers
 
 - Feedback from a clinician proxy that cross-patient summarization is

@@ -66,6 +66,23 @@ understated.
 Output tokens are 87 percent of the cost. Prompt caching saves $0.0066 per
 turn, or 23 percent.
 
+**Re-measured 2026-09-16 by the eval scorecard** (`evals/run.py`, same
+list prices as the table above, `PRICE_PER_MTOK`). Latest tracked full run,
+`evals/results/2026-09-16T073141Z-1ddf824.md`, 120 model-backed turns
+(44 cases x 3 attempts): 2.24 model calls per turn, 608 input / 1,170
+output / 5,106 cache-read tokens per turn, **$0.0127 per turn** (run total
+$1.53). A later single full run at `69560f0`
+(`evals/results/2026-09-16T081636Z-69560f05.md`) measured 2.3 calls, 612 / 1,139 / 4,870 tokens, $0.0124 per turn.
+Two caveats on the scorecard figure. It is a lower bound: the runner prices
+uncached input as `input_tokens - cache_read_tokens` clamped at zero, and
+in these runs the reported `input_tokens` (608) is below `cache_read_tokens`
+(5,106), so the uncached-input line is $0 and the cache-write premium is
+not separated. And it is the eval mix (about 45 percent follow-ups), not
+the usage model below. The projections below keep the earlier, higher
+$0.0223 figure as the conservative basis; `KEY_METRICS.md` reports the cost
+gate as NOT CONFIGURED until a projection threshold is chosen here, and
+none is set yet.
+
 ### Usage model (assumption)
 
 Each user is a primary-care physician who runs the co-pilot before each
@@ -112,8 +129,10 @@ percent.
 
 1. **Skip the repair call when nothing is withheld.** Already the case:
    `agent/app/graph/nodes.py` routes `verify` straight to `render` when the
-   verifier rejects nothing. The measured 2.75 calls per turn reflect this;
-   a repair costs about one narration when it does fire.
+   verifier rejects nothing. The measured 2.75 calls per turn reflect this
+   (2.24 in the 2026-09-16 eval scorecard, where 21.7 percent of
+   model-backed turns needed a repair round); a repair costs about one
+   narration when it does fire.
 2. **Cap planning at one round for follow-ups.** Proposed change:
    `agent/app/settings.py` sets `max_plan_rounds = 3`; lowering it to 1 for
    follow-ups removes up to two planning calls on the worst turns and trims
