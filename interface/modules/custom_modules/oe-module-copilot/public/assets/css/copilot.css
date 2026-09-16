@@ -23,7 +23,34 @@
     border-radius: 0.9rem 0.9rem 0.9rem 0.2rem;
     padding: 0.5rem 0.75rem;
 }
-#copilot-panel .copilot-progress { color: #6c757d; font-style: italic; }
+#copilot-panel .copilot-progress { color: #6c757d; font-style: italic; display: flex; align-items: center; gap: 0.5rem; }
+#copilot-panel .copilot-progress-text { animation: copilot-fade-in 0.35s ease-out; }
+#copilot-panel .copilot-dots { display: inline-flex; gap: 0.2rem; align-items: center; }
+#copilot-panel .copilot-dots span {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: #4a7bd0;
+    animation: copilot-bounce 1.2s infinite ease-in-out;
+}
+#copilot-panel .copilot-dots span:nth-child(2) { animation-delay: 0.15s; }
+#copilot-panel .copilot-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes copilot-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+    30% { transform: translateY(-0.3rem); opacity: 1; }
+}
+@keyframes copilot-fade-in {
+    from { opacity: 0; transform: translateX(-0.2rem); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #copilot-panel .copilot-dots span { animation: copilot-pulse 1.6s infinite ease-in-out; }
+    #copilot-panel .copilot-progress-text { animation: none; }
+}
+@keyframes copilot-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
 #copilot-panel .copilot-turn-head { margin-bottom: 0.35rem; }
 #copilot-panel .copilot-summary { margin-bottom: 0.5rem; }
 #copilot-panel .copilot-claims { background: #fff; font-size: 0.85rem; border-radius: 0.35rem; }

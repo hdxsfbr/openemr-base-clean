@@ -182,14 +182,23 @@
     }
     function appendPending() {
         var msg = el('div', 'copilot-msg copilot-msg-assistant');
-        msg.appendChild(el('div', 'copilot-progress', 'Checking the chart…'));
+        var line = el('div', 'copilot-progress');
+        var dots = el('span', 'copilot-dots');
+        dots.setAttribute('aria-hidden', 'true');
+        for (var i = 0; i < 3; i++) { dots.appendChild(el('span')); }
+        line.appendChild(dots);
+        line.appendChild(el('span', 'copilot-progress-text', 'Checking the chart…'));
+        msg.appendChild(line);
         transcript.appendChild(msg);
         scrollToEnd();
         return msg;
     }
     function setProgress(msg, text) {
-        var line = msg.querySelector('.copilot-progress');
-        if (line) { line.textContent = text; }
+        var line = msg.querySelector('.copilot-progress-text');
+        if (!line) { return; }
+        // Restart the fade so each step visibly arrives.
+        var fresh = el('span', 'copilot-progress-text', text);
+        line.parentNode.replaceChild(fresh, line);
     }
     function appendNote(text, tone) {
         clearPlaceholder();
