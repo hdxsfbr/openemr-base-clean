@@ -153,6 +153,16 @@ sequenceDiagram
   A-->>B: verified claims, withheld count, limitations, correlation_id
 ```
 
+![Co-pilot chat flow swimlanes: browser, module API, agent service, tool gateway, Claude](docs/diagrams/copilot-chat-flow-swimlanes.svg)
+
+*Swimlane view of the same turn. Lanes are colored by where the code runs:
+gray for the browser panel, teal for the two PHP entry points inside OpenEMR
+(session-bound module API and token-bound tool gateway), purple for the agent,
+coral for the model. Dashed arrows are events streamed to the panel or a
+denial. Only the first question of a conversation hits the conversation step;
+later questions go ticket then turn. Plan and read can loop when the graph
+needs more sections, and verify and repair loop once.*
+
 Denial paths leave the sequence at the first failed check: no tool call, no
 model call, one `copilot-denied` audit event, a generic message to the panel.
 

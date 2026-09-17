@@ -104,6 +104,13 @@ flowchart LR
   A -.->|PHI-free spans| L[Langfuse]
 ```
 
+![Co-pilot chat flow swimlanes: browser, module API, agent service, tool gateway, Claude](docs/diagrams/copilot-chat-flow-swimlanes.svg)
+
+*One question, lane by lane. The browser talks only to the session-bound
+module API and to the agent; the token-bound tool gateway is reached by the
+agent alone. Chart records stream to the panel before the model is called.
+Dashed arrows are streamed events or a denial.*
+
 ## Repository map
 
 | Path | Content |
@@ -118,6 +125,7 @@ flowchart LR
 | `docs/deployment/digitalocean.md` | Deployment runbook, current deployment status, secrets handling |
 | `evals/` | Eval suite: `evals/README.md` (design), `cases/` (45 YAML cases in golden, coverage, and holdout tiers), `run.py` (runner, release-gate table, scorecard), `compare.py` (A/B diff of two runs), `error_analysis.py` and `review_ui.py` (manual trace-review journal and its local browser UI), `results/` (versioned run reports), synthetic cohort seeders under `fixtures/cohort/` |
 | `docs/operations/` | Alerts runbook, correlation-id walkthrough with a real turn, Langfuse dashboard notes |
+| `docs/diagrams/` | Chat-flow swimlane diagram (standalone SVG) embedded in this README and `ARCHITECTURE.md` |
 | `.gitlab-ci.yml` | GitLab CI: four lint jobs, agent tests plus schema drift, the offline eval subset on every push; a manual `test:evals-live` job for the full suite against the deployment |
 | `contracts/schema/` | JSON Schema exported from the agent's Pydantic contracts |
 | `infra/` | Terraform, Compose, Caddyfile, deploy and destroy scripts, project OpenEMR image; `infra/digitalocean/runner/` is the CI runner Droplet's own Terraform root |
