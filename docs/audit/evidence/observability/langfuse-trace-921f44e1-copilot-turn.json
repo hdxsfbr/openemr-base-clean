@@ -1,0 +1,1763 @@
+{
+  "bookmarked": false,
+  "createdAt": "2026-09-16T01:34:40.000Z",
+  "environment": "default",
+  "externalId": null,
+  "id": "921f44e1de3dc19deb130609664fa3bc",
+  "input": {
+    "digest": true,
+    "type": "NoneType"
+  },
+  "latency": 21.223,
+  "metadata": {
+    "bytes": 350,
+    "conversation_id": "34289f7e08fb8e6a4198bf9d3b8daa26",
+    "correlation_id": "75a29aa756c7985f.1",
+    "digest": true,
+    "keys": [
+      "claims",
+      "status",
+      "timings_ms",
+      "tool_calls",
+      "turn_type",
+      "usage",
+      "withheld"
+    ],
+    "ls_integration": "langgraph",
+    "resourceAttributes": {
+      "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+      "service.name": "unknown_service",
+      "telemetry.sdk.language": "python",
+      "telemetry.sdk.name": "opentelemetry",
+      "telemetry.sdk.version": "1.44.0"
+    },
+    "scope": {
+      "attributes": {
+        "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+      },
+      "name": "langfuse-sdk",
+      "version": "4.15.3"
+    },
+    "thread_id": "34289f7e08fb8e6a4198bf9d3b8daa26",
+    "turn_type": "turn",
+    "type": "NoneType"
+  },
+  "name": "copilot.turn",
+  "observations": [
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:45.041Z",
+      "endTime": "2026-09-16T01:34:40.709Z",
+      "environment": "default",
+      "id": "08adc80ac43be12b",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.002,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 442,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "router",
+      "output": {
+        "chars": 7,
+        "digest": true
+      },
+      "outputPrice": 0,
+      "parentObservationId": "f7f271e42174239d",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:40.707Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:45.041Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.824Z",
+      "environment": "default",
+      "id": "117ac30b25531c13",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.005,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 436,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "render",
+      "output": {
+        "bytes": 11255,
+        "digest": true,
+        "keys": [
+          "accepted",
+          "answered_at",
+          "conversation_tokens",
+          "history",
+          "limitations",
+          "route",
+          "sources",
+          "status",
+          "suggestions",
+          "summary",
+          "summary_basis",
+          "timings_ms",
+          "usage"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:35:00.819Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:39.990Z",
+      "endTime": "2026-09-16T01:34:39.632Z",
+      "environment": "default",
+      "id": "2a0f80584cfa4267",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.005,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 444,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "classify",
+      "output": {
+        "bytes": 99,
+        "digest": true,
+        "keys": [
+          "route",
+          "timings_ms",
+          "turn_type"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:39.627Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:39.990Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.810Z",
+      "environment": "default",
+      "id": "50fce27296e47352",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.01,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 434,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "router",
+      "output": {
+        "chars": 6,
+        "digest": true
+      },
+      "outputPrice": 0,
+      "parentObservationId": "717a182230b8f290",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:35:00.800Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:39.990Z",
+      "endTime": "2026-09-16T01:34:39.622Z",
+      "environment": "default",
+      "id": "52ccd87273e03f3f",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.005,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 448,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "authorize",
+      "output": {
+        "bytes": 110,
+        "digest": true,
+        "keys": [
+          "budget_limit",
+          "route",
+          "started_at",
+          "timings_ms"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:39.617Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:39.990Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:55.116Z",
+      "endTime": "2026-09-16T01:34:50.894Z",
+      "environment": "default",
+      "id": "63dcbf887a8e2b19",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.001,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 434,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "router",
+      "output": {
+        "chars": 6,
+        "digest": true
+      },
+      "outputPrice": 0,
+      "parentObservationId": "f16c51f7040ad023",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:50.893Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:55.116Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.816Z",
+      "environment": "default",
+      "id": "717a182230b8f290",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.02,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 436,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "verify",
+      "output": {
+        "bytes": 3669,
+        "digest": true,
+        "keys": [
+          "accepted",
+          "rejected",
+          "route",
+          "rules",
+          "timings_ms"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:35:00.796Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.833Z",
+      "environment": "default",
+      "id": "727c450a9be2dd7b",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 21.221,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 223,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "is_langchain_root",
+          "ls_integration",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "copilot.turn",
+      "output": {
+        "bytes": 17513,
+        "digest": true,
+        "keys": [
+          "accepted",
+          "answered_at",
+          "budget_limit",
+          "conversation_id",
+          "conversation_tokens",
+          "correlation_id",
+          "denied",
+          "evidence",
+          "fault",
+          "history",
+          "limitations",
+          "narrate_error",
+          "pending_calls",
+          "plan_round",
+          "question",
+          "raw_claims",
+          "raw_suggestions",
+          "raw_summary",
+          "reference_encounter_source_id",
+          "rejected"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "918734e2e314a0ff",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:39.612Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:39.990Z",
+      "endTime": "2026-09-16T01:34:39.621Z",
+      "environment": "default",
+      "id": "88c028b9e52bac16",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.001,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 446,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "router",
+      "output": {
+        "chars": 8,
+        "digest": true
+      },
+      "outputPrice": 0,
+      "parentObservationId": "52ccd87273e03f3f",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:39.620Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:39.990Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.793Z",
+      "environment": "default",
+      "id": "9a70c6f3c7c051f2",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 9.897,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 436,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "repair",
+      "output": {
+        "bytes": 4412,
+        "digest": true,
+        "keys": [
+          "raw_claims",
+          "raw_summary",
+          "repair_attempted",
+          "route",
+          "timings_ms",
+          "usage"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:50.896Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:39.990Z",
+      "endTime": "2026-09-16T01:34:39.631Z",
+      "environment": "default",
+      "id": "a11133a6ea08a8a2",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.002,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 442,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "router",
+      "output": {
+        "chars": 8,
+        "digest": true
+      },
+      "outputPrice": 0,
+      "parentObservationId": "2a0f80584cfa4267",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:39.629Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:39.990Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:55.116Z",
+      "endTime": "2026-09-16T01:34:50.888Z",
+      "environment": "default",
+      "id": "b476b06908373a83",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.002,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 438,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "router",
+      "output": {
+        "chars": 6,
+        "digest": true
+      },
+      "outputPrice": 0,
+      "parentObservationId": "fc423684941e3b39",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:50.886Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:55.116Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.792Z",
+      "environment": "default",
+      "id": "c47fb96920c97451",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.003,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 434,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "router",
+      "output": {
+        "chars": 6,
+        "digest": true
+      },
+      "outputPrice": 0,
+      "parentObservationId": "9a70c6f3c7c051f2",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:35:00.789Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:55.116Z",
+      "endTime": "2026-09-16T01:34:50.895Z",
+      "environment": "default",
+      "id": "f16c51f7040ad023",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 0.005,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 436,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "verify",
+      "output": {
+        "bytes": 3635,
+        "digest": true,
+        "keys": [
+          "accepted",
+          "rejected",
+          "route",
+          "rules",
+          "timings_ms"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:50.890Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:55.116Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:45.041Z",
+      "endTime": "2026-09-16T01:34:40.710Z",
+      "environment": "default",
+      "id": "f7f271e42174239d",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 1.076,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 444,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "retrieve",
+      "output": {
+        "bytes": 1262,
+        "digest": true,
+        "keys": [
+          "evidence",
+          "pending_calls",
+          "reference_encounter_source_id",
+          "route",
+          "timings_ms",
+          "tool_calls",
+          "window_since"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:39.634Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:45.041Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:34:55.116Z",
+      "endTime": "2026-09-16T01:34:50.889Z",
+      "environment": "default",
+      "id": "fc423684941e3b39",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 10.178,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 440,
+        "digest": true,
+        "keys": [
+          "conversation_id",
+          "correlation_id",
+          "langgraph_checkpoint_ns",
+          "langgraph_node",
+          "langgraph_path",
+          "langgraph_step",
+          "langgraph_triggers",
+          "ls_integration",
+          "tags",
+          "thread_id",
+          "turn_type"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": {},
+      "name": "narrate",
+      "output": {
+        "bytes": 4484,
+        "digest": true,
+        "keys": [
+          "raw_claims",
+          "raw_suggestions",
+          "raw_summary",
+          "route",
+          "timings_ms",
+          "usage"
+        ]
+      },
+      "outputPrice": 0,
+      "parentObservationId": "727c450a9be2dd7b",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:40.711Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "CHAIN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:55.116Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    },
+    {
+      "calculatedInputCost": 0.0005858,
+      "calculatedOutputCost": 0.01385,
+      "calculatedTotalCost": 0.0144358,
+      "completionStartTime": null,
+      "completionTokens": 1385,
+      "costDetails": {
+        "cache_read_input_tokens": 0.0002318,
+        "input": 0.000354,
+        "output": 0.01385,
+        "total": 0.0144358
+      },
+      "createdAt": "2026-09-16T01:34:55.116Z",
+      "endTime": "2026-09-16T01:34:50.884Z",
+      "environment": "default",
+      "id": "09904f5f500b6ec4",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 2e-06,
+      "latency": 10.171,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 58,
+        "digest": true,
+        "keys": [
+          "attempt",
+          "effort",
+          "stop_reason"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": "claude-sonnet-5",
+      "modelId": "7c2e1f89-3a54-4b67-9d21-58e634b79a0c",
+      "modelParameters": {},
+      "name": "narrate",
+      "output": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "outputPrice": 1e-05,
+      "parentObservationId": "918734e2e314a0ff",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 1336,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:40.713Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 2721,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "GENERATION",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:34:55.116Z",
+      "usage": {
+        "input": 1336,
+        "output": 1385,
+        "total": 2721,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {
+        "cache_read_input_tokens": 1159,
+        "input": 177,
+        "output": 1385,
+        "total": 2721
+      },
+      "usagePricingTierId": "7c2e1f89-3a54-4b67-9d21-58e634b79a0c_tier_default",
+      "usagePricingTierName": "Standard",
+      "version": null
+    },
+    {
+      "calculatedInputCost": 0.0011104,
+      "calculatedOutputCost": 0.01257,
+      "calculatedTotalCost": 0.0136804,
+      "completionStartTime": null,
+      "completionTokens": 1257,
+      "costDetails": {
+        "cache_read_input_tokens": 0.0005984,
+        "input": 0.000512,
+        "output": 0.01257,
+        "total": 0.0136804
+      },
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.788Z",
+      "environment": "default",
+      "id": "8e82b37f95aad5ed",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 2e-06,
+      "latency": 9.89,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 58,
+        "digest": true,
+        "keys": [
+          "attempt",
+          "effort",
+          "stop_reason"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": "claude-sonnet-5",
+      "modelId": "7c2e1f89-3a54-4b67-9d21-58e634b79a0c",
+      "modelParameters": {},
+      "name": "repair",
+      "output": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "outputPrice": 1e-05,
+      "parentObservationId": "918734e2e314a0ff",
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 3248,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:50.898Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 4505,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "GENERATION",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 3248,
+        "output": 1257,
+        "total": 4505,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {
+        "cache_read_input_tokens": 2992,
+        "input": 256,
+        "output": 1257,
+        "total": 4505
+      },
+      "usagePricingTierId": "7c2e1f89-3a54-4b67-9d21-58e634b79a0c_tier_default",
+      "usagePricingTierName": "Standard",
+      "version": null
+    },
+    {
+      "calculatedInputCost": null,
+      "calculatedOutputCost": null,
+      "calculatedTotalCost": null,
+      "completionStartTime": null,
+      "completionTokens": 0,
+      "costDetails": {},
+      "createdAt": "2026-09-16T01:35:05.181Z",
+      "endTime": "2026-09-16T01:35:00.833Z",
+      "environment": "default",
+      "id": "918734e2e314a0ff",
+      "input": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "inputPrice": 0,
+      "latency": 21.223,
+      "level": "DEFAULT",
+      "metadata": {
+        "bytes": 350,
+        "digest": true,
+        "keys": [
+          "claims",
+          "status",
+          "timings_ms",
+          "tool_calls",
+          "turn_type",
+          "usage",
+          "withheld"
+        ],
+        "resourceAttributes": {
+          "service.instance.id": "b585d427-c3b0-4510-8108-ec05723dfdb7",
+          "service.name": "unknown_service",
+          "telemetry.sdk.language": "python",
+          "telemetry.sdk.name": "opentelemetry",
+          "telemetry.sdk.version": "1.44.0"
+        },
+        "scope": {
+          "attributes": {
+            "public_key": "pk-lf-f05a9589-244a-4263-8773-e6af4e3d1f9f"
+          },
+          "name": "langfuse-sdk",
+          "version": "4.15.3"
+        },
+        "type": "NoneType"
+      },
+      "model": null,
+      "modelId": null,
+      "modelParameters": null,
+      "name": "copilot.turn",
+      "output": {
+        "digest": true,
+        "type": "NoneType"
+      },
+      "outputPrice": 0,
+      "parentObservationId": null,
+      "projectId": "cmu38u4g402duad0du1jfi0t3",
+      "promptId": null,
+      "promptName": null,
+      "promptTokens": 0,
+      "promptVersion": null,
+      "startTime": "2026-09-16T01:34:39.610Z",
+      "statusMessage": null,
+      "timeToFirstToken": null,
+      "totalPrice": 0,
+      "totalTokens": 0,
+      "traceId": "921f44e1de3dc19deb130609664fa3bc",
+      "type": "SPAN",
+      "unit": "TOKENS",
+      "updatedAt": "2026-09-16T01:35:05.182Z",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "total": 0,
+        "unit": "TOKENS"
+      },
+      "usageDetails": {},
+      "usagePricingTierId": null,
+      "usagePricingTierName": null,
+      "version": null
+    }
+  ],
+  "output": {
+    "digest": true,
+    "type": "NoneType"
+  },
+  "projectId": "cmu38u4g402duad0du1jfi0t3",
+  "public": false,
+  "release": null,
+  "scores": [],
+  "sessionId": "34289f7e08fb8e6a4198bf9d3b8daa26",
+  "tags": [
+    "copilot",
+    "turn"
+  ],
+  "timestamp": "2026-09-16T01:34:39.610Z",
+  "totalCost": 0.0281162,
+  "updatedAt": "2026-09-16T01:35:05.283Z",
+  "userId": null,
+  "version": null
+}
