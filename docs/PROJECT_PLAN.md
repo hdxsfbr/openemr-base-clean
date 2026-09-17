@@ -207,7 +207,7 @@ follows the release gates, and every report opens with the five-state gate
 table (`evals/README.md`). The verifier's advice lexicon was widened after a
 manual paraphrase sweep (`CIT-PARAPHRASE-ADVICE-001`). A manual
 error-analysis journal (`evals/error_analysis.py`, 20 unscripted turns
-across 14 cohort patients) and a local review UI (`evals/review_ui.py`)
+across 14 cohort patients) and a local review UI (`evals/review_ui.py`, screenshot `evals/error_analysis/review-ui-2026-09-16.png`)
 exist; the journal's review fields are still blank. GitLab CI runs on a
 dedicated runner Droplet (`infra/digitalocean/runner/`); the first green
 pipeline and a manual `test:evals-live` job against the deployment are

@@ -18,7 +18,9 @@ are later demo and repeat runs.
 
 | File | Panel | PRD metric |
 | --- | --- | --- |
-| `langfuse-dashboard-clinical-copilot-2026-09-16.png` | All nine panels on one sheet | overview |
+| `langfuse-dashboard-full-page-top-2026-09-16.png` | Browser screenshot of the dashboard page: header (project, time range "Past 1 day"), title bar, and the first two rows of panels | overview |
+| `langfuse-dashboard-full-page-bottom-2026-09-16.png` | Browser screenshot of the third row of panels (tool calls, tool errors, ERROR-level observations) | overview |
+| `langfuse-dashboard-clinical-copilot-2026-09-16.png` | All nine panel renders on one sheet | overview |
 | `langfuse-panel-01-turns-over-time.png` | `copilot.turn` traces per hour | Requests |
 | `langfuse-panel-02-latency-p50.png` | p50 latency of `copilot.turn` | p50 latency |
 | `langfuse-panel-03-latency-p95.png` | p95 latency of `copilot.turn` | p95 latency |
@@ -29,7 +31,13 @@ are later demo and repeat runs.
 | `langfuse-panel-08-tool-errors-by-name.png` | TOOL observations at level ERROR by name | Tool failures |
 | `langfuse-panel-09-error-level-observations.png` | ERROR-level observations per hour | Errors |
 
-How the images were made: the Langfuse page draws each panel as an inline
+The two `full-page` files are ordinary browser screenshots of the dashboard
+taken by the owner on 2026-09-16 about 18:30 Pacific with the Langfuse
+sidebar collapsed, so they show the page as an evaluator with project access
+would see it; the panel renders below are the same nine panels at higher
+resolution.
+
+How the panel renders were made: the Langfuse page draws each panel as an inline
 SVG. The SVGs were serialized from the live page with their computed styles,
 rasterized in the browser at 1.5x onto the dashboard's dark background with
 the panel title, subtitle, and legend, and saved as PNG. They are therefore
@@ -51,12 +59,24 @@ case `CIT-UC01-A2-001`). `langfuse-trace-921f44e1-copilot-turn.md` summarizes
 it: 19 observations in graph order, two generations with token usage and
 cost, one repair round, and the PHI check.
 
+`langfuse-trace-view-2026-09-16.png` is a browser screenshot of the Langfuse
+Tracing page with a later `copilot.turn` trace open (`85b36c65…`, 21.0 s,
+$0.029, 3,624 prompt and 2,762 completion tokens): the observation tree
+(graph nodes, `narrate` and `repair` generations, one TOOL observation per
+gateway call), the `verify` node's input and output shown as digests
+(`digest: true`, key names only, byte count), and the trace metadata whose
+keys include `correlation_id` and `conversation_id`. Sanitized before
+committing: the left navigation rail, which carried the owner's account
+block, is cropped off, and the Langfuse public-key value in the metadata
+panel is blacked out.
+
 ## What was checked before committing
 
-- Every image was opened and inspected: chart geometry, axis labels, series
-  names, and panel titles only. No patient, user, email, organization, or
-  key appears in any image; the Langfuse sidebar (which shows the owner's
-  account) was excluded from the render.
+- Every image was opened and inspected. The panel renders and dashboard
+  screenshots show chart geometry, axis labels, series names, panel titles,
+  and the organization and project names only. The trace-view screenshot
+  was cropped and redacted as described above. No patient, user, email, or
+  key value appears in any committed image.
 - Every observation input and output in the trace export is `null` or a
   digest object from the client-side mask (ADR-0007). A mechanical scan of
   the raw JSON found no cohort patient keys, pid-like numbers, or demo

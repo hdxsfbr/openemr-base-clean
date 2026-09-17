@@ -12,7 +12,7 @@ evals/
   cases/          # One YAML per case plus cohort.json (pubpid -> pid)
   fixtures/       # Synthetic cohort (af-cohort-v1) and demo users
   results/        # Versioned run reports (JSON + Markdown); no secrets or PHI
-  error_analysis/ # Hand-filled journals from error_analysis.py sample (not committed until reviewed)
+  error_analysis/ # Journals from error_analysis.py sample, plus a screenshot of the review UI
   run.py          # Runner: live cases against a deployment, offline cases via pytest
   compare.py      # Diff two run reports (gates, scorecard, per-case latency)
   error_analysis.py  # Manual trace-review journal: sample unscripted turns, then report filled issues
@@ -197,6 +197,10 @@ localhost only on a network you trust and only with synthetic journals.
 One journal is committed so far (`2026-09-16T190727Z-journal.md`, 20
 traces across 14 patients, commit `413c788`); its First-issue and Notes
 fields are still blank, so it is unreviewed.
+`evals/error_analysis/review-ui-2026-09-16.png` shows the review UI open on
+that journal (0/20 reviewed): the trace list with status dots and filters,
+the clinician-facing summary and claims for the selected trace, and the
+First-issue and Notes fields.
 
 ## Case Format
 

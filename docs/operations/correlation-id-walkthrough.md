@@ -53,7 +53,9 @@ curl -s -u "$(cat ~/.config/agentforge/langfuse_public_key):$(cat ~/.config/agen
 Or search the trace list in the Langfuse UI for the id. The full export of
 this trace is committed at
 `docs/audit/evidence/observability/langfuse-trace-921f44e1-copilot-turn.json`
-with a summary alongside it.
+with a summary alongside it, and `langfuse-trace-view-2026-09-16.png` in the
+same folder shows how a trace, its digests, and its metadata keys look in
+the Langfuse UI.
 
 ## What the id does not carry
 
