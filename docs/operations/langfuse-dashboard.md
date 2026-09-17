@@ -11,6 +11,10 @@ a single line (the chart renderer collapses two metrics), so they became
 separate widgets; a "traces with errors" widget filtered on trace level
 and never fired, so it became an observation-level error count.
 
+Renders of the nine panels as of 2026-09-16, plus one full trace export,
+are committed for evaluators without project access under
+`docs/audit/evidence/observability/`.
+
 ## Panels and the PRD metric each covers
 
 | Panel | Definition | PRD metric |

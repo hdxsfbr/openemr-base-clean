@@ -103,7 +103,11 @@ conflict with OpenEMR's own `README.md`.
       *(Owner opened `https://openemr-137-184-4-22.sslip.io` from a phone on
       mobile data, 2026-09-16.)*
 - [ ] Repository URL and exact commit recorded.
-- [ ] Dashboard access or sanitized evidence prepared for evaluators.
+- [x] Dashboard access or sanitized evidence prepared for evaluators.
+      *(`docs/audit/evidence/observability/`: the nine Clinical Co-Pilot
+      dashboard panels rendered from the live page and one full trace export
+      with its correlation id, PHI-checked, 2026-09-16. The Langfuse project
+      itself stays private.)*
 - [x] Eval dataset and results included. *(`evals/cases/`, `evals/results/`.)*
 - [x] 3–5 minute demo recorded, reviewed, and uploaded. *(Early demo,
       2026-09-16: <https://youtu.be/oxm9xqJpiY8>; script `docs/DEMO_SCRIPT.md`.)*

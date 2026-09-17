@@ -50,7 +50,10 @@ curl -s -u "$(cat ~/.config/agentforge/langfuse_public_key):$(cat ~/.config/agen
   "https://us.cloud.langfuse.com/api/public/traces?limit=50" | grep -o '75a29aa756c7985f[^"]*'
 ```
 
-Or search the trace list in the Langfuse UI for the id.
+Or search the trace list in the Langfuse UI for the id. The full export of
+this trace is committed at
+`docs/audit/evidence/observability/langfuse-trace-921f44e1-copilot-turn.json`
+with a summary alongside it.
 
 ## What the id does not carry
 
