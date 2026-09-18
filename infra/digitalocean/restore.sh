@@ -214,7 +214,7 @@ else
     (cd "${work}" && sha256sum --check --quiet SHA256SUMS) || die 'SHA256SUMS check failed; the archive is damaged'
     printf '\n--- manifest ---\n'
     cat "${work}/manifest.txt"
-    printf '--- end manifest ---\n\n'
+    printf -- '--- end manifest ---\n\n'
 
     printf -v resolve_command 'bash -c %q' "${remote_resolve}"
     # shellcheck disable=SC2029

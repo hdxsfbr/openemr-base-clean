@@ -637,15 +637,38 @@ Droplet and the CI runner remain).
 Filled during the M4 rehearsal; an empty row means that step has not been
 rehearsed.
 
+Rehearsed 2026-09-18 against a `s-2vcpu-4gb` at `146.190.154.222`
+(`agentforge-rehearsal`), owner-run with the orchestrator driving once SSH was
+working and watching/timing throughout, per the human-gate above. Two real
+issues found and fixed along the way, not artifacts of the rehearsal itself:
+`deploy.sh`'s bootstrap-wait loop (36 attempts, 5s each = 180s) was too short
+for a droplet whose SSH agent identity wasn't resolving yet on the operator's
+machine (fixed locally with an `IdentityFile`/`IdentitiesOnly` pin in
+`~/.ssh/config`, not a script change); and `push-secrets.sh`'s call inside
+`deploy.sh` failing silently (`2>/dev/null ... || true`) meant the first T1
+attempt deployed with `llm_provider`/`tracer` both `not_configured` and the
+golden run passed 12/14 instead of 14/14 on two cases that require a real
+model turn — re-running `push-secrets.sh` directly surfaced and fixed it. T6
+also found and fixed a real `restore.sh` bug: `printf '--- end manifest
+---\n\n'` at line 217 made bash's `printf` builtin misparse the leading `---`
+as an option and abort (`printf: --: invalid option`) — always right after
+printing the manifest, always before the destructive part, so nothing was at
+risk, but the script never reached the confirmation prompt until fixed with
+`printf -- '...'`. Restore was proven to actually restore, not no-op: a real
+conversation turn created after the T3 backup came back
+`{"code":"invalid_request","message":"Unknown conversation."}` after the T6
+restore. Destroy left the account at exactly its pre-rehearsal resource count
+(the live Droplet and the CI runner only).
+
 | Step | Started (UTC) | Finished (UTC) | Wall-clock | Notes |
 | --- | --- | --- | --- | --- |
-| T1 clean deploy at HEAD | | | | |
-| T2 demo-seed and golden run | | | | |
-| T3 `backup.sh` | | | | |
-| T4 rollback to `week1` (to green `smoke.sh`) | | | | |
-| T5 roll forward to HEAD | | | | |
-| T6 `restore.sh` (to green `smoke.sh`) | | | | |
-| T7 destroy | | | | |
+| T1 clean deploy at HEAD | 08:47:03 | 08:49:39 | 2m36s | Second attempt; first attempt hit the SSH bootstrap-wait timeout (see above) and doesn't count toward this figure |
+| T2 demo-seed and golden run | 08:32:30 | 08:35:40 | 3m10s | 14/14 golden; includes recovering from the `push-secrets.sh` gap (see above) |
+| T3 `backup.sh` | 08:43:24 | 08:43:39 | 15s | `age` encryption; first attempt failed on a local gpg-agent/pinentry error, not counted |
+| T4 rollback to `week1` (to green `smoke.sh`) | 08:47:03 | 08:49:39 | 2m36s | 14/14 golden on `week1` too; expected orphan-container warning for `alerts` (absent in that tag) |
+| T5 roll forward to HEAD | 08:52:28 | 08:53:41 | 1m13s | All 5 services healthy, `alerts` back |
+| T6 `restore.sh` (to green `smoke.sh`) | 09:00:18 | ~09:03:37 | ~3m19s | Finish time is the first post-restore `/ready` check, not a captured `smoke.sh` timestamp; found and fixed the `printf` bug above |
+| T7 destroy | 09:11:55 | 09:12:~20 | ~25s | `tf.sh destroy` itself (droplet destruction was the long pole at 22s); confirmation typed, not auto-approved |
 
 ## Known Gotchas From the First Live Run (2026-09-14)
 
