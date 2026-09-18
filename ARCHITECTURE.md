@@ -699,6 +699,33 @@ unchanged (45.0 s before and after) — the fix relieves contention, and
 there is no contention to relieve below OpenEMR's saturation point. The
 30 s p95 threshold decision above is unaffected and still open.
 
+**Uncontended per-turn latency, same day
+(`docs/audit/evidence/performance/model-experiments-2026-09-18.md`).** The
+load-time fix above doesn't touch this number by design (it relieves
+contention; a single eval turn has none) — confirmed directly: real-model
+turn p95 at 10 concurrent users was 45.0 s before and after, identical to
+the millisecond. To actually move per-turn latency, amended ADR-0004
+decision 5's `max_plan_rounds` from 3 to 1 (commit `61ed997`): the
+follow-up `plan`->`retrieve` loop got one shot instead of up to three.
+Model-backed p95 dropped from 27.5 s to 18.0 s (-35%), follow-up p95 from
+28.9 s to 12.4 s (-57%), cost per turn from $0.0133 to $0.0103 (-23%), with
+every quality signal moving the same direction (46/46 eval cases passed,
+up from 45/46; more `complete` vs `partial` responses; fewer withheld
+claims) — first-turn p95 stayed flat as the control, since `plan` never
+runs on first turns. Separately tried routing `plan` alone to Haiku 4.5
+(keeping `narrate` on Sonnet 5, since `plan`'s job -- pick from ~7 known
+tools -- is bounded and structured, unlike `narrate`'s open-ended clinical
+synthesis): not adopted. Latency improved (p95 -35%) but cost went *up*
+16.5%, because Anthropic's prompt cache is keyed to model+prompt and
+`plan`/`narrate` calling different models stopped sharing the cached
+system-prompt/evidence-pack prefix (input tokens 4.3x, cache-read tokens
+less than half) -- a real architectural cost of per-node model-mixing that
+doesn't show up until measured. Also produced one blocking-gate failure and
+a genuine recall miss on a conflict-detection case Sonnet 5 passes
+reliably, independent of the caching cost. `plan_model_id` /
+`plan_model_supports_effort` (`agent/app/settings.py`) stay in the code as
+tested, no-op-by-default infrastructure for a future revisit.
+
 ## Observability
 
 **Decided (ADR-0007).** Langfuse's native LangGraph callback handler in

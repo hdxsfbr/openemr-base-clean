@@ -3,7 +3,9 @@
 - **Status:** Accepted 2026-09-15 (owner chose LangGraph from the start on
   2026-09-14 after reviewing the Weeks 1–3 syllabus; approved with
   ADR-0005..0007 on 2026-09-15; model amended to Sonnet 5 the same day on
-  measured latency)
+  measured latency; decision 5's plan-round bound amended 2026-09-18,
+  3 -> 1, on measured latency/cost/quality —
+  `docs/audit/evidence/performance/model-experiments-2026-09-18.md`)
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (agent service)
 - **Related requirements:** PRD "Agentic Chatbot" (multi-turn, tool
@@ -49,8 +51,11 @@ cache-friendly regardless of orchestration.
    (model call with structured output bound to `TurnClaims`), `verify`
    (deterministic), `repair` (one model call with rejections), `render`
    (assemble `TurnResponse`, emit events). Conditional edges: `plan` to
-   `retrieve` at most 3 rounds and 8 tool calls per turn; `narrate` failure
-   or budget exhaustion to `render` with the deterministic brief (CAP-08);
+   `retrieve` at most 1 round (amended 2026-09-18 from 3: p95 down 35%, cost
+   down 23%, 46/46 eval cases, quality signals improved, no case requiring a
+   second round found — `docs/audit/evidence/performance/
+   model-experiments-2026-09-18.md`) and 8 tool calls per turn; `narrate`
+   failure or budget exhaustion to `render` with the deterministic brief (CAP-08);
    `verify` with rejections and no repair yet to `repair`, otherwise to
    `render`. Per-turn wall clock 12 s enforced around the graph run. No
    interrupts in Week 1; the human-in-the-loop node arrives with Week 2.

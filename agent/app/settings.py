@@ -42,8 +42,9 @@ class Settings(BaseSettings):
     model_timeout_seconds: float = 30.0
     max_output_tokens: int = 1800
 
-    # Bounds (ADR-0004 decision 5).
-    max_plan_rounds: int = 3
+    # Bounds (ADR-0004 decision 5, amended 2026-09-18: 3 -> 1 on measured latency/quality;
+    # see docs/audit/evidence/performance/model-experiments-2026-09-18.md).
+    max_plan_rounds: int = 1
     max_tool_calls_per_turn: int = 8
     turn_wall_clock_seconds: float = 45.0  # measured first-turn narration on Opus 5 exceeds the 12 s design budget; see KEY_METRICS.md
     tokens_per_turn: int = 20_000
