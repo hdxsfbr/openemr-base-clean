@@ -342,6 +342,75 @@ through 2026-09-17.
   token halt that routes to the deterministic fallback (`agent/app/budget.py`,
   ADR-0004). Measured $0.012 to $0.014 per model-backed turn at list price
   with prompt caching (eval scorecards).
+- **OpenEMR web tier — a separate axis from the agent above, not yet load
+  tested.** The deployed `openemr` container is the official
+  `openemr/openemr:8.1.1` image, built from `docker/release/` (Alpine,
+  PHP-FPM behind Apache via FastCGI proxy, `docker/release/openemr.conf:213`).
+  Nothing in `docker/release/` sets `pm.max_children` (absent from the whole
+  directory), so the pool runs on Alpine's packaged php-fpm default — commonly
+  a small fixed worker count, though this has not been confirmed by reading
+  the live container's `/usr/local/etc/php-fpm.d/www.conf` or by a load test
+  that isolates FPM queuing (503/504s, workers pegged) from CPU saturation
+  (slow but successful responses). That gap is a plausible, **unverified**
+  explanation for the operator-observed step-function failure between 5 and
+  10 concurrent users on the production Droplet. `docker/binary/` is the
+  variant OpenEMR itself documents for this
+  (`docker/binary/php-fpm.d/www.conf`: `pm.max_children = 50`;
+  `docker/binary/README.md:168-189`: "Horizontal Scaling ... Kubernetes,
+  Docker Swarm").
+  - **Same-box mitigation, untested.** Raise `pm.max_children` / tune OPcache
+    on the current `s-2vcpu-4gb` Droplet before spending anything on new
+    infrastructure. Idle-container RSS is ~333 MiB
+    (`docs/audit/performance.md:237`), well under the 512 MB per-worker
+    `memory_limit`, so RAM headroom exists on paper; the 2 vCPUs remain a real
+    ceiling for simultaneously *rendering* requests, since `PERF-MED-002`
+    (`docs/audit/performance.md:73`) already found the patient dashboard
+    costs ≈1,045 SQL statements and is CPU-bound, not I/O-bound. Needs a load
+    test to turn "should help" into a number.
+  - **Horizontal option, priced, not built.** Load balancer + N
+    `docker/binary` app nodes + managed MySQL + managed Valkey (externalizing
+    PHP sessions, which are container-local today) + one shared NFS node for
+    `sites/documents` (also container-local today). DigitalOcean list pricing
+    checked 2026-09-18: ≈$107/mo (2 lean app nodes, single non-HA DB/Valkey)
+    to ≈$177/mo (3 nodes, right-sized DB, still no failover) to ≈$277/mo
+    (4 nodes plus DB/Valkey standbys), against the current single-Droplet
+    $24/mo (`infra/digitalocean/variables.tf:13-16`). Not implemented, not
+    load-tested, no ADR — a brainstormed answer to "how would you scale
+    this," not a plan committed in `infra/`.
+  - **Multi-cloud comparison, same topology, priced, not built.** Same shape
+    (LB + N app nodes + managed MySQL + managed Redis/Valkey + shared NFS for
+    `sites/documents`) repriced on AWS, Azure, and GCP list pricing checked
+    2026-09-18, to have an answer ready for "wouldn't a bigger cloud be
+    cheaper" before it's asked. DigitalOcean is not the outlier here — it
+    lands mid-pack, and is cheapest of the four at the HA tier:
+
+    | Tier | DigitalOcean | AWS | Azure | GCP |
+    | --- | --- | --- | --- | --- |
+    | Lean (2 app nodes, no HA) | $107 | $77 | $119 | $102 |
+    | Balanced (3 app nodes) | $177 | $192 | $164 | $226 |
+    | HA (4 nodes + DB/cache standby) | $277 | $291 | $248 | $370 |
+
+    AWS wins the lean tier on EFS's pure pay-per-GB pricing (no minimum) and
+    tiny RDS/ElastiCache SKUs; Azure wins once sized up, since its Flexible
+    Server MySQL and Premium Files NFS scale more gently than AWS's or GCP's
+    equivalents. GCP is the outlier, and it is two specific pricing floors,
+    not a general "GCP costs more": Memorystore for Redis has no tier under
+    1 GB (≈$36/mo for what is a few MB of session data), and Filestore's
+    cheapest tier has a 1 TB minimum (≈$164/mo alone) — wrong-sized for a
+    `sites/documents` share this small, so the GCP column substitutes a
+    self-managed NFS box, the same workaround this design already uses on
+    every provider for that reason. Several DB/cache line items are
+    extrapolated from a confirmed unit rate rather than a quoted price for
+    that exact SKU (RDS/Azure MySQL 2vCPU/4GB tiers; GCP Cloud SQL via
+    Google's own published `$30.11/vCPU + $5.11/GB` formula, cross-checked
+    against Google's worked 4vCPU/15GB example). Two omissions matter more
+    than the table: none of this includes committed-use/reserved-instance
+    discounts, which the three hyperscalers offer (typically 30-50% off
+    compute/DB on a 1-3yr term) and DigitalOcean largely does not; and none
+    of it includes egress, where DigitalOcean bundles materially more free
+    outbound transfer per Droplet than the per-GB charges the other three
+    apply past a small free tier. Same status as the DigitalOcean figures
+    above: not implemented, not load-tested, no ADR.
 
 ### 3. Reliability requirements
 
