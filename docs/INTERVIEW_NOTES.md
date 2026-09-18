@@ -125,7 +125,7 @@ Evidence: `agent/app/verifier.py:98-120`; `docs/adr/0006-verification-strategy.m
 
 **Q7. How do you know it works — what does the suite actually assert?**
 
-45 YAML cases run against the real deployment, driving the real login, chart
+46 YAML cases (45 in the latest recorded run, `a4a5856`; `ISO-FRESH-REPEAT-001` was added 2026-09-17 and has not run yet) run against the real deployment, driving the real login, chart
 open, session, ticket and turn handshake as different users; 14 are a golden
 smoke tier and 4 are a holdout tier excluded from filtered runs. The
 assertions are deterministic — HTTP status, authorization outcome, evidence
@@ -224,18 +224,21 @@ the agent logs, the metrics and the trace; traces go to Langfuse Cloud through
 a client-side mask that replaces every payload with a digest, and the agent's
 own logs are PHI-free JSON. `/metrics` is a Prometheus-style endpoint and
 `agent/app/alerts.py` evaluates the three PRD alerts over two samples of it —
-but it is run on demand: the runbook's cron line is documented, not installed,
-and the runtime compose file has no `alerts` service. Rollback is redeploying
+on the live host still run on demand; the `alerts` compose service
+(`--interval 300`, in the tree since 2026-09-17) reaches the host at the M3
+deploy. Rollback is redeploying
 the previous commit with the same script and needs no data migration because
 the co-pilot is read-only, but it has never been rehearsed, there are no
 backups, and the whole deployment is a single Droplet and therefore one
 failure domain. Cost is bounded by token caps (20K per turn, 60K per
 conversation) and a daily 2,000,000-token halt that routes every further turn
 to the deterministic fallback; the measured $0.0127 per model-backed turn sits
-below the $0.0223 projection basis, but no threshold is configured, so the
-eval runner prints the number and reports the gate as NOT CONFIGURED.
+below the $0.0223 projection basis, which has been the configured gate since
+2026-09-17 (`evals/run.py` `cost_gate()`: PASS at or under $0.0223, PASS
+(warn) to $0.0446 with risk acceptance in the report, FAIL and blocking
+above; NOT CONFIGURED only for a run with no model-backed turn).
 
-Evidence: `agent/app/alerts.py:1-24`; `docs/operations/alerts.md:198-203`; `evals/run.py:647`; `AI_COST_ANALYSIS.md:63`.
+Evidence: `agent/app/alerts.py:1-24`; `docs/operations/alerts.md:203-233`; `evals/run.py:146`, `:593`; `AI_COST_ANALYSIS.md:63`.
 
 ### Coding workflow
 
@@ -271,14 +274,14 @@ the right-hand column is implemented.
 | --- | --- | --- | --- |
 | Edge path allowlist | Deployed. Caddy denies by default; only OpenEMR application paths, `/copilot-api/*` and `/meta/health/livez` are routed, and the module's `gateway/` and `bin/` paths return 404 from the edge | — | `infra/digitalocean/runtime/Caddyfile:22-40` |
 | Secrets | Deployed as Compose file secrets (nine), mounted only into the containers that need them; no key in an image or an environment dump | Docker Swarm / KMS-managed secrets | `infra/digitalocean/runtime/compose.yaml:191-209` |
-| `/ready` tracer check | Presence-only. It returns `configured` when the two Langfuse key files are non-empty and sends no request; the gateway and LLM checks are real probes | An actual `GET` against the Langfuse API with a timeout | `agent/app/readiness.py:73-76` |
-| Alerts | Run on demand. `python -m app.alerts` against `/metrics`, executed by hand | A compose `alerts` service every 300 s; the runbook's cron line is documented, not installed, and no `alerts` service exists in the runtime compose file | `docs/operations/alerts.md:198-203`; `infra/digitalocean/runtime/compose.yaml` (services: `database`, `openemr`, `copilot-setup`, `demo-seed`, `agent`, `caddy`) |
-| Rollback | Procedure only: redeploy the previous commit with the same script, no data migration because the co-pilot is read-only | **Never rehearsed.** Listed as "documented, not changed here" | `docs/deployment/digitalocean.md:388-392` |
-| Backups | **None.** Backups are disabled on the Droplet and the disposable cycle has no backup by design | Backup, restore and snapshot procedure | `docs/deployment/digitalocean.md:226`, `:316` |
+| `/ready` tracer check | A real probe since 2026-09-17: `GET /api/public/projects` on the Langfuse host with basic auth and a 5 s timeout; `reachable` on 200, `http_<code>` or the httpx error class otherwise, and either fails readiness; the three network checks run concurrently. Verified offline only until the M3 deploy | `tracer: reachable` observed on the Droplet | `agent/app/readiness.py:81-100`; `agent/tests/test_health.py::test_ready_is_503_when_tracer_unreachable` |
+| Alerts | On the live host today: run on demand by hand. In the tree since 2026-09-17: the `alerts` compose service (`python -m app.alerts ... --interval 300`, agent image, state on the `agent_state` volume, health check disabled), on the host from the M3 deploy | Webhook delivery to a pager; the service only logs | `infra/digitalocean/runtime/compose.yaml` (services: `database`, `openemr`, `copilot-setup`, `demo-seed`, `agent`, `alerts`, `caddy`) |
+| Rollback | Procedure only: redeploy tag `week1` from `git worktree add /tmp/rb week1` with the same `deploy.sh`, no data migration because the co-pilot is read-only | **Never rehearsed.** The rehearsal runbook (throwaway Droplet in a `rehearsal` Terraform workspace; the live Droplet excluded by construction) is written and is the M4 step, with an empty timing table until it runs | `docs/deployment/digitalocean.md`, "Rehearsal Runbook" |
+| Backups | **None taken.** Droplet backups are disabled; `infra/digitalocean/backup.sh` (encrypted archive of the database dump, two volumes, secrets and `.env`) and `restore.sh` exist since 2026-09-17 and have not been run against a host | First backup and a restore on the rehearsal Droplet (M4); the Droplet snapshot before the load tests | `infra/digitalocean/backup.sh`, `restore.sh`; `docs/deployment/digitalocean.md`, "Backup and Restore" |
 | Egress restriction | **None.** The firewall allows all outbound TCP, UDP and ICMP | Egress limited to the LLM and tracing endpoints, plus a blocked-egress test | `infra/digitalocean/main.tf:54-70`; `AUDIT.md` remediation table, row SEC-MEDIUM-504 |
-| Load test | **Not run.** There is no load driver in the repository and no 10- or 50-user measurement | 10- and 50-user runs with p50/p95/p99, error rate and peak CPU/memory | no `evals/load/` in the tree; `docs/audit/INTERVIEW_NOTES.md:130-131` |
-| Verification pass/fail panel | **Not present.** `Verification.outcome` is computed per turn and discarded; `/metrics` exposes `copilot_verifier_rejections_total` but no pass/fail counter, and the dashboard's nine panels have neither verification outcome nor error rate | `copilot_verification_total{outcome}` plus trace scores and two panels | `agent/app/api.py:110-115`; `agent/app/metrics.py:55-79` |
-| Cost gate | **NOT CONFIGURED.** The runner hardcodes that state and prints the measured cost; $0.0127 per model-backed turn measured, $0.0223 projection basis | A configured threshold with warn and block multiples | `evals/run.py:647`; `AI_COST_ANALYSIS.md:63` |
+| Load test | **Not run.** The driver `evals/load/run_load.py` and the sampler `docs/audit/scripts/droplet-stats.sh` exist since 2026-09-17 (tested offline); no 10- or 50-user measurement yet (M4, human-gated) | 10- and 50-user runs with p50/p95/p99, error rate and peak CPU/memory | no `evals/load/` in the tree; `docs/audit/INTERVIEW_NOTES.md:130-131` |
+| Verification pass/fail panel | **Counter and scores since 2026-09-17, panels not built.** `/metrics` exposes `copilot_verification_total{outcome}` and every `copilot.turn` trace carries the `verification_passed` and `turn_error` scores; the dashboard's nine panels still have neither verification outcome nor error rate | The two panels over the scores in the Langfuse UI (owner action) | `agent/app/turn_outcome.py`; `agent/app/telemetry.py` (`finish_turn_trace`); `docs/operations/langfuse-dashboard.md` |
+| Cost gate | **Configured 2026-09-17.** PASS at or under $0.0223 per model-backed turn, PASS (warn) to $0.0446 with risk acceptance, FAIL above; $0.0127 measured at `a4a5856` | A cost alert on daily spend ($14 warn, $42 page) is still manual from `/metrics` | `evals/run.py:146`, `:593`; `AI_COST_ANALYSIS.md` Part B |
 | Agent-level denials | Counted in `/metrics` (`copilot_denials_total{reason}`) and in the agent's logs only. They never reach the gateway, so **they leave no OpenEMR audit row**; gateway-level denials do | An audit path for denials rejected at the agent API | `ARCHITECTURE.md` "Open Items" item 9; `agent/app/api.py:49`, `:57` |
 | `CONF-NOTE-VS-LIST-N-001` | **Missed** in the 2026-09-17 run: the model did not raise the planted note-versus-list conflict. Non-blocking task-success gate, 95%, PASS | A deterministic note-versus-list conflict detector | `evals/results/2026-09-17T024919Z-a4a5856.md:19`, `:123` |
 | Error-analysis journal | **Unreviewed.** 20 traces across 14 patients are sampled and committed; all 20 First-issue and Notes fields are blank | Fill all 20, run the report, commit the issue list | `evals/error_analysis/2026-09-16T190727Z-journal.md:23`; `evals/README.md:197-199` |
@@ -406,10 +409,12 @@ through 2026-09-17.
   record limits (labs 50, notes 20) with a `truncated` flag; a five-year
   synthetic chart (`AF-HEAVY`) is in every eval run to keep this honest.
 - **Cost per query.** $0.0127 measured per model-backed turn in the latest
-  run, against a projection basis of $0.0223 in `AI_COST_ANALYSIS.md:63`. No
-  cost threshold is configured: `evals/run.py:647` hardcodes the gate to NOT
-  CONFIGURED and prints the measured number, so the run reports the cost, it
-  does not judge it.
+  run (`a4a5856`), against the $0.0223 projection basis in
+  `AI_COST_ANALYSIS.md` Part B, which has been the configured gate since
+  2026-09-17 (`evals/run.py` `COST_PER_TURN_PROJECTION_USD`, `cost_gate()`):
+  PASS at or under $0.0223, PASS (warn) to $0.0446 with risk acceptance in
+  the report, FAIL and blocking above; NOT CONFIGURED only for a run with no
+  model-backed turn. The run judges the cost as well as reporting it.
 
 ### 7. Tool design
 
@@ -451,10 +456,10 @@ through 2026-09-17.
   (`agent/app/metrics.py:68-70`).
 - **Real-time monitoring.** Prometheus-style `/metrics` on the agent, and
   `agent/app/alerts.py`, which evaluates the three PRD alerts against the
-  thresholds in `KEY_METRICS.md` over two samples. It is **run on demand**:
-  the cron line in `docs/operations/alerts.md:198-203` is documented, not
-  installed, and the runtime compose file has no `alerts` service. Wiring it
-  as a compose service every 300 s is the planned fix.
+  thresholds in `KEY_METRICS.md` over two samples. On the live host it is
+  **run on demand**; the `alerts` compose service (every 300 s,
+  `infra/digitalocean/runtime/compose.yaml`, in the tree since 2026-09-17)
+  reaches the host at the M3 deploy.
 - **Cost tracking.** Token usage and model cost per generation in every
   trace; per-turn usage in the API response; cost per turn in every eval
   scorecard.
@@ -613,9 +618,10 @@ through 2026-09-17.
   live suite and the Bruno collection pass (`infra/digitalocean/deploy.sh`).
 - **Monitoring and alerting.** Langfuse dashboard (nine panels), `/health`,
   `/metrics`, and `/ready`. `/ready` really probes the gateway (`ping.php`)
-  and the LLM (`models.retrieve`); its tracer check is presence-only — it
-  returns `configured` when the two key files are non-empty and sends no
-  request (`agent/app/readiness.py:73-76`). The panel itself probes `/health`,
+  and the LLM (`models.retrieve`), and since 2026-09-17 the tracer too
+  (`GET /api/public/projects` on the Langfuse host with basic auth and a 5 s
+  timeout, `agent/app/readiness.py:81-100`; verified offline until the M3
+  deploy). The panel itself probes `/health`,
   not `/ready` (`copilot.js:485`). Alerts have page and warn thresholds and
   are run on demand, not on a schedule.
 - **Rollback.** Images are built from the repository at a commit; rolling

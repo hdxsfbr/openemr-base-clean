@@ -94,7 +94,7 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
 - **ADR**: Architecture Decision Record, the one-page "we chose X because"
   documents in `docs/adr/`.
 - **Eval**: an automated test of the agent's behavior against fixtures. One
-  YAML file per case under `evals/cases/` (45 as of 2026-09-16), run by
+  YAML file per case under `evals/cases/` (46 as of 2026-09-17), run by
   `evals/run.py`; `live` cases drive a deployment, `offline` cases delegate
   to pytest node ids under `agent/tests/`.
 - **Golden set**: the `tier: golden` cases (14), deterministic and free of
@@ -111,7 +111,7 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   `evals/run.py` against the case manifest and printed at the top of every
   report in one of five states: PASS, FAIL, NOT RUN (a case, role, or fixture
   the gate needs did not execute; blocks like FAIL), NOT MEASURED (the runner
-  cannot measure it yet), NOT CONFIGURED (no threshold yet). A full run's
+  cannot measure it yet), NOT CONFIGURED (nothing to judge in this run: the cost gate when no turn was model-backed). A full run's
   exit code follows the blocking gates.
 - **Recall check**: an eval assertion on the model's own claims or wording
   (`claims_include`, `text_must_match`), reported with a `recall:` prefix;

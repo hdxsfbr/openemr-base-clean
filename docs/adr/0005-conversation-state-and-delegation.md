@@ -17,8 +17,8 @@
   denied before any tool call (`AUTH-CLOSED-CONVERSATION-001`). Still open:
   same question across fresh conversations, two users on one patient, reused
   `jti`, ticket after logout, the 24 h TTL sweeper (no sweeper found in
-  `agent/app/` as of this note), and the checkpoint-content test
-  (`ARCHITECTURE.md` open item 6).
+  `agent/app/` as of this note). The checkpoint-content test
+  (`ARCHITECTURE.md` open item 6) was added 2026-09-17 (see Verification).
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (module and agent service)
 - **Related requirements:** PRD "multi-turn AI agent that can maintain
@@ -145,9 +145,16 @@ memory.
   (`src/Conversation/ConversationRepository.php:83`) implements the binding
   delete but has no caller and no schedule, and no checkpoint sweeper exists.
   Retention is a design target until one lands.
-- Checkpoint content test: **still to add.** No test in `agent/tests/`
-  asserts that tool record fields (values, note text) are absent from a
-  stored checkpoint after a full turn on `AF-HEAVY`.
+- Checkpoint content test: added 2026-09-17,
+  `agent/tests/test_controls.py::test_checkpoint_holds_no_note_body_record_shape_or_token`.
+  After a UC-01 turn and a notes follow-up on the af-dq-a2 fixtures through
+  `AsyncSqliteSaver`, every table and column of the checkpoint is scanned: no
+  raw record key (derived from the record contracts minus the keys graph
+  state carries by design), no verbatim note body, and no delegation token.
+  Lab values and doses are not asserted absent because verified claims carry
+  them. The test found the token in graph state (`TurnState.token` at
+  `66a6711`); it now lives in the per-turn cache (`state_store.put_token`).
+  `AF-HEAVY` has no offline fixture, so the offline check runs on af-dq-a2.
 
 ## Revisit Triggers
 

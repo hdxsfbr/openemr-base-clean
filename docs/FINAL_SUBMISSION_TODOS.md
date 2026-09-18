@@ -176,9 +176,9 @@ checklist :8-15.
   (`evals/README.md:197-199`, `PROJECT_PLAN.md:208-211`,
   `INTERVIEW_NOTES.md:292-294`). Do not change the agent or prompt.
 
-- [ ] **Set the cost-per-turn release threshold and wire the eval gate** (P1, S)
+- [x] **Set the cost-per-turn release threshold and wire the eval gate** (P1, S) — done 2026-09-17 (M2 WS-EVAL E1: `evals/run.py` `COST_PER_TURN_PROJECTION_USD`, `cost_gate()`; AI_COST_ANALYSIS.md basis and daily-budget paragraphs via the doc-apply pass)
   Why: `KEY_METRICS.md:27` and :91 promise a threshold "with the first
-  measured token mix"; every report prints NOT CONFIGURED (`evals/run.py:647`).
+  measured token mix"; every report up to `a4a5856` prints NOT CONFIGURED (the hard-coded row, `evals/run.py:647` at that commit); since 2026-09-17 the row is judged by `cost_gate()` and a full run prints a real state.
   Do: `COST_PER_TURN_PROJECTION_USD = 0.0223` beside `PRICE_PER_MTOK`
   (run.py:141); gate PASS at or under $0.0223, warn between 1x and 2x with
   risk acceptance, block above $0.0446; keep NOT CONFIGURED only when there

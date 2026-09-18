@@ -235,8 +235,12 @@ The easy-development stack is not suitable for public deployment:
 - [x] Create a production-oriented Compose and Terraform configuration.
 - [x] Add secret management, real TLS, and restricted networks (file secrets,
       Let's Encrypt via Caddy, internal database network, agent on the
-      frontend network only). Backups and rollback instructions remain.
-- [ ] Add backups and rollback instructions.
+      frontend network only). Backups and rollback instructions are written
+      but untested (next item).
+- [x] Add backups and rollback instructions (`infra/digitalocean/backup.sh`,
+      `restore.sh`, and the rehearsal runbook in
+      `docs/deployment/digitalocean.md`, 2026-09-17). Untested until the M4
+      rehearsal; the checklist item stays open until then.
 - [ ] Fold the final concise setup path into the root `README.md`.
 
 ## Public Deployment Baseline

@@ -35,8 +35,9 @@ resumes at line 51).
       ADR-0002..0007; owner-approved 2026-09-15, Stage 5 gate passed.)*
 - [x] `KEY_METRICS.md` defines and justifies product-success metrics.
       *(Definitions, targets, gaming defenses, and decision thresholds
-      approved 2026-09-15; latency and cost thresholds provisional until the
-      load baseline.)*
+      approved 2026-09-15; latency thresholds provisional until the load
+      baseline; the cost gate was configured 2026-09-17 at the $0.0223
+      projection, warn to $0.0446, block above.)*
 - [x] `docs/REQUIREMENTS_TRACEABILITY.md` links requirements to current evidence.
       *(Refreshed 2026-09-16 against the eval run and the live deployment.)*
 
@@ -67,7 +68,12 @@ resumes at line 51).
       2026-09-16. Evaluator screenshots are attached:
       `docs/audit/evidence/observability/` holds the nine panel renders, two
       full-page dashboard captures, a trace-view capture, and one exported
-      trace with its correlation id.)*
+      trace with its correlation id. Verification pass/fail rate and error
+      rate are not on those nine panels; since 2026-09-17 every trace carries
+      the `verification_passed` and `turn_error` scores and `/metrics` has
+      `copilot_verification_total{outcome}`, and the two panels over the
+      scores are an owner action in the Langfuse UI before the final
+      capture.)*
 - [x] Eval suite includes boundary, invariant, and regression cases. *(Release
       gate: latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` at
       a4a5856, all 45 cases, 44 passed, every blocking gate PASS, Golden set
@@ -94,11 +100,12 @@ resumes at line 51).
       *(`agent/tests/test_health.py`: liveness echoes or mints the correlation
       id, `/ready` is 503 when a dependency fails and 200 when all pass; runs
       in CI `test:agent`; Bruno `4 Health` requests against the deployment.
-      OpenEMR's own `readyz` stays unrouted by design. The traceability row is
-      still "In progress" for a second reason: `/ready`'s tracer entry is
-      presence-only — `check_tracer` (`agent/app/readiness.py`) reads the two
-      Langfuse key files and sends no request, so an unreachable tracer still
-      reports ready. The panel probes `/health`, not `/ready`
+      OpenEMR's own `readyz` stays unrouted by design. `/ready` probes the
+      tracer since 2026-09-17 (`GET /api/public/projects` on the Langfuse host
+      with basic auth, 5 s timeout; `test_ready_is_503_when_tracer_unreachable`),
+      and the three network checks run concurrently. The traceability row
+      stays "In progress" until the M3 deploy shows `tracer: reachable` on the
+      Droplet. The panel probes `/health`, not `/ready`
       (`public/assets/js/copilot.js:485`).)*
 - [x] GitLab pipeline green on the submitted commit. *(Pipeline 23777 on
       3415bac, 2026-09-16: four lints, agent tests, offline evals green on the
@@ -147,16 +154,34 @@ resumes at line 51).
 - [ ] Early checklist rerun against the final commit and deployment.
 - [ ] Interview feedback addressed or documented as a tradeoff.
 - [x] Three required alert definitions and on-call responses are documented.
-      *(`docs/operations/alerts.md`, `agent/app/alerts.py`, 2026-09-16.)*
+      *(`docs/operations/alerts.md`, `agent/app/alerts.py`, 2026-09-16.
+      Scheduled on the host by the `alerts` service in
+      `infra/digitalocean/runtime/compose.yaml` every 300 s since 2026-09-17;
+      live from the M3 deploy.)*
 - [ ] CPU, memory, latency, and throughput baselines recorded.
 - [ ] Load tests run at 10 and 50 concurrent users with p50/p95/p99 and errors.
+      *(Driver `evals/load/run_load.py` and sampler `docs/audit/scripts/droplet-stats.sh`
+      built and tested offline 2026-09-17 (M2); the run is M4 and human-gated. Results
+      will land in `evals/load/results/`; none exist yet. Expected 50-user failure shapes
+      are written down in `evals/load/README.md` before the run.)*
 - [ ] Actual development cost and 100/1K/10K/100K-user projections complete in
       `AI_COST_ANALYSIS.md`.
 - [ ] Backup, restore, migration, rollback, and clean-deploy procedures tested.
+      *(Not yet. `infra/digitalocean/backup.sh` and `restore.sh` (encrypted archive of the
+      database dump, the `openemr_sites` and `agent_state` volumes, secrets and `.env`;
+      restore re-initialises the database volume from the restored secrets) and the
+      rehearsal runbook in `docs/deployment/digitalocean.md` exist since 2026-09-17; the
+      rehearsal on a throwaway Droplet — clean deploy, rollback to `week1`, roll forward,
+      restore, destroy — is M4 and human-gated. Migration is not applicable: the co-pilot
+      is read-only and owns no schema beyond the module's registration.)*
 - [ ] Residual risks and real-clinical-use limitations are explicit.
-- [ ] Final 3–5 minute demo recorded and uploaded.
+- [ ] Final 3–5 minute demo recorded and uploaded. *(Script: `docs/DEMO_SCRIPT.md`,
+      revised 2026-09-17 for the release-run numbers; every number that does not exist
+      yet is a visible `<pending M4>` or `<pending M5>` placeholder and is not read aloud.)*
 - [ ] Final live URL and repository commit tested.
-- [ ] Social post published and linked.
+- [ ] Social post published and linked. *(Draft: `docs/SOCIAL_POST.md`, LinkedIn and X
+      versions, 2026-09-17; links the public GitHub fork and a `<final video URL>`
+      placeholder, never the GitLab.)*
 - [ ] Final AI interview completed within its required window.
 - [ ] Final submission completed before the portal deadline.
 

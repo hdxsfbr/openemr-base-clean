@@ -18,7 +18,7 @@ dashboard.
 | Severity | Meaning | Delivery |
 | --- | --- | --- |
 | `warn` | Logged. Look at it during the next working session. | JSON line in the job output; webhook when configured |
-| `page` | The owner acts now. | Same, plus exit code 2 so cron, CI, or a wrapper can escalate |
+| `page` | The owner acts now. | Same; in one-shot mode exit code 2 so CI or a wrapper can escalate. The `alerts` compose service loops with `--interval 300` and never exits, so there the escalation is `--webhook` or a watch on `docker compose logs alerts` for `"severity": "page"` |
 
 ## Alert 1: turn latency
 
@@ -79,7 +79,7 @@ chart is a note in the eval report, not a fix).
 | Field | Value |
 | --- | --- |
 | Metric | `copilot_requests_total{path,status}`; numerator `status="5xx"`, denominator all requests, both excluding the probe path classes `health`, `ready`, `metrics`, `root` (`PROBE_PATHS` in `app/alerts.py`) |
-| Window | The counter delta since the previous run (5 minutes with the cron line below; cumulative since process start on the first run) |
+| Window | The counter delta since the previous run (5 minutes with the `alerts` service below; cumulative since process start on the first run) |
 | Warn | Above 0.5% |
 | Page | Above 2%, or `/ready` returning an error for 2 minutes (needs `--ready-url`) |
 
@@ -127,8 +127,8 @@ also means the fix has an eval.
 
 | Field | Value |
 | --- | --- |
-| Metric | `copilot_tool_calls_total{tool,status}`; numerator `status="unavailable"`, denominator all statuses (`ok`, `empty`, `partial`, `unavailable`) |
-| Window | The counter delta since the previous run (5 minutes with the cron line below) |
+| Metric | `copilot_tool_calls_total{tool,status,reason}`; numerator `status="unavailable"` excluding `reason="forbidden"`, denominator all statuses (`ok`, `empty`, `partial`, `unavailable`) including the denials |
+| Window | The counter delta since the previous run (5 minutes with the `alerts` service below) |
 | Warn | Above 2% across all tools |
 | Page | Above 5% across all tools, or one tool above 50% of its own calls |
 
@@ -138,11 +138,14 @@ service path (PERF-MED-001, where the medication service raised on a healthy
 chart). A failing tool is an OpenEMR or gateway defect and is never accepted.
 `empty` and `partial` are successful retrievals and do not count.
 
-Known gap. `KEY_METRICS.md` excludes `forbidden` from this rate, but the
-metric carries only `status`, and `forbidden` is a reason underneath
-`status="unavailable"` in `app/gateway_client.py`. Until a `reason` label is
-added to the metric, a burst of denials shows up here as well as in
-`copilot_denials_total`; read both before concluding a tool is broken.
+Authorization denials are not failures. The metric carries a bounded
+`reason` label (`TOOL_REASONS` in `app/contracts/tools.py` plus `none`,
+`other`, and `http_Nxx`), and `reason="forbidden"` is left out of the
+numerator only, so a front-desk user denied on every clinical tool moves
+`copilot_denials_total` at the gateway and this rate not at all
+(`test_tool_failure_ignores_forbidden_denials`: six denials among forty
+calls, no alert). A burst of `forbidden` on a user who should have access is
+a delegation or ACL problem, read from the gateway's audit rows.
 
 What it usually means. One clinical service path broke (schema change,
 upstream bug, database), the gateway is timing out (2 s per tool), or the
@@ -154,9 +157,11 @@ First response.
 1. Read the alert message: it names the tool when one tool is over 50%.
 2. `GET /copilot-api/ready`; `openemr_gateway` failing means the whole path is
    down, not one tool.
-3. In Langfuse, open a recent trace and read the tool spans; the `reason`
-   (`timeout`, `transport_error`, `http_5xx`, `forbidden`,
-   `contract_violation`) is on the span, not in the metric.
+3. Read `copilot_tool_calls_total` by `reason` first (`timeout`,
+   `transport_error`, `http_5xx`, `forbidden`, `contract_violation`,
+   `service_error`, `audit_unavailable`, ...; the exact code of an
+   `http_<code>` is on the tool span in Langfuse, the metric keeps only the
+   class), then open a recent trace in Langfuse and read the tool spans.
 4. `GET /meta/health/livez`, then run the failing tool's fixture test against
    the stack (the Bruno collection under `docs/api-collection` has one request
    per tool).
@@ -195,21 +200,37 @@ exiting; `--webhook URL` POSTs each alert record as JSON and is off by
 default; `--timeout` sets the HTTP timeout (10 s default). The thresholds
 and the rate math are covered by `agent/tests/test_alerts.py`.
 
-Cron on the Droplet, every 5 minutes so that the rate window matches
-`KEY_METRICS.md`, using the container so no second Python install is needed:
+On the Droplet the evaluation is scheduled by the `alerts` service in
+`infra/digitalocean/runtime/compose.yaml` (added 2026-09-17, on the host
+from the M3 deploy). It runs the agent image with
 
-```cron
-*/5 * * * * cd /opt/agentforge && docker compose exec -T agent python -m app.alerts --url http://127.0.0.1:8080/metrics --ready-url http://127.0.0.1:8080/ready --state /var/lib/copilot/alerts-state.json >> logs/alerts.log 2>&1; [ $? -eq 2 ] && echo "copilot page $(date -Is)" >> logs/alerts-pages.log
+```
+python -m app.alerts --url http://agent:8080/metrics --ready-url http://agent:8080/ready --state /var/lib/copilot/alerts-state.json --interval 300
 ```
 
-The agent listens on 8080 inside its container, and `/var/lib/copilot` is
-the agent's state volume (`COPILOT_STATE_DIR` in the runtime compose file),
-so the state file survives a container recreate. `alerts-pages.log` is the
-minimal escalation: a line appears only on a page. To wire a pager, add `--webhook` pointing at the receiver (an
-incoming webhook for a chat channel, or a paging service's events endpoint);
-the POST body is the same record that is printed, so a receiver needs only to
-read `severity`, `name`, and `message`. Nothing in the record can carry PHI:
-it is built from counters, gauges, and fixed message templates.
+on the `frontend` network, with the `agent_state` volume mounted at
+`/var/lib/copilot` (`COPILOT_STATE_DIR`, so the state file survives a
+container recreate), `restart: unless-stopped`, `depends_on` the agent being
+healthy, and the image's inherited health check disabled (it probes port
+8080, which this process never serves; left enabled it would stall
+`docker compose up --wait` in `start.sh`). The 300 s interval matches the
+5-minute rate window in `KEY_METRICS.md`. Read it with:
+
+```bash
+ssh deployer@<droplet-ip> 'cd /opt/agentforge && docker compose logs --tail 20 alerts'
+ssh deployer@<droplet-ip> 'cd /opt/agentforge && docker compose logs alerts | grep "\"severity\": \"page\""'
+```
+
+Do not add a cron line as well: two evaluators sharing one state file break
+the rate math (each sees the other's sample as "previous"). In interval mode
+the process never exits, so exit code 2 is not available as an escalation;
+to wire a pager, add `--webhook` to the service command pointing at the
+receiver (an incoming webhook for a chat channel, or a paging service's
+events endpoint). The POST body is the same record that is logged, so a
+receiver needs only to read `severity`, `name`, and `message`. Nothing in
+the record can carry PHI: it is built from counters, gauges, and fixed
+message templates. Container logs rotate (json-file, 10 MiB, three files)
+like every other service's.
 
 The same evaluation also runs from any machine that can reach the public
 hostname (the metrics path is read-only), which is how the alert rules are

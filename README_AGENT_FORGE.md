@@ -119,12 +119,13 @@ Dashed arrows are streamed events or a denial.*
 | `USERS.md` | Target user, workflow moment, UC-01..03, capability table CAP-01..08 |
 | `ARCHITECTURE.md` | Components, trust boundaries, tools, contracts, failure matrix, known limitations |
 | `KEY_METRICS.md` | Success metrics, gaming defenses, release gates, the three alerts |
-| `AI_COST_ANALYSIS.md` | Development cost through 2026-09-15, measured runtime cost per turn, projections at 100 / 1K / 10K / 100K users, sensitivity; the per-turn release threshold is still to be set (the eval gate reads NOT CONFIGURED) |
+| `AI_COST_ANALYSIS.md` | Development cost through 2026-09-15, measured runtime cost per turn, projections at 100 / 1K / 10K / 100K users, sensitivity; the per-turn release threshold is $0.0223 (the eval gate since 2026-09-17: PASS at or under, PASS (warn) to $0.0446 with risk acceptance, FAIL above) and the daily budget is $14 warn / $42 page, derived from the 2,000,000-token halt |
 | `docs/adr/` | ADR-0001 to ADR-0007 |
 | `docs/api-collection/` | Bruno collection: session handshake, use-case turns, failure examples, health |
 | `docs/deployment/digitalocean.md` | Deployment runbook, current deployment status, secrets handling |
-| `evals/` | Eval suite: `evals/README.md` (design), `cases/` (45 YAML cases in golden, coverage, and holdout tiers), `run.py` (runner, release-gate table, scorecard), `compare.py` (A/B diff of two runs), `error_analysis.py` and `review_ui.py` (manual trace-review journal and its local browser UI), `results/` (versioned run reports), synthetic cohort seeders under `fixtures/cohort/` |
+| `evals/` | Eval suite: `evals/README.md` (design), `cases/` (46 YAML cases in golden, coverage, and holdout tiers), `run.py` (runner, release-gate table, scorecard), `compare.py` (A/B diff of two runs), `error_analysis.py` and `review_ui.py` (manual trace-review journal and its local browser UI), `results/` (versioned run reports), synthetic cohort seeders under `fixtures/cohort/` |
 | `docs/operations/` | Alerts runbook, correlation-id walkthrough with a real turn, Langfuse dashboard notes |
+| `docs/WEEK2_HANDOFF.md` | Week 2 handoff stub: read-first order, code-versus-prose seams, the `evals/compare.py` baseline, residual risks, the two deferred experiments with their eval protocol |
 | `docs/diagrams/` | Chat-flow swimlane diagram (standalone SVG) embedded in this README and `ARCHITECTURE.md` |
 | `.gitlab-ci.yml` | GitLab CI: four lint jobs, agent tests plus schema drift, the offline eval subset on every push; a manual `test:evals-live` job for the full suite against the deployment |
 | `contracts/schema/` | JSON Schema exported from the agent's Pydantic contracts |
@@ -155,7 +156,7 @@ agent/.venv/bin/python evals/run.py --offline-only
 DEMO_PASSWORD="$(ssh deployer@137.184.4.22 cat /opt/agentforge/secrets/demo_user_password)" \
   agent/.venv/bin/python evals/run.py --golden-only
 
-# Full release run: all 45 cases including the holdout set; exit code follows the blocking gates
+# Full release run: all 46 cases including the holdout set; exit code follows the blocking gates
 DEMO_PASSWORD="..." agent/.venv/bin/python evals/run.py
 
 # Compare two runs; review an error-analysis journal in the browser (local only)
@@ -261,7 +262,7 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 | Bruno collection against the deployment as `audit-physician` | 21/21 requests passing (2026-09-16) |
 | Agent unit tests (`agent/tests/`) | 60 passed |
 | UC-01 turn, follow-up with tool chaining, Langfuse traces | Verified live |
-| Eval cases and results (`evals/cases/`, `evals/results/`) | 45 cases (14 golden, 4 holdout); eleven reports in `evals/results/` at this commit. Latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` (2026-09-17): 45 ran, 44 passed, every blocking gate PASS, Golden set integrity 14/14 for the first time, citations 177/177, model-backed p95 24.1 s, $0.0127 per model-backed turn. The one miss, `CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking task-success gate, which still reported PASS at 95%. Two recall checks flip run to run: `MISS-AUTHOR-J-001` (missed at `1ddf824` and `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (missed at `a4a5856`). History: 44/44 at `a7641e9` and 114/116 over a same-commit `--repeat 3` at `1ddf824` (citations 528/528) |
+| Eval cases and results (`evals/cases/`, `evals/results/`) | 46 cases (14 golden, 4 holdout; `ISO-FRESH-REPEAT-001` added 2026-09-17, not yet run); eleven reports in `evals/results/`. Latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` (2026-09-17): 45 ran, 44 passed, every blocking gate PASS, Golden set integrity 14/14 for the first time, citations 177/177, model-backed p95 24.1 s, $0.0127 per model-backed turn. The one miss, `CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking task-success gate, which still reported PASS at 95%. Two recall checks flip run to run: `MISS-AUTHOR-J-001` (missed at `1ddf824` and `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (missed at `a4a5856`). History: 44/44 at `a7641e9` and 114/116 over a same-commit `--repeat 3` at `1ddf824` (citations 528/528) |
 | GitLab CI | Green on the dedicated runner (lints, agent tests, offline evals); manual `test:evals-live` job ran 44/44 against the deployment (`docs/SUBMISSION_CHECKLIST.md`) |
 | Load tests at 10 and 50 concurrent users | Pending (target 2026-09-19) |
 | Cost measurements and scale projections (`AI_COST_ANALYSIS.md`) | Measured per-turn cost and projections written; per-turn release threshold still to be set |

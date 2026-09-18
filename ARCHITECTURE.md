@@ -80,9 +80,11 @@ its revisit trigger in `docs/adr/`.
   within-conversation tool cache, the `copilot-llm-call` and
   `copilot-verification-result` audit events, the 24 h purge of closed
   bindings and checkpoints, PHP-side JSON Schema validation and generated
-  TypeScript types, the Bruno subset in CI, the trace-export PHI grep, the
-  alerts job on the Droplet, load tests, backup and rollback rehearsal. Do
-  not read a planned control as a deployed one.
+  TypeScript types, the Bruno subset in CI, the trace-export PHI grep, load
+  tests, the backup and rollback rehearsal. The `alerts` compose service and
+  `backup.sh`/`restore.sh` are in the tree since 2026-09-17 but not on the
+  host until the M3 deploy and the M4 rehearsal. Do not read a planned
+  control as a deployed one.
 - All decisions this document relies on are accepted: ADR-0001 to ADR-0003
   on 2026-09-14, ADR-0004 to ADR-0007 on 2026-09-15 (Stage 5 gate passed).
 - Every capability, tool, and endpoint below names the `USERS.md` use case
@@ -478,12 +480,14 @@ new tool name. Eval reports record both.
 | Store | Where | Holds | TTL |
 | --- | --- | --- | --- |
 | Binding | OpenEMR database, module table `copilot_conversation` | site, user, pid, correlation id, timestamps, turn count, close reason | Closed on patient switch, user inactive, break-glass, or 30 min without a turn (checked at every ticket, `close_reason=idle`, and at every gateway call, `idle_timeout`). Retention is a **design target**, not a control: rows are meant to be kept 24 h for audit reconciliation then deleted. `ConversationRepository::sweep()` (`src/Conversation/ConversationRepository.php:83`) implements the delete, but it has no caller anywhere in the tree and nothing schedules it (**planned**). `sweep()` is the only such method; earlier drafts of this document named a different one that does not exist. A restored transcript is labeled "Earlier in this session" with each answer's time |
-| Checkpoint | Agent container, LangGraph SQLite checkpointer on a named volume (`checkpoints.sqlite`), `thread_id` = conversation id | Graph state per conversation: user messages, verified claims and limitations, tool log (tool, params hash, record source ids, status), reference encounter and window, usage and budget counters | Design: 24 h, then deleted by a sweeper, and immediately when the binding closes. No sweeper exists yet (**planned**); today the volume is deleted with the deployment |
+| Checkpoint | Agent container, LangGraph SQLite checkpointer on a named volume (`checkpoints.sqlite`), `thread_id` = conversation id | Graph state per conversation: user messages, verified claims and limitations, the current turn's unverified model output (`raw_claims`, `raw_summary`, `raw_suggestions`: per-turn keys, overwritten by the next turn but present in every checkpoint written after `narrate`), tool log (tool, params) and evidence summaries (tool, status, record count, truncation, absence state), reference encounter and window, usage and budget counters; never a tool record and never the delegation token | Design: 24 h, then deleted by a sweeper, and immediately when the binding closes. No sweeper exists yet (**planned**); today the volume is deleted with the deployment |
 
-Tool records are **not** in graph state and are never checkpointed; they
-live in a per-turn memory cache and each turn re-fetches (cache entries
-expire after 120 s), so the model's context is rebuilt from fresh tool output and stale
-data cannot outlive a minute. PHI at rest in the agent is therefore limited
+Tool records and the per-turn delegation token are **not** in graph state
+and are never checkpointed; both live in per-turn memory caches keyed by
+turn id (`agent/app/state_store.py`, entries expire after 120 s, the token
+is dropped when the turn ends) and each turn re-fetches, so the model's
+context is rebuilt from fresh tool output and stale data cannot outlive a
+minute. PHI at rest in the agent is therefore limited
 to claim text, and the volume is deleted with the deployment. No
 process-global state, no model-side memory, no conversation content in
 browser storage (the panel keeps only the opaque conversation id in
@@ -495,11 +499,24 @@ new conversation for the same patient carries no prior turns
 (`ISO-NEW-CONVERSATION-001`); a patient switch closes the conversation
 (`AUTH-SWITCH-001`); a token for conversation A cannot read conversation B
 (`agent/tests/test_api.py::test_turn_requires_token_and_matching_conversation`,
-`conversation_mismatch`). Three are **design intent with no automated test
-yet**: the same question across fresh conversations yields the same verified
-facts; two users on the same patient never see each other's history; no
-checkpoint contains a record field (ADR-0005 "Verification" still lists the
-checkpoint-content test as to add). Do not read the untested three as
+`conversation_mismatch`). A fourth is automated since 2026-09-17: no
+checkpoint contains a raw record key, a verbatim note body, or the
+delegation token
+(`agent/tests/test_controls.py::test_checkpoint_holds_no_note_body_record_shape_or_token`:
+a UC-01 turn and a notes follow-up on the af-dq-a2 fixtures through the
+SQLite checkpointer, every table and column scanned; the token was in graph
+state until that day and now lives in the per-turn cache). One more has a
+case that has not run yet: the same question across fresh conversations
+starts from an empty history and does not refer back to the earlier
+conversation (`ISO-FRESH-REPEAT-001`, case added 2026-09-17, not yet run; its
+one deterministic proof is the empty history before the second turn, its
+`turn_type: uc01_first` lines are sanity checks the server satisfies with or
+without history, and its wording check is model text, so the case is
+`tier: coverage` with no gate tag; it does not assert equal verified facts,
+since claim wording varies run to run). One remains **design intent with no
+automated test**: two users on the same patient never see each other's
+history (`ISO-TWO-USERS-001` is deferred, `evals/README.md` "Not automated
+in Week 1": the harness runs one login per case). Do not read that one as
 verified.
 
 ## Verification Design
@@ -567,13 +584,33 @@ both ways. These are stated in the panel's help text and in `USERS.md`.
 | Session expired, user inactive, break-glass, squad | Denial from `turn.ticket` or the gateway; conversation closed; generic message; `copilot-denied` | Any tool or model call |
 | Patient switched in another tab | Next `turn.ticket` denies `patient_context_changed`; panel offers a new conversation for the open chart | Mixing two patients in one conversation |
 | One tool `unavailable` (timeout, service exception, audit insert failure) | Turn continues; response lists the section as unavailable; absence claims for that section are rejected | Presenting a failed retrieval as "none documented" |
-| Gateway unreachable | Turn ends with `dependency_unavailable`; `/ready` fails | Answering from cache or memory |
-| Model timeout, 5xx, refusal, malformed output | UC-01 first turn: render the deterministic brief marked "narrative unavailable"; other turns: explicit unavailable with the evidence list | Rendering unvalidated text |
+| Gateway unreachable | Every tool call of the turn returns `unavailable` with reason `transport_error` (or `timeout`), so no clinical section is retrievable, the model is not invoked, and the turn completes with every section marked unavailable (`agent/app/gateway_client.py`; `narrate` in `agent/app/graph/nodes.py`); `/ready` fails on the gateway ping. `dependency_unavailable` (504) is emitted only when a turn exceeds its 45 s wall clock (`agent/app/api.py`) | Answering from cache or memory |
+| Model timeout, 5xx, refusal, malformed output | UC-01 first turn: render the deterministic brief marked "narrative unavailable"; other turns: explicit unavailable with the evidence list. Until 2026-09-17 a real provider failure raised inside a generation span was converted to `RuntimeError` by the telemetry context managers (`generator didn't stop after throw()`) and bypassed the graph's `except ModelError`, so it would have surfaced as a 500; `MODEL-OUTAGE-001` did not catch it because `X-Copilot-Fault: model` short-circuits before the SDK. Fixed in `agent/app/telemetry.py` with `agent/tests/test_telemetry.py::test_exception_inside_an_observation_propagates_unchanged` | Rendering unvalidated text |
 | Verifier rejects claims | Withhold; one repair; show withheld count | Model overriding the verifier |
 | Tracer unavailable | Spans buffered then dropped; response unaffected; local JSON logs keep the correlation ID | Blocking a turn on telemetry |
 | Rate limit (10 turns per minute per conversation) | 429 with `rate_limited` | Queuing beyond 12 s |
 | Token budget exhausted (turn, conversation, or daily halt) | `authorize` routes to the deterministic fallback with `model_budget_exhausted`; tools still run for UC-01 first turns | Unbounded model spend from one conversation or one day |
 | OpenEMR or database down | Panel shows "Co-Pilot unavailable"; note that the panel probes the agent's `/health`, not `/ready` (`public/assets/js/copilot.js:485`), so it reports process liveness rather than dependency readiness. Module bootstrap failures are surfaced in the panel, not swallowed (ARCH-MEDIUM-007) | A blank space where the panel should be |
+
+Automated coverage today (2026-09-17): nine of these ten rows have an
+automated case. Six have an eval case — denial (`AUTH-STALE-TICKET-001`,
+`AUTH-SQUAD-001`, `AUTH-CLOSED-CONVERSATION-001`), patient switch
+(`AUTH-SWITCH-001`), one tool unavailable (`TOOL-OUTAGE-LABS-001`), model
+failure (`MODEL-OUTAGE-001`, `MODEL-FALLBACK-OFFLINE-001`; since 2026-09-17
+also pytest: the circuit-breaker pair in `agent/tests/test_controls.py` and
+`test_exception_inside_an_observation_propagates_unchanged` in
+`agent/tests/test_telemetry.py`), verifier rejection
+(`CIT-ALTERED-FACTS-001`, `CIT-SUMMARY-GATE-001`) and token budget
+(`MODEL-BUDGET-001`). Three have a pytest case only — gateway unreachable,
+the `/ready` half (`test_ready_is_503_when_a_dependency_fails` in
+`agent/tests/test_health.py` points the gateway ping at a closed port; the
+turn half is not exercised), tracer unavailable
+(`test_ready_is_503_when_tracer_unreachable` in `agent/tests/test_health.py`,
+`test_observation_failure_logs_the_correlation_id` in
+`agent/tests/test_telemetry.py`) and rate limit
+(`test_third_turn_in_a_minute_is_429_rate_limited` in
+`agent/tests/test_api.py`). OpenEMR or database down has neither an eval
+case nor a pytest case; it is reasoned through, not exercised.
 
 ## Latency and Scale
 
@@ -591,8 +628,11 @@ evidence is still not measured by the runner (it uses non-streaming turns). Tool
 parallel from the agent (six concurrent gateway requests, bounded by a
 semaphore of 6, `COPILOT_TOOL_CONCURRENCY`). Prompt caching on the stable
 system prompt and the evidence pack prefix. Agent service: one uvicorn
-process (`agent/Dockerfile`) serving turns asynchronously, in-flight turns
-exposed as `copilot_in_flight`; worker count and a queue-depth metric are
+process (`agent/Dockerfile`) serving turns asynchronously. In-flight HTTP
+requests are exposed as `copilot_in_flight` (every request, the 30 s
+healthcheck and `/metrics` scrapes included) and the queue depth as
+`copilot_turns_in_flight` (turns inside `graph.ainvoke` or the SSE generator
+only, incremented and decremented in `agent/app/api.py`); worker count is
 sized after the load test (**planned**). Load tests at 10 and 50 concurrent
 users (2026-09-19) validate the budget and size the Droplet; the first
 fallback is the 8 GiB size (ADR-0001).
@@ -627,19 +667,33 @@ status, and record count (`agent/app/telemetry.py`).
 
 **Dashboard.** The Langfuse dashboard "Clinical Co-Pilot"
 (`docs/operations/langfuse-dashboard.md`): requests, error rate, latency
-split by stage, tool call counts and failures per tool, retries, verification
-outcome, tokens by usage type, cost. The agent also serves `/metrics`
-(Prometheus text, `agent/app/metrics.py`: request, turn, denial, tool call,
-verifier rejection, and token counters, in-flight turns, 5-minute latency
-quantiles) for the alert evaluator.
+split by stage, tool call counts and failures per tool, retries, tokens by
+usage type, cost. Verification pass/fail and turn error reach Langfuse as
+the per-trace scores `verification_passed` (1.0 or 0.0, absent when the
+verifier did not run) and `turn_error` (1.0 for a failed or timed-out turn)
+set by `finish_turn_trace` (`agent/app/telemetry.py`); the two panels over
+those scores are not yet built in the Langfuse UI (**planned**, owner
+action). The agent also serves `/metrics` (Prometheus text,
+`agent/app/metrics.py`: request, turn, denial, tool call
+(`copilot_tool_calls_total{tool,status,reason}`, `reason` bounded to
+`TOOL_REASONS` in `agent/app/contracts/tools.py` plus `none`, `other`,
+`http_Nxx`), verification outcome (`copilot_verification_total{outcome}`:
+`not_run`, `failed_closed`, `partial`, `passed`), verifier rejection, and
+token counters, in-flight requests (`copilot_in_flight`) and in-flight turns
+(`copilot_turns_in_flight`), 5-minute latency quantiles) for the alert
+evaluator.
 
 **Alerts.** The three PRD alerts and their responses are defined in
 `KEY_METRICS.md`, "Decision Thresholds", and evaluated by
 `agent/app/alerts.py` over two `/metrics` samples (`alerts_cli.py`, one-shot
 or `--interval 300`; JSON alert lines, exit code 2 on a page, optional
-webhook; runbook `docs/operations/alerts.md`). Running it as a scheduled job
-on the Droplet is **planned**; a hosted alerting product is not required for
-the demo.
+webhook; runbook `docs/operations/alerts.md`). It is scheduled by the
+`alerts` service in `infra/digitalocean/runtime/compose.yaml` (the agent
+image, `--interval 300`, state on the `agent_state` volume, `depends_on` the
+healthy agent, its inherited health check disabled so it never blocks
+`up --wait`; the runbook's cron line is superseded), in the tree since
+2026-09-17 and on the host from the M3 deploy; a hosted alerting product is
+not required for the demo.
 
 ## Agent HTTP API and the Runnable Collection
 
@@ -650,7 +704,7 @@ graders drive. It is versioned, header-authenticated, and served at
 | Method and path | Auth | Purpose |
 | --- | --- | --- |
 | `GET /health` | none | Process alive |
-| `GET /ready` | none | Dependency checks with cached results (30 s): gateway `ping` endpoint over the internal network, Claude API `models.retrieve` on the configured model, tracer **keys present only** (`check_tracer` in `agent/app/readiness.py` reads the two key files and sends no request, so an unreachable Langfuse still reports ready), delegation secret configured, state store writable. 503 with a per-dependency detail when any fails. Never proxies OpenEMR `readyz` (SEC-MED-007) |
+| `GET /ready` | none | Dependency checks with cached results (30 s): gateway `ping` endpoint over the internal network, Claude API `models.retrieve` on the configured model, tracer reachable (`check_tracer` in `agent/app/readiness.py`: both key files present and `GET {langfuse_host}/api/public/projects` answering 200 under basic auth within 5 s; any other status is `http_<code>`, a transport failure is the httpx error class, and either fails readiness). The gateway, model, and tracer checks run concurrently with `asyncio.gather`, so `/ready` costs one round trip, not three, delegation secret configured, state store writable. 503 with a per-dependency detail when any fails. Never proxies OpenEMR `readyz` (SEC-MED-007) |
 | `POST /v1/conversations/{id}/turns` | delegation token | One turn. JSON by default; `Accept: text/event-stream` streams `evidence`, `progress`, `claims`, `done` (or `error`) events for the two-phase render |
 | `GET /v1/conversations/{id}` | delegation token | State, turns, verified claims, close reason |
 | `DELETE /v1/conversations/{id}` | delegation token | Ends the conversation (panel close) |
@@ -728,14 +782,32 @@ required by the audit (`AUDIT.md` §7.2) and this design:
 - **Demo seeding** by the one-shot `demo-seed` job from a read-only bind
   mount outside the web root; never inside the image.
 - **Readiness** from the agent's `/ready`; Compose health for the agent uses
-  `/health`.
+  `/health`. `start.sh` (2026-09-17) starts Caddy a second time explicitly,
+  exits non-zero unless `database`, `openemr`, `agent`, `caddy` and `alerts`
+  are running, and probes the public `/meta/health/livez` six times ten
+  seconds apart before it reports success.
+- **Alerts and logs:** the `alerts` service evaluates the three PRD rules
+  every 300 s from inside the stack (above); every container's logs rotate
+  (`x-logging` anchor: json-file, 10 MiB, three files) so a long-lived host
+  no longer accumulates unbounded logs.
 - **Release discipline:** tag each green checkpoint, deploy tags only.
   Three tags exist — `v0.1.0-skeleton`, `v0.2.0-slice` (both 2026-09-15) and
   `week1` (tag object `c7253ed`, pointing at commit `e1dd331`), which is what
   is deployed. The rollback rehearsal is still open
   (`docs/PRIOR_COHORT_LESSONS.md`, `docs/SUBMISSION_CHECKLIST.md`).
-- **Backup, restore, migration, rollback** are planned for 2026-09-19; until
-  then the deployment is disposable and holds synthetic data only.
+- **Backup, restore, rollback:** `infra/digitalocean/backup.sh` (one
+  encrypted archive: `mariadb-dump --single-transaction` of the database, the
+  `openemr_sites` and `agent_state` volumes, `/opt/agentforge/secrets` and
+  `.env`, under `~/.config/agentforge/backups/`) and `restore.sh` (secrets
+  first, the database volume re-initialised from them, the dump loaded, the
+  volumes replaced) exist since 2026-09-17, with a rehearsal runbook and
+  timing table in `docs/deployment/digitalocean.md`. The secrets are in the
+  archive because every password of the stack is generated on the host by
+  `start.sh`; losing them orphans the database volume and changes
+  `DEMO_PASSWORD`. The rehearsal on a throwaway Droplet is M4 and has not
+  run, so none of this counts as tested; until then the deployment is
+  disposable and holds synthetic data only. Migration is not applicable to a
+  read-only co-pilot.
 - **CI** runs on a dedicated project runner Droplet
   (`infra/digitalocean/runner/`, its own Terraform root and state; the
   runner token is read from a local file by `register.sh` and never enters
@@ -769,8 +841,8 @@ are in `docs/audit/compliance.md` §2, §4, §5, §6. This design implements:
   `ConversationRepository::sweep()` has no caller and no checkpoint sweeper
   exists; the data goes away when the deployment does. Traces follow the
   tracer project setting (30 days). Synthetic data only.
-- This is a demo. No BAA is executed, no backups exist, the audit log is not
-  tamper-evident, and the system is not HIPAA-certified. `AUDIT.md` §9 lists
+- This is a demo. No BAA is executed, no backup has been taken yet
+  (`backup.sh` exists, unrun), the audit log is not tamper-evident, and the system is not HIPAA-certified. `AUDIT.md` §9 lists
   what real use would require.
 
 ## Evaluation Strategy
@@ -783,7 +855,7 @@ reject; every failure row above has a fault-injection eval; the trace export
 is grepped for fixture PHI (**planned**); and the Bruno collection's
 deterministic subset runs in CI against the local stack (**planned**).
 
-**What exists (2026-09-16).** 45 cases under `evals/cases/`, one YAML per
+**What exists (2026-09-17).** 46 cases under `evals/cases/`, one YAML per
 case, every `AF-DQ-*` patient covered, in three tiers drawn from the same
 files: a 14-case **golden set** (`tier: golden`, deterministic, no
 model-wording checks, reported first and gated at 100%), **behavioral
@@ -845,7 +917,7 @@ now, no orchestration rewrite in Week 2).
 | Supervisor with two workers, checkpointing, human-in-the-loop | The turn graph is a LangGraph subgraph with a checkpointer; the supervisor becomes the parent graph |
 | Lab PDF and intake-form ingestion; round-tripping derived records without duplicates | `SourceId` URI scheme, open claim types, provenance fields, the reserved `actions/` endpoint class with idempotency keys; a write ADR is still required |
 | Guideline evidence through hybrid RAG | `guideline:` source scheme and `guideline_reference` claim type reserved; the "no general medical knowledge" refusal is Week 1 scope |
-| 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; 45 cases with a 14-case golden tier and a 4-case holdout already reported separately and gated; the offline subset runs in GitLab CI on every push and the full suite as a manual job |
+| 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; 46 cases with a 14-case golden tier and a 4-case holdout already reported separately and gated; the offline subset runs in GitLab CI on every push and the full suite as a manual job |
 | Adversarial platform driving this co-pilot unattended; cost amplification | Headless drive path (agent API, ticket script, eval client); fault-injection switch; loop bounds, rate limit, token budgets, daily halt; PHI-free trace export and audit log as queryable system state |
 
 ## Known Limitations
@@ -886,9 +958,11 @@ now, no orchestration rewrite in Week 2).
 5. ~~Decide the tracer project and confirm masking~~ Langfuse Cloud (US)
    with the mask, traces verified live 2026-09-15 (`docs/SUBMISSION_CHECKLIST.md`,
    `docs/operations/correlation-id-walkthrough.md`).
-6. ~~Graph state schema~~ done; the checkpoint-content test is **still to
-   add** (no test in `agent/tests/` asserts a checkpoint holds no record
-   field), so that isolation invariant is not automated.
+6. ~~Graph state schema~~ done; ~~the checkpoint-content test is still to
+   add~~ added 2026-09-17
+   (`agent/tests/test_controls.py::test_checkpoint_holds_no_note_body_record_shape_or_token`).
+   It found the delegation token in the checkpoint (`TurnState.token`) and
+   the token now lives in the per-turn cache instead.
 7. ~~GitLab CI~~ runs lint, contract drift, the agent tests, and the offline
    eval subset on every push, plus the manual `test:evals-live` job (first
    green pipeline 2026-09-16 on the dedicated runner Droplet). The Bruno
@@ -901,6 +975,10 @@ now, no orchestration rewrite in Week 2).
    API, plus `rate_limited`) are counted in `/metrics` and logged by the
    agent; they never reach the gateway, so they leave no OpenEMR audit row.
    Gateway-level denials do. Still open as of 2026-09-17.
-10. The tracer entry in `/ready` is presence-only: `check_tracer`
-    (`agent/app/readiness.py`) reads the two Langfuse key files and sends no
-    request, so an unreachable tracer still reports ready. Open.
+10. ~~The tracer entry in `/ready` is presence-only~~ closed 2026-09-17:
+    `check_tracer` (`agent/app/readiness.py`) probes `GET /api/public/projects`
+    on the Langfuse host with basic auth and a 5 s timeout, and an unreachable
+    tracer fails readiness
+    (`agent/tests/test_health.py::test_ready_is_503_when_tracer_unreachable`).
+    Verified offline only until the M3 deploy shows `tracer: reachable` on
+    the Droplet.

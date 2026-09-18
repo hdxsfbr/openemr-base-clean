@@ -28,6 +28,8 @@ are committed for evaluators without project access under
 | Tool calls by name over time | Count of TOOL observations grouped by name (`encounters`, `problems`, `medications`, `allergies`, `lab_results`, `clinical_notes`, `patient_context`) | Tool calls |
 | Tool errors by name | TOOL observations with level ERROR grouped by name | Tool failures |
 | ERROR-level observations over time | Count of observations of any type with level ERROR, grouped by observation type | Errors (a model call that fails and a tool that returns `unavailable` both land here) |
+| Verification pass rate (**to build**) | Average of the trace score `verification_passed` over `copilot.turn` traces per time bucket (scores emitted since 2026-09-17 by `finish_turn_trace`; absent on turns where the verifier did not run) | Verification pass/fail rate — not yet on the dashboard |
+| Turn error rate (**to build**) | Average of the trace score `turn_error` over `copilot.turn` traces per time bucket (1.0 for a failed or timed-out turn) | Error rate — not yet on the dashboard; `/metrics` `copilot_requests_total{status="5xx"}` is the alert-job source |
 
 The Langfuse Agent Dashboard adds p95 latency per tool and observation
 types; the Latency dashboard adds p95 by trace name and by model.

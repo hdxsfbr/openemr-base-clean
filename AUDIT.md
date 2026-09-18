@@ -858,6 +858,37 @@ None of these shows up on a three-patient, one-visit dataset.
   session cookie, weak lockout defaults, tamper-prone audit log, broken
   readiness probe, PHI in logs. We mitigate them only where the co-pilot
   touches them.
+- **Agent egress is unrestricted (SEC-MEDIUM-504).** The Cloud Firewall's
+  outbound rules allow all TCP, UDP, and ICMP to any destination and no
+  `DOCKER-USER` rule narrows the agent container, so code execution inside
+  that container would gain everything the container can read or reach: the
+  model key and workspace id, the two tracer keys, the shared delegation HMAC
+  key (`copilot_delegation_secret`, a static key the module verifies every
+  turn's token with, not a per-turn value; holding it mints gateway tool
+  credentials for any open conversation id the attacker has seen, acting as
+  that conversation's user and patient, until the key is rotated, and
+  rotation today means destroying the host), and the turn in flight's
+  evidence pack (one synthetic patient's retrieved records, held in memory
+  for at most 120 s). Compensating controls, each verified in code: the four
+  operator secrets are mounted as file secrets in the agent service only, the
+  delegation key is shared only with the `openemr` service, and the container
+  holds no database credential; the agent is on the `frontend` network alone
+  with no route to `database`; the edge is deny-by-default and only
+  `/copilot-api/*` reaches the agent: the `/v1` turn routes are ticket-bound
+  (a delegation token minted inside the user's OpenEMR session, checked
+  against the conversation id on every call), while `/health`, `/ready` and
+  `/metrics` are reachable unauthenticated and carry no PHI; telemetry and
+  metrics are PHI-free by construction (payload mask, bounded label sets);
+  the daily halt stops model spend at 2,000,000 tokens; and the Droplet is
+  disposable, so `destroy.sh --yes` plus the after-grading key rotation ends
+  any exposure. Not compensated: outbound use of the exposed keys until they
+  are rotated (the delegation key only by host destruction), and outbound
+  use of the Droplet's bandwidth. Blast radius is bounded by synthetic data
+  and rotatable keys.
+  Closing it means `DOCKER-USER` rules proven on the rehearsal Droplet first,
+  never built first on the graded host. Decision: `<M4 step 6: either
+  "Accepted for Week 1 on 2026-09-19 by the owner." or "Closed on 2026-09-19:
+  DOCKER-USER rules proven on the rehearsal Droplet, then applied.">`
 - **Before any real patient use:**
   - Executed BAAs (LLM, tracing, hosting).
   - An external append-only audit sink with a least-privilege writer.

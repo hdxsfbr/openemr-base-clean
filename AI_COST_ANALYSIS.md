@@ -79,9 +79,64 @@ in these runs the reported `input_tokens` (608) is below `cache_read_tokens`
 (5,106), so the uncached-input line is $0 and the cache-write premium is
 not separated. And it is the eval mix (about 45 percent follow-ups), not
 the usage model below. The projections below keep the earlier, higher
-$0.0223 figure as the conservative basis; `KEY_METRICS.md` reports the cost
-gate as NOT CONFIGURED until a projection threshold is chosen here, and
-none is set yet.
+$0.0223 figure as the conservative basis, and since 2026-09-17 it is also
+the eval runner's cost gate (`COST_PER_TURN_PROJECTION_USD = 0.0223` in
+`evals/run.py`, beside `PRICE_PER_MTOK`; `cost_gate()`): PASS at or under
+$0.0223 per model-backed turn; PASS (warn) between $0.0223 and $0.0446,
+where the row's value text asks for risk acceptance in the report; FAIL and
+release-blocking above $0.0446; NOT CONFIGURED only when a run had no
+model-backed turn (`--offline-only`). Why the basis is higher than the eval
+mix: the difference is output tokens, not a setting. The four post-deploy
+turns above emitted about 1,950 output tokens each (7,798 over 4 turns)
+against about 1,170 per turn in the eval mix (1,170 at `1ddf824` over 120
+model-backed turns, 1,172 at `a4a5856` over 40, and 1,115 to 1,306 across
+the nine live-run JSON reports that carry a scorecard). Output is priced at
+$10 per MTok, so that gap alone is about $0.0078 of the $0.0096 difference;
+the rest is the uncached-input line ($0.00205 in the four turns, $0 in the
+eval runs because the reported `input_tokens` sits below `cache_read_tokens`
+and the runner clamps at zero), less a slightly larger cache-read line in
+the eval mix. No setting differs: `agent/app/settings.py` (model id, effort,
+planning rounds, `max_output_tokens`) has not changed since before either
+measurement; the narration prompt in `agent/app/model.py` changed once, at
+`26a9a3d` on 2026-09-15, between the two, and the eval figure is the same on
+both sides of that commit ($0.0127 at `836be65` before it, $0.0121 to
+$0.0141 after). The likely cause is the question mix: the four turns were
+hand-typed first questions on long charts, the eval mix is scripted with
+about 45 percent follow-ups. So the eval figure is the lower bound, the
+four-turn figure is the basis, and the gate's warn band (one to two times)
+is where a token-mix change shows before it costs anything.
+
+### Daily budget (from the token halt)
+
+`agent/app/budget.py` halts model calls for the rest of the UTC day once
+`daily_token_halt` (`agent/app/settings.py`, default 2,000,000; environment
+`COPILOT_DAILY_TOKEN_HALT`) is reached, and every further turn takes the
+deterministic fallback with the `model_budget_exhausted` limitation. The
+counter adds `Usage.total`, which is input plus output tokens (cache reads
+are not counted), and only for the narration and repair calls; the planning
+call's tokens are added to the turn's own usage but not to the daily counter
+(`agent/app/graph/nodes.py`). Per turn, the counted tokens are therefore at
+most the scorecard's input plus output, and the halt allows at least:
+
+| Token mix | Input + output per turn | Turns before the halt (at least) | List-price cost per turn | Model cost per day at the halt (at least) |
+| --- | ---: | ---: | ---: | ---: |
+| Eval mix (`1ddf824`, 120 model-backed turns) | 608 + 1,170 = 1,778 | about 1,125 | $0.0127 | about $14 |
+| Four post-deploy turns (Part B) | 1,024 + 1,950 = 2,974 | about 672 | $0.0223 | about $15 |
+
+(2,000,000 / 1,778 = 1,125 and 1,125 x $0.0127 = $14.29; 2,000,000 / 2,974 =
+672 and 672 x $0.0223 = $14.99.) Either mix lands at about $14 to $15 of
+model spend per UTC day when the halt fires, so the **daily budget is $14
+per UTC day (warn) and $42 (page, three times)**. Spend past $15 in a day
+means the halt did not hold or planning tokens dominated: `DailySpend` is
+in-process memory, one counter per agent process, reset by a restart and not
+shared across replicas, so a page at three times the budget is a detector of
+a restarted or scaled-out agent (or of planning-heavy traffic), not a
+normal-operation threshold. No cost alert evaluates this yet: the inputs are
+the `copilot_tokens_total{kind=...}` counters on `/metrics`
+(`agent/app/metrics.py`) priced at the rates above, and the check is manual
+until an alert is written. The halt is a token ceiling, not a dollar one; at
+the projection basis 1,100 turns would cost about $25, which is why the
+budget is stated from the measured mixes and not from the basis.
 
 ### Usage model (assumption)
 

@@ -143,6 +143,12 @@ cache-friendly regardless of orchestration.
 ### Negative and residual risk
 
 - Two more dependencies (`langgraph`, `langgraph-checkpoint-sqlite`), pinned.
+  Until 2026-09-17 "pinned" meant lower bounds in `agent/pyproject.toml`
+  while `start.sh` rebuilt with `--pull`; now `agent/requirements.lock` (66
+  exact versions from the running container's `pip freeze`, container Python
+  3.12.14) is what `agent/Dockerfile` and the CI agent jobs install first,
+  followed by `pip install --no-deps .`, so a rebuild resolves nothing new.
+  Regenerate the lock from the container after any dependency change.
 - The checkpointer persists graph state; raw tool records must be kept out
   of state (ADR-0005) or PHI at rest grows.
 - LangSmith auto-tracing must never be enabled; guarded by config and an
@@ -177,7 +183,13 @@ cache-friendly regardless of orchestration.
   `model_budget_exhausted`; `agent/tests/test_graph.py::test_budget_exhaustion_routes_to_deterministic_fallback`
   and eval case `MODEL-BUDGET-001` cover it.
 - Model client (`agent/app/model.py`): one SDK retry (`max_retries=1`),
-  circuit breaker opens after 3 consecutive failures for 60 s, as decided.
+  circuit breaker opens after 3 consecutive failures for 60 s, as decided;
+  covered since 2026-09-17 by
+  `agent/tests/test_controls.py::test_circuit_breaker_opens_after_three_failures_and_closes_after_cooldown`
+  and `::test_provider_connection_failures_trip_the_breaker_and_short_circuit_the_model`
+  (three `APIConnectionError`s open it, the fourth call raises `circuit_open`
+  without touching the SDK, a call after the cooldown goes through; time is
+  controlled with `monkeypatch`).
 - Cost and latency per turn type are now summarized per run by the eval
   scorecard (`evals/run.py`; latest full run
   `evals/results/2026-09-17T024919Z-a4a5856.md`: 45 cases, 44 passed, every
