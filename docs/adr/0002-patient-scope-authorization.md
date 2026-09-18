@@ -71,9 +71,13 @@ with FHIR scopes so the adapter can later be fed from a SMART token
   `(site, user id, pid, tool, tool version, parameter hash)`, live at most
   60 s inside one conversation, and are dropped on conversation end or
   patient switch (`AUDIT.md` §2.2). A cache hit still needs a fresh context.
-- The gateway dispatches OpenEMR's own `ViewEvent` when it builds a context,
-  so any future upstream or site-level patient filter (the `PatientFilter`
-  hook) applies to the co-pilot without a code change.
+- **Planned, not implemented.** The intent is that the gateway dispatch
+  OpenEMR's own `ViewEvent` when it builds a context, so any future upstream
+  or site-level patient filter (the `PatientFilter` hook) would apply to the
+  co-pilot without a code change. No dispatch exists in the module today
+  (`grep -rn ViewEvent interface/modules/custom_modules/oe-module-copilot`
+  matches nothing); see "Verification" below. What does run per context build
+  is the audit event (`Gateway/Audit.php`).
 
 ### 3. Denials and special roles
 
@@ -85,7 +89,7 @@ with FHIR scopes so the adapter can later be fed from a SMART token
 | Break-glass (`Emergency Login` member) | Deny the co-pilot entirely; chart access unchanged. Rationale: bulk AI summarization under emergency access is out of the PRD's scope, and OpenEMR's break-glass is detective-only (SEC-INFO-008) | `copilot-denied`, `reason=breakglass` |
 | Roles without clinical section ACLs (Front Office, Accounting, pure admins) | Not a special case: every clinical tool fails its section check, so the co-pilot has nothing to say | `copilot-denied` per tool |
 | Resident supervision | Not modeled. `users.supervisor_id` carries no access meaning in OpenEMR (SEC-INFO-009); a resident is whatever ACL group it holds | none |
-| API or bearer-token callers, portal users | Out of scope; the gateway accepts only in-session requests carrying a valid delegation (ADR-0003) | `copilot-denied`, `reason=unsupported_principal` |
+| API or bearer-token callers, portal users | Out of scope; the gateway accepts only in-session requests carrying a valid delegation (ADR-0003) | `copilot-denied` with whichever token reason applies — `missing_token`, `bad_token` or `token_expired` (`public/gateway/tools.php`, `Gateway/DelegationToken.php`). The principal-specific reason this row used to name is not emitted by any code path and none is planned |
 
 Every allow also writes an audit event **before** any data is returned
 (COMP-HIGH-004). Denials are generic to the caller and specific in the log.
@@ -105,7 +109,7 @@ the same "open a chart and be logged" model as the UI.
 | --- | --- |
 | Any `AF-*` chart open, `audit-physician` or `audit-nurse` | Allowed for the sections their role holds; each read audited |
 | Any `AF-*` chart open, `audit-frontdesk` | Every clinical tool `unavailable/forbidden`; the co-pilot reports nothing clinical and explains why |
-| `AF-ACL-OTHER` (scheduled with `physician`) open as `audit-physician` | **Allowed.** Documents the parity limitation; the eval asserts the access is audited and identical to the chart, and that the response carries the "isolation equals chart" limitation text |
+| `AF-ACL-OTHER` (scheduled with `physician`) open as `audit-physician` | **Allowed.** Documents the parity limitation; the eval asserts the access is audited, cited, and identical to the chart. It does **not** assert any limitation text in the response: there is no parity `LimitationKind` and the response carries none. The limitation is stated in §4 of this ADR and in `evals/fixtures/cohort/README.md`, and the conversation row is tagged `policy: parity-1` (`Gateway/AuthorizedPatientContext.php:21`) |
 | `AF-ACL-UNSCHED` requested while a different chart is open | **Denied**, `patient_context_changed`; no tool or model call. Opened directly, allowed (parity) |
 | `AF-ACL-SQUAD` | Denied for every non-admin role, as in the chart |
 | `audit-physician` added to `Emergency Login` | Chart opens; co-pilot denies with `reason=breakglass` |

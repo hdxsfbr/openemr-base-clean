@@ -156,9 +156,16 @@ cache-friendly regardless of orchestration.
   2026-09-16 for the `problem_status` claim type (ADR-0006). JSON Schema is
   exported to `contracts/schema/` by `python -m app.contracts.export`;
   `agent/tests/test_contracts.py` and the CI job `test:agent`
-  (`--check`) fail on drift. The PHP gateway's `ToolRegistry` validates
-  tool parameters against `contracts/schema/*_params.schema.json`; no
-  `opis/json-schema` dependency is present in the module. No generated
+  (`--check`) fail on drift. The PHP gateway's `ToolRegistry::params()`
+  does **not** read the schema files: it applies a hand-written key allowlist
+  (`since`, `until`, `limit`, `cursor`, plus `term` for clinical notes and
+  `analyte` for lab results) and hand-written format checks that mirror the
+  exported schemas
+  (`interface/modules/custom_modules/oe-module-copilot/src/Gateway/Tools/ToolRegistry.php:37`
+  onward; the docblock there still claims schema validation). No
+  `opis/json-schema` dependency is present in the module, and validating
+  against `*_params.schema.json` is planned, not done
+  (`ARCHITECTURE.md` states this correctly). No generated
   TypeScript types were found in the repository.
 - Turn wall clock is 45 s (`turn_wall_clock_seconds`,
   `agent/app/settings.py`), not the 12 s in decision 2, matching the
@@ -172,9 +179,12 @@ cache-friendly regardless of orchestration.
 - Model client (`agent/app/model.py`): one SDK retry (`max_retries=1`),
   circuit breaker opens after 3 consecutive failures for 60 s, as decided.
 - Cost and latency per turn type are now summarized per run by the eval
-  scorecard (`evals/run.py`; latest tracked report
-  `evals/results/2026-09-16T073141Z-1ddf824.md`: $0.0127 list price per
-  model-backed turn, p95 27.6 s) and rolled up in `AI_COST_ANALYSIS.md`.
+  scorecard (`evals/run.py`; latest full run
+  `evals/results/2026-09-17T024919Z-a4a5856.md`: 45 cases, 44 passed, every
+  blocking gate PASS, $0.0127 list price per model-backed turn, p95 24.1 s
+  over 40 model-backed turns) and rolled up in `AI_COST_ANALYSIS.md`. The
+  `--repeat 3` run at `1ddf824` (p95 27.6 s over 120 model-backed turns) is
+  kept as stability history.
 
 ## Verification
 

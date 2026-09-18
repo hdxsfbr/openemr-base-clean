@@ -5,9 +5,17 @@ evaluator-facing README for the co-pilot (deployed URL, demo credentials,
 architecture overview, test and eval commands, limitations). This file keeps
 OpenEMR's own README below the deliverables table.
 
-**Deployment:** tag `v0.2.0-slice` is live at
+**Deployment:** commit `e1dd331`, tag `week1`, is live at
 <https://openemr-137-184-4-22.sslip.io> on a single DigitalOcean Droplet
-(`/copilot-api/health` and `/copilot-api/ready` answered 200 on 2026-09-16).
+(deployed 2026-09-16; `/copilot-api/health` and `/copilot-api/ready` answered
+200 that day, and the deployment was exercised end to end on
+2026-09-17 by the eval run `evals/results/2026-09-17T024919Z-a4a5856.md`,
+45 cases, 44 passed, every blocking gate PASS, plus the 21/21 Bruno collection
+run of 2026-09-16).
+No runtime directory changed between `831e1d8` and `e1dd331`, so the running
+code is the same as at `831e1d8`. The older `v0.2.0-slice` tag is not what is
+deployed, and `c7253ed` is the `week1` tag object, not a commit sha. No image
+digest has been recorded for this deploy yet.
 It runs the project's own OpenEMR image carrying the co-pilot module behind a
 deny-by-default Caddy path allowlist, as the audit required before an
 evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections "Current

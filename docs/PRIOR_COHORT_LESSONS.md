@@ -12,13 +12,16 @@ anything, we do about it.
 1. **Deploy the agent skeleton on Tuesday, before features.** The
    infrastructure is proven, but no co-pilot code has been deployed. A stub
    module plus agent container on the Droplet should exist before any real
-   tool work. *(Done 2026-09-15: `v0.1.0-skeleton`, then `v0.2.0-slice`;
+   tool work. *(Done 2026-09-15: `v0.1.0-skeleton`, then `v0.2.0-slice`; the
+   deployed tag since 2026-09-16 is `week1` at commit `e1dd331`;
    `docs/deployment/digitalocean.md` "Current Deployment".)*
 2. **Tag a known-good commit before every checkpoint and before adding scope
    late in the week.** Submit the smaller working thing rather than
-   hot-fixing live. *(Status 2026-09-16: two tags exist, `v0.1.0-skeleton`
-   and `v0.2.0-slice`, both 2026-09-15; later deploys were untagged commits.
-   Rollback rehearsal is still an open checklist item.)*
+   hot-fixing live. *(Status 2026-09-17: three tags exist — `v0.1.0-skeleton`
+   and `v0.2.0-slice`, both 2026-09-15, and `week1`, written 2026-09-16 at
+   commit `e1dd331`, which is what is deployed. The early submission was made
+   from a tag, not an untagged commit. Rollback rehearsal is still an open
+   checklist item.)*
 3. **Add explicit conversation-isolation and paraphrase-tolerant evals.** Both
    failures happened to others, and both are cheap to test with our fixtures.
    *(Status 2026-09-16: isolation cases `ISO-NEW-CONVERSATION-001`,
@@ -48,7 +51,7 @@ anything, we do about it.
 | Chat agent leaked context from a previous conversation after a "fresh" session (typed "Jane" four times, got four different previously discussed answers) | **Covered in design, not yet tested** (as of 2026-09-14). "Conversation isolation" is an eval category (`evals/README.md`), and conversations are to be bound server-side to (site, user, pid) (`AUDIT.md` §7.1, ARCH-HIGH-001). **Update 2026-09-16:** binding lives in the module table `copilot_conversation` (ADR-0005); of the four evals below, (1) is `ISO-NEW-CONVERSATION-001` and (2) is `AUTH-SWITCH-001`, both passing in every recorded run; (3) and (4) are not yet cases (open in ADR-0005 "Verification") | Add explicit evals: (1) a new conversation for the same patient carries **no** prior turns; (2) a patient switch ends the conversation; (3) the same question asked across N fresh sessions yields the same verified facts with no references to earlier sessions; (4) two users on the same patient never see each other's history. Never keep conversation state in a process-global or model-side memory, and never in browser storage |
 | PHI to a third-party LLM was raised with no clean answer | **Answered in the audit:** `AUDIT.md` §5.5 and `docs/audit/compliance.md` §4 | Interview-ready answer: the PRD lets us assume a BAA; the provider is a business associate; minimum necessary still applies, so tools send projected, windowed fields with no direct identifiers; an LLM BAA does not cover hosted tracing, so telemetry is PHI-free or self-hosted; prompts and responses never go into ordinary logs |
 | Evals broke on trivial wording drift ("Confirm" vs "Verify") | **Design fits:** the planned response schema is structured claims + `source_ids[]` + limitations (`ARCHITECTURE.md` "Verification Design"). **Update 2026-09-16:** `evals/run.py` matches claim types, source tables, statuses, limitation kinds, and evidence status; model-wording checks are labelled `recall:` and sit under a non-blocking gate | Assert on **structured output**: which claims exist, their source IDs, typed values, status flags, and absence states. Never compare prose. Where wording matters (e.g. "not documented"), match a small set of accepted phrasings or a status enum. Reserve model-graded checks for tone and completeness, reported separately |
-| Cautionary tale: a working subset at noon, more features added, collapse, a broken revert, missed deadline | Not yet relevant; highest schedule risk later in the week. **Update 2026-09-16:** tags `v0.1.0-skeleton` and `v0.2.0-slice` exist; no tag since, and the rollback rehearsal in `docs/SUBMISSION_CHECKLIST.md` is still unticked | **Release discipline:** `git tag` a known-good commit (and record its image digest) at every green checkpoint; deploy only tagged commits; freeze scope several hours before each deadline (`docs/PROJECT_PLAN.md` targets 10:00 AM for final); rollback = redeploy the previous tag, rehearsed once before Wednesday. Submit the smaller working thing |
+| Cautionary tale: a working subset at noon, more features added, collapse, a broken revert, missed deadline | Not yet relevant; highest schedule risk later in the week. **Update 2026-09-17:** three tags exist — `v0.1.0-skeleton` and `v0.2.0-slice` (2026-09-15) and `week1` (2026-09-16, commit `e1dd331`), and `week1` is what is deployed, so the early submission did go out from a tagged commit. The rollback rehearsal in `docs/SUBMISSION_CHECKLIST.md` is still unticked and no image digest has been recorded | **Release discipline:** `git tag` a known-good commit (and record its image digest) at every green checkpoint; deploy only tagged commits; freeze scope several hours before each deadline (`docs/PROJECT_PLAN.md` targets 10:00 AM for final); rollback = redeploy the previous tag, rehearsed once before Wednesday. Submit the smaller working thing |
 
 ## Smaller notes
 

@@ -5,14 +5,17 @@ portal. All deadlines are Central Time.
 
 ## Early Submission — Wednesday, September 16 at 11:59 PM
 
-**Repository note (updated 2026-09-15):** GitLab
+**Repository note (updated 2026-09-17):** GitLab
 (`labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean`, branch
 `main`) is the system of record and the URL to submit; owner decision,
 pending instructor confirmation. `hdxsfbr/openemr-base-clean` on GitHub stays
 a genuine fork of `Gauntlet-HQ/openemr-base-clean` for the PRD's literal
-"forked from OpenEMR" requirement and is not kept in sync. The challenge
-README is `README_AGENT_FORGE.md` at the repository root so it does not
-conflict with OpenEMR's own `README.md`.
+"forked from OpenEMR" requirement. Both remotes are in sync: `gitlab/main`
+and `origin/main` are both at `e1dd331`, and the `week1` tag (tag object
+`c7253ed`) points at that commit. The challenge README is
+`README_AGENT_FORGE.md` at the repository root; `README.md` itself now opens
+with a 49-line challenge header above OpenEMR's own README (upstream content
+resumes at line 51).
 
 ### Hard gates and repository
 
@@ -61,17 +64,27 @@ conflict with OpenEMR's own `README.md`.
 - [x] Dashboard shows all PRD-required metrics. *(Langfuse dashboard
       "Clinical Co-Pilot": requests, p50/p95, errors, retries, tool calls,
       tool failures, tokens, cost; `docs/operations/langfuse-dashboard.md`,
-      2026-09-16. Screenshot for evaluators still to attach.)*
+      2026-09-16. Evaluator screenshots are attached:
+      `docs/audit/evidence/observability/` holds the nine panel renders, two
+      full-page dashboard captures, a trace-view capture, and one exported
+      trace with its correlation id.)*
 - [x] Eval suite includes boundary, invariant, and regression cases. *(Release
-      gate: same-commit `--repeat 3` report
+      gate: latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` at
+      a4a5856, all 45 cases, 44 passed, every blocking gate PASS, Golden set
+      integrity 14/14 for the first time, citations 177/177 resolved,
+      model-backed p95 24.1 s, $0.0127 per model-backed turn; the one miss,
+      CONF-NOTE-VS-LIST-N-001, is a model-recall check under the non-blocking
+      task-success gate, which still reported PASS at 95%. Two recall checks
+      flip run to run: MISS-AUTHOR-J-001 (missed at 1ddf824 attempts 1 and 3,
+      and at 69560f05) and CONF-NOTE-VS-LIST-N-001 (missed at a4a5856); the
+      deterministic lines passed every time. Kept as stability history: the
+      same-commit `--repeat 3` report
       `evals/results/2026-09-16T073141Z-1ddf824` at 1ddf824, 44 cases x 3
       attempts, 114/116, every blocking gate PASS on all attempts, citations
-      528/528 resolved, model-backed p95 27.6 s, $0.0127 per turn; the two
-      misses are one model-recall case (MISS-AUTHOR-J-001, the note citation)
-      counted under task success at 95%. Gates the runner cannot measure read
-      NOT MEASURED, not PASS. 45
+      528/528 resolved, model-backed p95 27.6 s. Gates the runner cannot
+      measure read NOT MEASURED, not PASS. 45
       cases on disk since 2026-09-16 (`CIT-PARAPHRASE-ADVICE-001` added with
-      the widened advice lexicon; the recorded runs cover the 44 before it),
+      the widened advice lexicon),
       one per cohort defect; a 14-case golden tier with a blocking "Golden
       set integrity" gate and a 4-case holdout tier (`evals/README.md`); a
       full run's exit code follows the release gates. Every results file
@@ -81,8 +94,12 @@ conflict with OpenEMR's own `README.md`.
       *(`agent/tests/test_health.py`: liveness echoes or mints the correlation
       id, `/ready` is 503 when a dependency fails and 200 when all pass; runs
       in CI `test:agent`; Bruno `4 Health` requests against the deployment.
-      OpenEMR's own `readyz` stays unrouted, so the traceability row is still
-      "In progress".)*
+      OpenEMR's own `readyz` stays unrouted by design. The traceability row is
+      still "In progress" for a second reason: `/ready`'s tracer entry is
+      presence-only — `check_tracer` (`agent/app/readiness.py`) reads the two
+      Langfuse key files and sends no request, so an unreachable tracer still
+      reports ready. The panel probes `/health`, not `/ready`
+      (`public/assets/js/copilot.js:485`).)*
 - [x] GitLab pipeline green on the submitted commit. *(Pipeline 23777 on
       3415bac, 2026-09-16: four lints, agent tests, offline evals green on the
       dedicated runner Droplet; the manual `test:evals-live` job (job 76210)
@@ -102,7 +119,11 @@ conflict with OpenEMR's own `README.md`.
 - [x] Live application URL tested from outside the development machine.
       *(Owner opened `https://openemr-137-184-4-22.sslip.io` from a phone on
       mobile data, 2026-09-16.)*
-- [x] Repository URL and exact commit recorded.
+- [x] Repository URL and exact commit recorded. *(Early submission: commit
+      `e1dd331`, tag `week1` — the tag object is `c7253ed`, which is not a
+      commit sha. The commit is dated 2026-09-16 19:52 PT and the tag was
+      written 2026-09-16 21:52 CT (`git cat-file -p week1`); `gitlab/main`
+      and `origin/main` are both at `e1dd331`.)*
 - [x] Dashboard access or sanitized evidence prepared for evaluators.
       *(`docs/audit/evidence/observability/`: the nine Clinical Co-Pilot
       dashboard panels rendered from the live page and one full trace export
@@ -116,7 +137,10 @@ conflict with OpenEMR's own `README.md`.
       pointers, 2026-09-16.)*
 - [x] Technical interview scheduled within the required window. *(2026-09-17,
       12:00 PT, with Byron.)*
-- [HAHAHA] Submission completed with several hours of buffer.
+- [x] Submission completed with buffer. *(The submitted tag `week1` was
+      written 2026-09-16 21:52 CT, about two hours before the 11:59 PM CT
+      deadline — buffer, though not "several hours". The owner's portal
+      confirmation time is not recorded in this repository.)*
 
 ## Final Submission — Sunday, September 20 at Noon
 

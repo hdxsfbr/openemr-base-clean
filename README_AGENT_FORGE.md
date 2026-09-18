@@ -51,7 +51,7 @@ Open a patient from the synthetic cohort (`pubpid` `AF-*`, defined in
 | Patient | pid | Why |
 | --- | --- | --- |
 | AF-DQ-A2 | 900001 | Happy path: four groups of changes since the visit 90 days ago, six cited items |
-| AF-DQ-N | 900018 | A note says atorvastatin was stopped while the list shows it active; the answer cites both |
+| AF-DQ-N | 900018 | A note says atorvastatin was stopped while the list shows it active. No deterministic note-versus-list detector exists, so naming that conflict is model recall (`CONF-NOTE-VS-LIST-N-001`, non-blocking task-success gate) and it was missed in the `a4a5856` run. The conflicts the system states deterministically come from `pack_limitations` (`agent/app/graph/nodes.py`): see AF-DQ-B, where an activity flag and an end date disagree (`CONF-STATUS-B-001`, blocking uncertainty-recall gate) |
 | AF-HEAVY | 900023 | Five years, 120 results, 39 notes; bounded retrieval at volume |
 
 The panel at the top of the dashboard offers three starter questions: "What
@@ -243,8 +243,9 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 - **Deployment.** A single Droplet on a disposable `sslip.io` hostname; one
   failure domain; no backups; egress from the agent is not yet restricted to
   the model and tracer endpoints.
-- From `ARCHITECTURE.md`, "Known Limitations": notes cover Clinical Notes
-  and SOAP forms only; codes and titles are used as written, no terminology
+- From `ARCHITECTURE.md`, "Known Limitations": notes cover the Clinical Notes
+  encounter form only (`ClinicalNotesTool` reads `ClinicalNotesService`; no
+  SOAP or other encounter form is retrieved); codes and titles are used as written, no terminology
   mapping; labs are proven on seeded rows, not real HL7 feeds; reference
   resolution can pick the wrong candidate and is shown as an interpretation;
   a patient switch within a ticket's 90 seconds completes the in-flight turn
@@ -260,7 +261,7 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 | Bruno collection against the deployment as `audit-physician` | 21/21 requests passing (2026-09-16) |
 | Agent unit tests (`agent/tests/`) | 60 passed |
 | UC-01 turn, follow-up with tool chaining, Langfuse traces | Verified live |
-| Eval cases and results (`evals/cases/`, `evals/results/`) | 45 cases (14 golden, 4 holdout). Latest tracked full runs, 2026-09-16: 44/44 at `a7641e9` and 114/116 over a same-commit `--repeat 3` at `1ddf824`, every blocking gate PASS; the misses are one model-recall check (`MISS-AUTHOR-J-001`) under the non-blocking task-success gate. No full run yet since the 45th case and the golden-set gate were added (`831e1d8`) |
+| Eval cases and results (`evals/cases/`, `evals/results/`) | 45 cases (14 golden, 4 holdout); eleven reports in `evals/results/` at this commit. Latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` (2026-09-17): 45 ran, 44 passed, every blocking gate PASS, Golden set integrity 14/14 for the first time, citations 177/177, model-backed p95 24.1 s, $0.0127 per model-backed turn. The one miss, `CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking task-success gate, which still reported PASS at 95%. Two recall checks flip run to run: `MISS-AUTHOR-J-001` (missed at `1ddf824` and `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (missed at `a4a5856`). History: 44/44 at `a7641e9` and 114/116 over a same-commit `--repeat 3` at `1ddf824` (citations 528/528) |
 | GitLab CI | Green on the dedicated runner (lints, agent tests, offline evals); manual `test:evals-live` job ran 44/44 against the deployment (`docs/SUBMISSION_CHECKLIST.md`) |
 | Load tests at 10 and 50 concurrent users | Pending (target 2026-09-19) |
 | Cost measurements and scale projections (`AI_COST_ANALYSIS.md`) | Measured per-turn cost and projections written; per-turn release threshold still to be set |

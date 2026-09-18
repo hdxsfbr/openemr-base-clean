@@ -116,7 +116,9 @@ memory.
 
 - Every turn is re-authorized in the session; the agent holds no cookie.
 - Isolation is testable with the fixtures and cheap to reason about.
-- PHI at rest in the agent is limited to claim text with a 24 h TTL.
+- PHI at rest in the agent is limited to claim text. The 24 h TTL is a
+  design target, not an implemented control: no sweeper runs and
+  `ConversationRepository::sweep()` has no caller (see "Verification").
 
 ### Negative and residual risk
 
@@ -138,10 +140,14 @@ memory.
   on one patient never see each other's history; token for A cannot read B.
 - Ticket evals: expired, reused `jti`, tampered signature, ticket after
   `end`, ticket after logout: all 403 with a denial event and no tool call.
-- TTL sweeper test: checkpoints older than 24 h are gone; binding rows are
-  closed and later deleted.
-- Checkpoint content test: no tool record fields (values, note text) appear
-  in any stored checkpoint after a full turn on `AF-HEAVY`.
+- TTL sweeper test: **not written, and there is nothing to test yet.**
+  `ConversationRepository::sweep()`
+  (`src/Conversation/ConversationRepository.php:83`) implements the binding
+  delete but has no caller and no schedule, and no checkpoint sweeper exists.
+  Retention is a design target until one lands.
+- Checkpoint content test: **still to add.** No test in `agent/tests/`
+  asserts that tool record fields (values, note text) are absent from a
+  stored checkpoint after a full turn on `AF-HEAVY`.
 
 ## Revisit Triggers
 

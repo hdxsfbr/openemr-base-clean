@@ -167,9 +167,10 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
 - [x] Propagate a correlation ID through the UI, gateway, tools, verifier,
       and logs (model and tracer spans join once the keys exist).
 - [x] Implement one end-to-end question with citations and verification
-      (`v0.2.0-slice`, 2026-09-15): the UC-01 turn runs live on the
-      deployment through panel, ticket, agent, gateway, verifier; without the
-      model key it renders the deterministic source-cited brief.
+      (reached at tag `v0.2.0-slice`, 2026-09-15; the deployed tag is now
+      `week1` at commit `e1dd331`): the UC-01 turn runs on the deployment
+      through panel, ticket, agent, gateway, verifier; without the model key
+      it renders the deterministic source-cited brief.
 - [x] Wire traces (Langfuse, PHI-free, verified 2026-09-15). The dashboard
       panels (`docs/operations/langfuse-dashboard.md`) and the alert job
       (`agent/app/alerts.py`, `docs/operations/alerts.md`) landed 2026-09-16.
@@ -186,7 +187,7 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
 - [x] Add authorization, missing-data, malformed-output, and tool-failure
       evals (`evals/cases/`: 45 cases, 9 authorization, 12 missing data, 5
       citation including altered facts and paraphrased advice, 2 tool
-      failure, 3 model failure; nine result reports in `evals/results/`).
+      failure, 3 model failure; eleven result reports in `evals/results/`).
 - [x] Confirm tokens, cost, latency, tool order, retries, and verification
       outcomes are visible (Langfuse trace per turn with TOOL observations,
       `docs/operations/correlation-id-walkthrough.md`,
@@ -212,8 +213,12 @@ exist; the journal's review fields are still blank. GitLab CI runs on a
 dedicated runner Droplet (`infra/digitalocean/runner/`); the first green
 pipeline and a manual `test:evals-live` job against the deployment are
 recorded in `docs/SUBMISSION_CHECKLIST.md`. The latest full run recorded in
-the tree predates the 45th case; no run on the 45-case suite has been
-recorded yet.
+the tree, `evals/results/2026-09-17T024919Z-a4a5856.md`, is on the full
+45-case suite: 45 ran, 44 passed, every blocking gate PASS, Golden set
+integrity 14/14 for the first time, citations 177/177, model-backed p95
+24.1 s, $0.0127 per model-backed turn. Its one miss,
+`CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking
+task-success gate.
 
 ### Thursday–Friday, September 17–18: deepen reliability
 
