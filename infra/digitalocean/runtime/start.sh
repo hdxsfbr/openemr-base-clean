@@ -87,6 +87,7 @@ fi
 # The public edge must answer before this script reports success. Six attempts
 # ten seconds apart cover a Caddy restart; a first certificate issuance on a
 # brand-new hostname can take longer, in which case rerun deploy.sh (idempotent).
+# This gate needs curl on the host: cloud-init.yaml.tftpl installs it alongside Docker.
 livez_url="https://${public_hostname}/meta/health/livez"
 for attempt in $(seq 1 6); do
     if curl --fail --silent --show-error --location --max-time 20 "${livez_url}" >/dev/null; then

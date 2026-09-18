@@ -489,7 +489,9 @@ watch, and fill the timing table at the end.
 
 Cost: one `s-2vcpu-4gb` Droplet at $0.03571 per hour, so a rehearsal done in
 one sitting is under $0.20 of compute, plus about $0.15 of model spend for
-each `--golden-only` run (14 model-backed cases). Destroy the same day.
+each `--golden-only` run: 7 of the 14 golden cases are model-backed (the other
+7 are `mode: offline`), 8 model turns in all at $0.0127 to $0.0223 each.
+Destroy the same day.
 
 Before starting: `git status --porcelain` is empty on the branch being
 rehearsed; the DigitalOcean token is loaded

@@ -30,7 +30,7 @@ write_files:
 
 runcmd:
   - [apt-get, update]
-  - [apt-get, install, -y, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+  - [apt-get, install, -y, curl, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
   - [systemctl, enable, --now, docker]
   - [usermod, -aG, docker, deployer]
   - [install, -d, -o, deployer, -g, deployer, -m, "0750", /opt/agentforge]

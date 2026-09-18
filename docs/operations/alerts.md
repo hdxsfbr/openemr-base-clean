@@ -88,6 +88,14 @@ unhandled responses from the agent API and sets 0.5% warn and 2% page over
 5 minutes, plus a page when `/ready` fails for 2 minutes. Probe paths are
 excluded from the denominator so that a health poll every few seconds cannot
 dilute failed turns. Readiness flaps are investigated, never accepted.
+Since 2026-09-17 `/ready` also includes tracer reachability (`check_tracer` in
+`app/readiness.py` issues `GET {langfuse_host}/api/public/projects` with a 5 s
+timeout, re-evaluated once per 30 s cache window, `ready_cache_seconds` in
+`app/settings.py`), so a Langfuse Cloud outage or a Droplet egress problem
+flips readiness and, after two minutes of `not_ready` (in practice the next
+300 s evaluation of the `alerts` service), pages while the app itself keeps
+serving turns; the first response to that page is to read `tracer` in
+`/copilot-api/ready` before anything else.
 
 What it usually means. A bad deploy, an expired or missing secret, OpenEMR or
 the gateway down, or the model provider failing in a way the agent did not
