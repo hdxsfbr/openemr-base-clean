@@ -44,7 +44,9 @@ agent/.venv/bin/python evals/run.py --golden-only
 agent/.venv/bin/python evals/run.py --only conflict --include-holdout
 ```
 
-Each run writes `evals/results/<UTC time>-<commit>.json` and `.md` with:
+Each run writes `<UTC time>-<commit>.json` and `.md` under `evals/results/`
+(or under `--out-dir DIR`, for a gate or acceptance run that must leave no
+report in the repo) with:
 
 - **Release gates** from `KEY_METRICS.md`, each in one of five states:
   PASS, FAIL, NOT RUN (a case the gate depends on did not execute in this
@@ -90,6 +92,32 @@ Each run writes `evals/results/<UTC time>-<commit>.json` and `.md` with:
   limitations, evidence status, usage, correlation id) so a failure can be
   read without rerunning, and followed into Langfuse and the audit log.
 
+**Cost per turn, corrected 2026-09-17.** Every report in `evals/results/`
+through `2026-09-17T024919Z-a4a5856` was written by a `_cost_usd` that priced
+uncached input as `input_tokens - cache_read_tokens` clamped at zero. The
+agent passes the API's usage counters through unchanged (`agent/app/model.py`,
+`_usage_of`): `input_tokens` is already the API's uncached count and cache
+reads are the separate `cache_read_input_tokens`, so on 439 of the 440
+recorded model-backed turns (cache reads above uncached input on every turn
+but one in `1ddf824`) the uncached-input line was $0 and the printed cost is
+low by about 10%. Since the fix `input_tokens` is priced at the base rate with
+nothing subtracted; the cache-read and output lines are unchanged. Recomputed
+from the same JSON, `a4a5856` is $0.0139 per turn against the $0.0127 it
+printed (+$0.0013, 9.9%), and the nine reports that carry a scorecard move
+from $0.0121-$0.0141 to $0.0133-$0.0155. The recorded reports are not
+rewritten: their figures are what the runner computed at the time, and every
+document quoting $0.0127 quotes that. `compare.py` reads `cost_usd_per_turn`
+as stored, so a cost delta between a report before this boundary and one
+after it carries about +$0.0013 of correction on top of any real change. The
+gate is unaffected (the corrected eval mix is still under the $0.0223
+projection). Still not counted: cache writes. The API reports them as
+`cache_creation_input_tokens`, outside `input_tokens`, and the agent does not
+store that counter, although both the system prompt and the evidence pack
+carry `cache_control` (`agent/app/model.py`, `_system()` and the pack block
+in the narration call), so every cache write is priced at nothing and its
+size cannot be recovered from the recorded reports; the figure remains a
+lower bound.
+
 `--repeat N` runs every live case N times and reports flaky cases (passed
 on some attempts only); use it before trusting a single-run difference.
 `--label` stores a free-text label (the experiment) in the report.
@@ -100,7 +128,11 @@ All `run.py` flags (`evals/run.py`, `main()`): `--base-url` (default
 (pubpid to pid map, default `evals/cases/cohort.json`), `--only CATEGORY`,
 `--case ID`, `--offline-only`, `--golden-only`, `--include-holdout`, `--model`
 (recorded in the report; default `$COPILOT_MODEL_ID` or `claude-sonnet-5`),
-`--repeat N`, `--label TEXT`.
+`--repeat N`, `--label TEXT`, `--out-dir DIR` (where the `.json` and `.md`
+report go; default `evals/results/`, the versioned location, so CI and a
+release run are unchanged; an offline gate or acceptance run passes a scratch
+directory so it leaves no report pair in the repo to be mistaken for a
+tracked run, and `git status --short -- evals/results` stays empty).
 
 **Exit code.** A full run (no `--only`, `--case`, `--offline-only`,
 `--golden-only`) exits 1 only when a blocking gate is FAIL or NOT RUN; a
@@ -382,6 +414,26 @@ release-blocking list for a human to read) but it is model wording, so it
 must not be able to turn the golden-set gate red; the empty-history line
 carries the proof. Same verified facts across the two conversations is not
 asserted, since claim wording varies run to run.
+
+The wording check has a false-positive surface, recorded on the case's
+`risk:` line (2026-09-17, R2-E2): `text_must_not_match` runs
+case-insensitively over every claim text, the summary, every suggestion and
+every limitation detail (`_texts()` and `check()` in `run.py`), and several
+of its phrases are ordinary clinical wording that a claim quoting a note can
+carry ("as noted previously, the patient ...", "already noted in the problem
+list", "continue metformin as we discussed"). A miss on this line in a
+release run is therefore triaged as wording first (read the matched text
+against the cited sources and the empty-history line) and read as leaked
+history only when the phrase is in no cited source. The fourth pattern was
+tightened for this reason: it read `(previous|prior|earlier|last)
+(turn|question|answer|response|message|conversation)` and matched chart
+content such as "last conversation with the cardiologist" or "prior response
+to therapy"; it now requires a first- or second-person possessive
+(`\b(my|your|our) (previous|prior|earlier|last) (turn|question|answer|response|message|conversation)\b`),
+which a reference to this conversation carries and chart content does not.
+The bare "as we discussed" in the first pattern is kept: it is the phrase the
+model would most naturally use to refer back, so narrowing it would lose the
+primary signal, and the triage rule covers the note-quoting case.
 
 Every other `AF-DQ-*` patient has at least one case (the cohort README lists
 the planted defect and the required behavior each case encodes). Cases with

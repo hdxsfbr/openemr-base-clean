@@ -50,10 +50,15 @@ estimate dominates any fully loaded figure.
 Measured from the live deployment's `/metrics` counters after the last deploy:
 4 turns, 11 model calls, input_tokens 4,097, output_tokens 7,798,
 cache_read_tokens 14,551. Turn latency measured at 12 to 22 s. Model is
-claude-sonnet-5 (ADR-0004). The counters do not separate cache-write tokens
-from uncached input, so the write premium (1.25x on the evidence pack the
-first time it is seen) is folded into the input line below and slightly
-understated.
+claude-sonnet-5 (ADR-0004). The counters carry no cache-write tokens at all:
+the API reports them as `cache_creation_input_tokens`, outside
+`input_tokens`, and `agent/app/model.py` (`_usage_of`) stores only
+`input_tokens`, `output_tokens` and `cache_read_input_tokens`, so the
+evidence pack and the system prompt (both sent with `cache_control`) are
+priced at nothing the first time each is seen, not folded into the input
+line below. The write line's size is not recoverable from the recorded
+counters; storing `cache_creation_input_tokens` in `Usage` is the change
+that would measure it.
 
 | Per-turn line | Tokens | Rate | Cost |
 | --- | ---: | ---: | ---: |
@@ -73,12 +78,23 @@ list prices as the table above, `PRICE_PER_MTOK`). Latest tracked full run,
 output / 5,106 cache-read tokens per turn, **$0.0127 per turn** (run total
 $1.53). A later single full run at `69560f0`
 (`evals/results/2026-09-16T081636Z-69560f05.md`) measured 2.3 calls, 612 / 1,139 / 4,870 tokens, $0.0124 per turn.
-Two caveats on the scorecard figure. It is a lower bound: the runner prices
-uncached input as `input_tokens - cache_read_tokens` clamped at zero, and
-in these runs the reported `input_tokens` (608) is below `cache_read_tokens`
-(5,106), so the uncached-input line is $0 and the cache-write premium is
-not separated. And it is the eval mix (about 45 percent follow-ups), not
-the usage model below. The projections below keep the earlier, higher
+Two caveats on the scorecard figure. It is a lower bound, in two ways. The
+runner that wrote every report through `a4a5856` priced uncached input as
+`input_tokens - cache_read_tokens` clamped at zero, although the agent
+reports the API's `input_tokens`, which is already net of cache reads
+(`agent/app/model.py`, `_usage_of`), so with 608 uncached input tokens
+against 5,106 cache reads the uncached-input line was $0; corrected
+2026-09-17 in `evals/run.py` (`_cost_usd` now prices `input_tokens` at the
+base rate with nothing subtracted), which raises the figure by about 10%
+(`1ddf824` recomputes from its JSON to $0.0139 and `a4a5856` to $0.0139
+against the $0.0127 both printed; the nine scorecard reports move from
+$0.0121-$0.0141 to $0.0133-$0.0155). The recorded reports keep the figures
+they printed, and a `compare.py` cost delta across that boundary carries
+about +$0.0013 of correction. And cache writes are not counted at all: the
+API reports them as `cache_creation_input_tokens`, outside `input_tokens`,
+and the agent does not store that counter, although both the system prompt
+and the evidence pack carry `cache_control`. The other caveat is that it is
+the eval mix (about 45 percent follow-ups), not the usage model below. The projections below keep the earlier, higher
 $0.0223 figure as the conservative basis, and since 2026-09-17 it is also
 the eval runner's cost gate (`COST_PER_TURN_PROJECTION_USD = 0.0223` in
 `evals/run.py`, beside `PRICE_PER_MTOK`; `cost_gate()`): PASS at or under
@@ -92,10 +108,11 @@ against about 1,170 per turn in the eval mix (1,170 at `1ddf824` over 120
 model-backed turns, 1,172 at `a4a5856` over 40, and 1,115 to 1,306 across
 the nine live-run JSON reports that carry a scorecard). Output is priced at
 $10 per MTok, so that gap alone is about $0.0078 of the $0.0096 difference;
-the rest is the uncached-input line ($0.00205 in the four turns, $0 in the
-eval runs because the reported `input_tokens` sits below `cache_read_tokens`
-and the runner clamps at zero), less a slightly larger cache-read line in
-the eval mix. No setting differs: `agent/app/settings.py` (model id, effort,
+the rest is the uncached-input line ($0.00205 in the four turns against $0
+in the eval reports through `a4a5856`, which the runner printed because of
+the clamp described above; at the corrected arithmetic the eval line is
+about $0.0012 at 608 input tokens and the difference narrows to about
+$0.0084), less a slightly larger cache-read line in the eval mix. No setting differs: `agent/app/settings.py` (model id, effort,
 planning rounds, `max_output_tokens`) has not changed since before either
 measurement; the narration prompt in `agent/app/model.py` changed once, at
 `26a9a3d` on 2026-09-15, between the two, and the eval figure is the same on
@@ -120,13 +137,14 @@ most the scorecard's input plus output, and the halt allows at least:
 
 | Token mix | Input + output per turn | Turns before the halt (at least) | List-price cost per turn | Model cost per day at the halt (at least) |
 | --- | ---: | ---: | ---: | ---: |
-| Eval mix (`1ddf824`, 120 model-backed turns) | 608 + 1,170 = 1,778 | about 1,125 | $0.0127 | about $14 |
+| Eval mix (`1ddf824`, 120 model-backed turns) | 608 + 1,170 = 1,778 | about 1,125 | $0.0127 as printed; $0.0139 at the corrected arithmetic | about $14 as printed; about $15.6 corrected |
 | Four post-deploy turns (Part B) | 1,024 + 1,950 = 2,974 | about 672 | $0.0223 | about $15 |
 
-(2,000,000 / 1,778 = 1,125 and 1,125 x $0.0127 = $14.29; 2,000,000 / 2,974 =
-672 and 672 x $0.0223 = $14.99.) Either mix lands at about $14 to $15 of
-model spend per UTC day when the halt fires, so the **daily budget is $14
-per UTC day (warn) and $42 (page, three times)**. Spend past $15 in a day
+(2,000,000 / 1,778 = 1,125 and 1,125 x $0.0127 = $14.29, or $15.64 at the
+corrected $0.0139; 2,000,000 / 2,974 = 672 and 672 x $0.0223 = $14.99.)
+Either mix lands at about $14 to $16 of model spend per UTC day when the
+halt fires; the **daily budget stays $14 per UTC day (warn) and $42 (page,
+three times)**, set from the printed figures and not re-derived here. Spend past $15 in a day
 means the halt did not hold or planning tokens dominated: `DailySpend` is
 in-process memory, one counter per agent process, reset by a restart and not
 shared across replicas, so a page at three times the budget is a detector of

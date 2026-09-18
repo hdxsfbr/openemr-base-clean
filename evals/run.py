@@ -8,8 +8,9 @@ ids in agent/tests so verifier-level invariants share the same report.
 
     python evals/run.py --base-url https://host --password-file /path/or - [--only CATEGORY] [--case ID]
 
-Results go to evals/results/<UTC date>-<short sha>.json and .md. Never prints
-passwords or tokens; case files and results hold no PHI (synthetic cohort).
+Results go to evals/results/<UTC date>-<short sha>.json and .md, or under --out-dir DIR
+for a run that must not leave a report in the repo. Never prints passwords or tokens;
+case files and results hold no PHI (synthetic cohort).
 """
 
 from __future__ import annotations
@@ -136,11 +137,16 @@ STARTER_QUESTIONS = {
     "Which recent abnormal labs still have no later result or documented follow-up?",
     "What does the chart say about why each current medication is on the list?",
 }
-# Sonnet 5 list prices (AI_COST_ANALYSIS.md): the counters do not separate cache writes, so
-# every uncached input token is priced at the base rate (a lower bound on the write premium).
+# Sonnet 5 list prices (AI_COST_ANALYSIS.md). The agent passes the API's usage counters through
+# unchanged (agent/app/model.py, _usage_of): input_tokens is the API's uncached input (cache reads and
+# cache writes are excluded from it by the API), cache_read_tokens is its cache_read_input_tokens, and
+# cache_creation_input_tokens is not stored at all although both the system prompt and the evidence pack
+# carry cache_control (model.py _system and the pack block), so every cache write is priced at nothing
+# here and the figure is a lower bound.
 PRICE_PER_MTOK = {"input": 2.00, "cache_read": 0.20, "output": 10.00}
 # Cost gate basis (AI_COST_ANALYSIS.md Part B, the four post-deploy turns at about 1,950 output tokens;
-# the eval mix measures about $0.0127 because its turns emit about 1,170 output tokens; agent/app/settings.py is unchanged).
+# the eval mix printed about $0.0127 through a4a5856, about $0.0139 at the corrected _cost_usd arithmetic, because its
+# turns emit about 1,170 output tokens; agent/app/settings.py is unchanged).
 # PASS at or under the projection, PASS with warn between one and two times it (risk acceptance in the
 # report), FAIL and block above twice; NOT CONFIGURED only when the run had no model-backed turn.
 COST_PER_TURN_PROJECTION_USD = 0.0223
@@ -525,8 +531,13 @@ def _dist(values: list[float]) -> dict[str, Any]:
 
 
 def _cost_usd(usage: dict[str, Any]) -> float:
-    inp = float(usage.get("input_tokens", 0)) - float(usage.get("cache_read_tokens", 0))
-    return (max(inp, 0) * PRICE_PER_MTOK["input"] + float(usage.get("cache_read_tokens", 0)) * PRICE_PER_MTOK["cache_read"] + float(usage.get("output_tokens", 0)) * PRICE_PER_MTOK["output"]) / 1_000_000
+    """List-price cost of one turn's usage: input_tokens at the base rate, cache_read_tokens at the
+    cache-read rate, output_tokens at the output rate, nothing subtracted from anything (the agent's
+    input_tokens is already the API's uncached count, see PRICE_PER_MTOK). Until 2026-09-17 this priced
+    uncached input as input_tokens - cache_read_tokens clamped at zero, so the uncached-input line was $0
+    on every turn whose cache reads exceeded its uncached input, which is every recorded eval turn: the
+    reports through a4a5856 under-count by about 10% (evals/README.md, "Cost per turn, corrected")."""
+    return (float(usage.get("input_tokens", 0)) * PRICE_PER_MTOK["input"] + float(usage.get("cache_read_tokens", 0)) * PRICE_PER_MTOK["cache_read"] + float(usage.get("output_tokens", 0)) * PRICE_PER_MTOK["output"]) / 1_000_000
 
 
 def scorecard(results: list[CaseResult]) -> dict[str, Any]:
@@ -680,8 +691,8 @@ def gates(results: list[CaseResult], card: dict[str, Any], expected: list[dict[s
     return rows
 
 
-def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path, Path]:
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+def write_report(results: list[CaseResult], meta: dict[str, Any], out_dir: Path = RESULTS_DIR) -> tuple[Path, Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
     stem = f"{stamp}-{meta['commit']}"
     by_cat: dict[str, dict[str, int]] = {}
@@ -717,7 +728,7 @@ def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path,
         "tokens": tokens,
         "results": [r.__dict__ for r in results],
     }
-    json_path = RESULTS_DIR / f"{stem}.json"
+    json_path = out_dir / f"{stem}.json"
     json_path.write_text(json.dumps(summary, indent=2))
     repeat = meta.get("repeat", 1)
     lines = [
@@ -809,7 +820,7 @@ def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path,
         lines.append(f"| {label} | {r.mode} | {'pass' if r.passed else 'FAIL'} | {', '.join(str(m) for m in r.latency_ms) or ''} | {'; '.join(r.failures)[:300]} |")
     if summary["safety_blocking_failures"]:
         lines += ["", "**Release-blocking failures:** " + ", ".join(sorted(set(summary["safety_blocking_failures"])))]
-    md_path = RESULTS_DIR / f"{stem}.md"
+    md_path = out_dir / f"{stem}.md"
     md_path.write_text("\n".join(lines) + "\n")
     return json_path, md_path
 
@@ -827,7 +838,9 @@ def main() -> int:
     ap.add_argument("--model", default=os.environ.get("COPILOT_MODEL_ID", "claude-sonnet-5"))
     ap.add_argument("--repeat", type=int, default=1, help="run every live case this many times (variance and flakiness)")
     ap.add_argument("--label", default="", help="free-text label stored in the report (e.g. the experiment being measured)")
+    ap.add_argument("--out-dir", default=str(RESULTS_DIR), help="directory for the .json and .md report (default evals/results/, the versioned location; point a gate or acceptance run at a scratch directory so it leaves nothing in the repo)")
     args = ap.parse_args()
+    out_dir = Path(args.out_dir).expanduser().resolve()
 
     full_run = not (args.only or args.case or args.offline_only or args.golden_only)
     include_holdout = full_run or args.include_holdout
@@ -868,11 +881,12 @@ def main() -> int:
         "label": args.label,
         "include_holdout": include_holdout,
     }
-    json_path, md_path = write_report(results, meta)
+    json_path, md_path = write_report(results, meta, out_dir)
     blocking = [f"{g['gate']} ({g['state']})" for g in gates(results, scorecard(results)) if g["blocks"]]
+    shown = md_path.relative_to(ROOT) if md_path.is_relative_to(ROOT) else md_path
     print(f"\n{sum(r.passed for r in results)}/{len(results)} passed. Blocking gates: {', '.join(blocking) or 'none'}."
           + ("" if full_run else " (filtered run: the gate table is judged against the full manifest and does not decide the exit code)")
-          + f" Report: {md_path.relative_to(ROOT)}")
+          + f" Report: {shown}")
     # A full run is judged by the release gates (KEY_METRICS.md): a non-blocking miss such as
     # model recall is reported, not fatal. A filtered run is a debugging run and fails on any case.
     if full_run:
