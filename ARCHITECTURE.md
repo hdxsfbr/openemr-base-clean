@@ -674,6 +674,31 @@ the KEY_METRICS.md 30 s p95 threshold needs either a written risk
 acceptance at a revised number, or a resize before the release run — both
 owner decisions, per the M4 STOP gate.
 
+**Agent-side fix, same day (`docs/audit/evidence/performance/agent-perf-fix-2026-09-18.md`,
+commit `ba3105b`).** Two confirmed agent-side bottlenecks, independent of
+OpenEMR: `HttpGateway.call()` opened a fresh `httpx.AsyncClient` (fresh
+TCP/TLS handshake) per tool call instead of a pooled one, and
+`AsyncSqliteSaver`'s checkpoint reads/writes for every concurrent turn
+serialize behind one process-wide `asyncio.Lock`, committing under SQLite's
+default non-WAL journal mode (full fsync per commit, held under the lock).
+Fixed with a pooled gateway client and `PRAGMA journal_mode=WAL` +
+`synchronous=NORMAL` on the checkpoint connection — the lock itself remains
+(a checkpointer-backend change, e.g. Postgres, is the real fix, deferred to
+Week 2, `docs/WEEK2_HANDOFF.md`). Re-ran the identical M4 load-test protocol
+against the same Droplet: at 50 users, turn p95 dropped 45% under
+`--fault model` (7,986 ms -> 4,416 ms) and 30% under real model (43,791 ms
+-> 30,513 ms), and 4.5x more tool calls succeeded instead of timing out
+(6/259 -> 27/273). The control measurements — chart-open p95 and
+`openemr`/`database` CPU, both pure-OpenEMR and untouched by agent code —
+are statistically unchanged between the two runs, confirming OpenEMR was
+under identical saturation both times and the improvement is attributable
+to the agent change. **The concurrent-user ceiling did not move**: CPU,
+`load1`, and VU-completion counts at 50 users are the same order of
+magnitude as the M4 baseline, and real-model turn p95 at 10 users is
+unchanged (45.0 s before and after) — the fix relieves contention, and
+there is no contention to relieve below OpenEMR's saturation point. The
+30 s p95 threshold decision above is unaffected and still open.
+
 ## Observability
 
 **Decided (ADR-0007).** Langfuse's native LangGraph callback handler in
