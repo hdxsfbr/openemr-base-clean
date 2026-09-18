@@ -127,12 +127,17 @@ debugging. It remains billable until `./destroy.sh --yes` succeeds.
 ## Current Deployment (2026-09-16)
 
 The deployment is live at `https://openemr-137-184-4-22.sslip.io` (Droplet
-`137.184.4.22`). Tag `v0.2.0-slice` (2026-09-15, superseding
-`v0.1.0-skeleton`) was the last tagged deploy; later commits were pushed to
-the same host with `deploy.sh` without a new tag. The model and tracer keys
+`137.184.4.22`). The deployed tag since 2026-09-16 is `week1` at commit
+`e1dd331`, which is what the early submission was made from; `v0.2.0-slice`
+(2026-09-15, superseding `v0.1.0-skeleton`) was the tag before it. Commits
+after `e1dd331` have touched only documentation, so the host runs a runtime
+tree identical to HEAD (`git diff week1 HEAD -- agent
+interface/modules/custom_modules/oe-module-copilot infra contracts` is
+empty). No deployed image digest has been recorded yet; the final deploy
+records one. The model and tracer keys
 were pushed with `push-secrets.sh` on 2026-09-15, so turns run with
-`claude-sonnet-5` and trace to Langfuse; the nine eval reports in
-`evals/results/` (2026-09-16) and the manual CI job `test:evals-live`
+`claude-sonnet-5` and trace to Langfuse; the eleven eval reports in
+`evals/results/` and the manual CI job `test:evals-live`
 (below) target this hostname, and the Bruno collection passes 21/21 against
 it as `audit-physician` (`docs/SUBMISSION_CHECKLIST.md`). Without the model
 key the narrative falls back to the deterministic source-cited brief

@@ -12,6 +12,8 @@ evals/
   cases/          # One YAML per case plus cohort.json (pubpid -> pid)
   fixtures/       # Synthetic cohort (af-cohort-v1) and demo users
   results/        # Versioned run reports (JSON + Markdown); no secrets or PHI
+                  # 11 reports, 10 with JSON: 69560f05 is Markdown only, so it
+                  # cannot be an argument to compare.py
   error_analysis/ # Journals from error_analysis.py sample, plus a screenshot of the review UI
   run.py          # Runner: live cases against a deployment, offline cases via pytest
   compare.py      # Diff two run reports (gates, scorecard, per-case latency)
