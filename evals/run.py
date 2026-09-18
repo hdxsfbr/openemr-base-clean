@@ -139,6 +139,12 @@ STARTER_QUESTIONS = {
 # Sonnet 5 list prices (AI_COST_ANALYSIS.md): the counters do not separate cache writes, so
 # every uncached input token is priced at the base rate (a lower bound on the write premium).
 PRICE_PER_MTOK = {"input": 2.00, "cache_read": 0.20, "output": 10.00}
+# Cost gate basis (AI_COST_ANALYSIS.md Part B, the four post-deploy turns at about 1,950 output tokens;
+# the eval mix measures about $0.0127 because its turns emit about 1,170 output tokens; agent/app/settings.py is unchanged).
+# PASS at or under the projection, PASS with warn between one and two times it (risk acceptance in the
+# report), FAIL and block above twice; NOT CONFIGURED only when the run had no model-backed turn.
+COST_PER_TURN_PROJECTION_USD = 0.0223
+COST_PER_TURN_WARN_MULTIPLE = 2.0
 UNCITED_OK = ("absence", "interpretation")
 # Kept in step with agent/app/verifier.py's FORBIDDEN advice/inference patterns (2026-09-16 paraphrase
 # hardening): this is the harness's own independent invariant check on displayed text, so a gap here
@@ -584,11 +590,36 @@ def manifest() -> list[dict[str, Any]]:
 GATE_STATES = ("PASS", "FAIL", "NOT RUN", "NOT MEASURED", "NOT CONFIGURED")
 
 
+def cost_gate(cost_usd_per_turn: float | None, model_calls: float) -> dict[str, Any]:
+    """The "Cost per verified turn" gate row (KEY_METRICS.md) judged against COST_PER_TURN_PROJECTION_USD.
+    PASS at or under the projection; PASS with warn=True between one and two times it (the value text asks
+    for risk acceptance in the report); FAIL with blocks=True above twice; NOT CONFIGURED only when the run
+    had no model-backed turn (no cost, or zero model calls), which is the one state with nothing to judge.
+    The comparison is at the scorecard's four-decimal precision (scorecard() stores cost_usd_per_turn as
+    round(..., 4)), so a raw value is rounded first and the effective boundaries sit at the fifth decimal:
+    $0.02235 starts the warn band and $0.04465 the FAIL band."""
+    projection = COST_PER_TURN_PROJECTION_USD
+    ceiling = round(projection * COST_PER_TURN_WARN_MULTIPLE, 4)
+    target = f"<= ${projection:.4f} per model-backed turn (AI_COST_ANALYSIS.md projection); PASS (warn) up to ${ceiling:.4f} with risk acceptance; FAIL above"
+    row: dict[str, Any] = {"gate": "Cost per verified turn", "target": target, "value": "", "state": "NOT CONFIGURED", "passed": False, "blocks": False, "warn": False}
+    if cost_usd_per_turn is None or model_calls <= 0:
+        row["value"] = "no model-backed turns in this run (nothing to judge)"
+        return row
+    cost = round(float(cost_usd_per_turn), 4)
+    if cost > ceiling:
+        row.update(value=f"${cost:.4f} per model-backed turn, above twice the projection (${ceiling:.4f})", state="FAIL", blocks=True)
+    elif cost > projection:
+        row.update(value=f"${cost:.4f} per model-backed turn, above projection, needs risk acceptance in the report", state="PASS", passed=True, warn=True)
+    else:
+        row.update(value=f"${cost:.4f} per model-backed turn (projection ${projection:.4f})", state="PASS", passed=True)
+    return row
+
+
 def gates(results: list[CaseResult], card: dict[str, Any], expected: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """KEY_METRICS.md release gates for this run. A gate is PASS only when every case it depends on ran
     and none failed; missing cases make it NOT RUN, which blocks like a FAIL (the "not run blocks" rule).
-    Gates with no threshold yet are NOT CONFIGURED; gates the runner cannot measure are NOT MEASURED.
-    Neither is ever reported as PASS."""
+    A gate with nothing to judge in this run is NOT CONFIGURED (cost per turn when no turn was model-backed);
+    gates the runner cannot measure are NOT MEASURED. Neither is ever reported as PASS."""
     expected = manifest() if expected is None else expected
     ran = {r.id for r in results}
 
@@ -644,7 +675,7 @@ def gates(results: list[CaseResult], card: dict[str, Any], expected: list[dict[s
         gate("Latency p95 (model-backed turns)", "<= 30000 ms warn, > 45000 ms blocks", live_needed, [] if (p95 is None or p95 <= 45000) else [f"p95 {p95}"], p95, warn=bool(p95 is not None and p95 > 30000)),
         {"gate": "Time to first useful evidence", "target": "p95 under 2 s", "value": "the runner uses non-streaming turns; needs the SSE path", "state": "NOT MEASURED", "passed": False, "blocks": False, "warn": False},
         gate("Error rate", "no 5xx from the agent on any turn", live_needed, [f"{errors} x 5xx"] if errors else [], errors),
-        {"gate": "Cost per verified turn", "target": "threshold to be set in AI_COST_ANALYSIS.md", "value": f"${card.get('cost_usd_per_turn', 0):.4f} per model-backed turn", "state": "NOT CONFIGURED", "passed": False, "blocks": False, "warn": False},
+        cost_gate(card.get("cost_usd_per_turn"), float(card.get("model_calls_per_turn") or 0) * float(card.get("turns") or 0)),
     ]
     return rows
 
@@ -712,7 +743,7 @@ def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path,
         lines.append(f"| {g['gate']} | {g['target']} | {val} | {verdict} |")
     if not meta.get("full_run", True):
         lines += ["", "**Filtered run.** Only part of the suite executed; the gate table above is judged against every case on disk, so NOT RUN is expected here and a release verdict needs a full run."]
-    lines += ["", f"Gate states: PASS, FAIL, NOT RUN (a case the gate depends on did not execute; blocks like FAIL), NOT MEASURED, NOT CONFIGURED (never PASS, never block). Cases on disk: {len(manifest())}; cases in this run: {len(per_case)}."]
+    lines += ["", f"Gate states: PASS, FAIL, NOT RUN (a case the gate depends on did not execute; blocks like FAIL), NOT MEASURED (the runner cannot measure it), NOT CONFIGURED (nothing to judge in this run: cost per turn needs at least one model-backed turn; never PASS, never block). Cases on disk: {len(manifest())}; cases in this run: {len(per_case)}."]
     lines += [
         "",
         "## Golden set (smoke test)",

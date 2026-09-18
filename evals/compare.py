@@ -20,6 +20,15 @@ def _first_attempts(run: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _state(g: dict[str, Any]) -> str:
+    """A gate row's state as the report prints it (PASS, PASS (warn), FAIL, NOT RUN, NOT MEASURED,
+    NOT CONFIGURED); older reports without a state field fall back to passed/failed."""
+    if not g:
+        return "-"
+    state = g.get("state") or ("PASS" if g.get("passed") else "FAIL")
+    return f"{state} (warn)" if g.get("warn") else state
+
+
 def _fmt(v: Any) -> str:
     if isinstance(v, float):
         return f"{v:.3f}"
@@ -43,7 +52,7 @@ def main(argv: list[str]) -> int:
     ga = {g["gate"]: g for g in a.get("gates", [])}
     for g in b.get("gates", []):
         base = ga.get(g["gate"], {})
-        lines.append(f"| {g['gate']} | {'PASS' if base.get('passed') else 'FAIL'} ({_fmt(base.get('value'))}) | {'PASS' if g['passed'] else 'FAIL'} ({_fmt(g['value'])}) |")
+        lines.append(f"| {g['gate']} | {_state(base)} ({_fmt(base.get('value'))}) | {_state(g)} ({_fmt(g['value'])}) |")
     sa, sb = a.get("scorecard", {}), b.get("scorecard", {})
     lines += ["", "## Scorecard", "", "| Measure | Baseline | Candidate | Delta |", "| --- | --- | --- | --- |"]
     for key in ("turns", "claims_per_turn", "zero_claim_turns", "near_miss_rate", "withheld_total", "withheld_rate", "repair_rate", "model_summary_share", "suggestions_per_turn", "starter_suggestion_share", "model_calls_per_turn", "cost_usd_per_turn"):
