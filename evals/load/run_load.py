@@ -57,9 +57,18 @@ level alone. At the levels in --stream-levels (default 1,10) the first turn is
 sent with Accept: text/event-stream and the time to the `event: evidence` frame
 (TTFE: the moment the panel can show sources) is recorded next to the full turn
 time, which for a streamed turn ends at `event: done`. Streamed turns are not
-subject to the agent's 45 s wall clock (agent/app/api.py applies
-turn_wall_clock_seconds to the JSON path only), so their long tail is bounded by
-this driver's 90 s client timeout instead.
+subject to the agent's 45 s wall clock (turn_wall_clock_seconds,
+agent/app/settings.py:40; agent/app/api.py applies it with asyncio.wait_for on
+the JSON path only, and the SSE generator `events()` in post_turn has no wall
+clock). Nor does this driver bound them as a whole: TURN_TIMEOUT 90.0 is
+httpx's per-operation timeout, which on a stream is a 90 s read timeout
+between SSE frames, and every `event: progress` frame the agent emits resets
+it. A streamed turn's total duration is therefore bounded only by the agent's
+per-call timeouts adding up (gateway_timeout_seconds 2.0 per tool call,
+model_timeout_seconds 30.0 per attempt with max_retries=1;
+agent/app/settings.py:18 and :34, agent/app/model.py:207), not by one ceiling
+on either side. Only the JSON path (levels outside --stream-levels) has the
+hard 45 s ceiling.
 
 --fault model sends `X-Copilot-Fault: model` on every turn. The deployment
 honors it (COPILOT_FAULT_INJECTION=1 in infra/digitalocean/runtime/compose.yaml),
@@ -758,18 +767,25 @@ class AsyncSession:
         return sample
 
     def _turn_request(self, message: str, fault: str | None, stream: bool) -> tuple[str, dict[str, str], dict[str, Any]]:
-        assert self.ticket is not None
-        headers = {"X-Copilot-Token": self.ticket["token"], "X-Correlation-Id": self.ticket["correlation_id"]}
+        # mint() guarantees a token; the correlation id is optional on the wire (TurnRequest.correlation_id
+        # is `CorrelationId | None`, agent/app/contracts/turns.py), so a ticket without one sends neither
+        # the header nor the field and the agent assigns its own. No KeyError can start here.
+        ticket = self.ticket or {}
+        headers = {"X-Copilot-Token": str(ticket.get("token") or "")}
+        body: dict[str, Any] = {"message": message, "stream": stream}
+        correlation_id = _correlation_id(ticket)
+        if correlation_id is not None:
+            headers["X-Correlation-Id"] = correlation_id
+            body["correlation_id"] = correlation_id
         if fault:
             headers["X-Copilot-Fault"] = fault
         if stream:
             headers["Accept"] = "text/event-stream"
-        body = {"message": message, "correlation_id": self.ticket["correlation_id"], "stream": stream}
         return f"{self.api}/v1/conversations/{self.conversation_id}/turns", headers, body
 
     async def turn(self, message: str, turn_type: str, fault: str | None, stream: bool) -> TurnSample:
         url, headers, body = self._turn_request(message, fault, stream)
-        sample = TurnSample(self.scenario, self.user, turn_type, 0.0, None, stream=stream, correlation_id=self.ticket["correlation_id"] if self.ticket else None)
+        sample = TurnSample(self.scenario, self.user, turn_type, 0.0, None, stream=stream, correlation_id=_correlation_id(self.ticket))
         t0 = time.perf_counter()
         try:
             if stream:
@@ -801,8 +817,7 @@ class AsyncSession:
                 sample.status = "failed"
 
     async def history(self) -> StepSample:
-        assert self.ticket is not None
-        _, sample = await self._request("history", "GET", f"{self.api}/v1/conversations/{self.conversation_id}", headers={"X-Copilot-Token": self.ticket["token"]})
+        _, sample = await self._request("history", "GET", f"{self.api}/v1/conversations/{self.conversation_id}", headers={"X-Copilot-Token": str((self.ticket or {}).get("token") or "")})
         return sample
 
 
@@ -836,6 +851,12 @@ def _loads(text: str) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def _correlation_id(ticket: dict[str, Any] | None) -> str | None:
+    """The ticket's correlation id when ticket.php sent a non-empty string, else None; never a KeyError."""
+    value = (ticket or {}).get("correlation_id")
+    return value if isinstance(value, str) and value else None
+
+
 def _absorb_body(sample: TurnSample, body: dict[str, Any]) -> None:
     """Keep only what the report needs from a turn body: status, evidence health, usage, correlation id."""
     if not body:
@@ -857,16 +878,20 @@ def default_client_factory() -> httpx.AsyncClient:
 
 
 async def run_virtual_user(index: int, level: int, cfg: RunConfig, password: str, start_delay: float, client_factory: ClientFactory = default_client_factory) -> VirtualUserResult:
-    """One VU end to end. Never raises: a step that cannot continue is recorded in failed_at."""
+    """One VU end to end. Never raises, unconditionally: a step that cannot continue is recorded in
+    failed_at with its detail, and any other exception (a transport error, a malformed body, a bug in
+    this driver) is recorded as failed_at=<step>, error=<exception class name>, so the level's
+    asyncio.gather keeps every other VU's result and the run still writes its files. Cancellation
+    (Ctrl-C) is a BaseException, is not caught here, and is handled by main()."""
     user, scenario = assign(index, cfg.scenarios)
     result = VirtualUserResult(index=index, user=user, scenario=scenario)
     if start_delay > 0:
         await asyncio.sleep(start_delay)
     stream_first = level in cfg.stream_levels
-    async with client_factory() as client:
-        session = AsyncSession(client, cfg.base_url, user, scenario, cfg.scenarios)
-        step = "login"
-        try:
+    step = "login"
+    try:
+        async with client_factory() as client:
+            session = AsyncSession(client, cfg.base_url, user, scenario, cfg.scenarios)
             result.steps.append(await session.login(password))
             step = "chart_open"
             result.steps.append(await session.open_chart())
@@ -883,12 +908,12 @@ async def run_virtual_user(index: int, level: int, cfg: RunConfig, password: str
             result.steps.append(await session.mint())
             step = "history"
             result.steps.append(await session.history())
-        except StepFailure as exc:
-            if exc.sample is not None:
-                result.steps.append(exc.sample)
-            result.failed_at, result.error = exc.step, exc.detail
-        except httpx.HTTPError as exc:
-            result.failed_at, result.error = step, exc.__class__.__name__
+    except StepFailure as exc:
+        if exc.sample is not None:
+            result.steps.append(exc.sample)
+        result.failed_at, result.error = exc.step, exc.detail
+    except Exception as exc:  # noqa: BLE001 -- by design (see the docstring): the VU is the blast radius, the class name is the record
+        result.failed_at, result.error = step, exc.__class__.__name__
     return result
 
 

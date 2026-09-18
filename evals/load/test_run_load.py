@@ -14,6 +14,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
@@ -336,12 +337,14 @@ class FakeStack:
     """Answers the handshake the way OpenEMR plus the module plus the agent do (evals/run.py Session
     and agent/app/api.py), with knobs for the failure shapes the report must classify."""
 
-    def __init__(self, *, turn_http: int = 200, turn_status: str = "complete", stream_error: bool = False, drop_panel: bool = False, reject_login: bool = False) -> None:
+    def __init__(self, *, turn_http: int = 200, turn_status: str = "complete", stream_error: bool = False, drop_panel: bool = False, reject_login: bool = False, omit_correlation_id: bool = False, explode_for: str | None = None) -> None:
         self.turn_http = turn_http
         self.turn_status = turn_status
         self.stream_error = stream_error
         self.drop_panel = drop_panel
         self.reject_login = reject_login
+        self.omit_correlation_id = omit_correlation_id  # ticket.php answers with the token only
+        self.explode_for = explode_for  # this demo user's login raises a non-httpx exception (a driver bug, in-process)
         self.requests: list[tuple[str, str, dict[str, str]]] = []
         self.metrics_calls = 0
 
@@ -350,6 +353,8 @@ class FakeStack:
         self.requests.append((request.method, path, dict(request.headers)))
         if path == "/interface/main/main_screen.php":
             assert b"clearPass=" in request.content
+            if self.explode_for and parse_qs(request.content.decode()).get("authUser") == [self.explode_for]:
+                raise RuntimeError("synthetic driver bug (not an httpx.HTTPError)")
             return httpx.Response(200 if self.reject_login else 302, headers={"set-cookie": "OpenEMR=fake; Path=/"})
         if path == "/interface/patient_file/summary/demographics.php":
             assert request.url.params["set_pid"] in {"900001", "900018", "900023"}
@@ -360,7 +365,7 @@ class FakeStack:
             assert json.loads(request.content)["csrf_token"] == "csrf-fake"
             return httpx.Response(200, json={"conversation_id": "conv-1"})
         if path.endswith("/api/ticket.php"):
-            return httpx.Response(200, json={"token": "tok-fake", "correlation_id": "corr-1"})
+            return httpx.Response(200, json={"token": "tok-fake"} if self.omit_correlation_id else {"token": "tok-fake", "correlation_id": "corr-1"})
         if path == "/copilot-api/v1/conversations/conv-1/turns":
             return self.turn_response(request)
         if path == "/copilot-api/v1/conversations/conv-1":
@@ -372,8 +377,12 @@ class FakeStack:
         return httpx.Response(404)
 
     def turn_response(self, request: httpx.Request) -> httpx.Response:
-        assert request.headers["x-copilot-token"] == "tok-fake" and request.headers["x-correlation-id"] == "corr-1"
+        assert request.headers["x-copilot-token"] == "tok-fake"
         body = json.loads(request.content)
+        if self.omit_correlation_id:
+            assert "x-correlation-id" not in request.headers and "correlation_id" not in body  # the agent assigns its own
+        else:
+            assert request.headers["x-correlation-id"] == "corr-1" and body["correlation_id"] == "corr-1"
         if self.turn_http != 200:
             return httpx.Response(self.turn_http, json={"code": "x", "message": "generic", "correlation_id": "corr-1"})
         turn_body = {"status": self.turn_status, "correlation_id": "corr-1", "evidence": [{"tool": "lab_results", "status": "unavailable"}, {"tool": "problems", "status": "ok"}], "usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_tokens": 1, "model_calls": 1}}
@@ -435,6 +444,31 @@ def test_virtual_user_transport_failure_is_recorded_not_raised() -> None:
 
     vu = asyncio.run(L.run_virtual_user(0, 1, config(), "pw", 0.0, lambda: httpx.AsyncClient(transport=httpx.MockTransport(boom), base_url="https://example.test")))
     assert vu.failed_at == "login" and vu.error == "ConnectError" and vu.steps[0].error == "ConnectError"
+
+
+def test_virtual_user_survives_a_ticket_without_a_correlation_id() -> None:
+    stack = FakeStack(omit_correlation_id=True)
+    vu = asyncio.run(L.run_virtual_user(0, 1, config(), "pw", 0.0, factory_for(stack)))  # level 1 streams the first turn: both turn paths
+    assert vu.completed and [t.turn_type for t in vu.turns] == ["first", "followup"]
+    assert [t.correlation_id for t in vu.turns] == ["corr-1", "corr-1"]  # from the turn bodies, not the ticket
+    assert all("x-correlation-id" not in h for _m, p, h in stack.requests if p.endswith("/turns"))
+
+
+def test_virtual_user_records_an_unexpected_exception_instead_of_raising() -> None:
+    def bug(request: httpx.Request) -> httpx.Response:
+        raise RuntimeError("synthetic driver bug (not an httpx.HTTPError)")
+
+    vu = asyncio.run(L.run_virtual_user(0, 1, config(), "pw", 0.0, lambda: httpx.AsyncClient(transport=httpx.MockTransport(bug), base_url="https://example.test")))
+    assert not vu.completed and vu.failed_at == "login" and vu.error == "RuntimeError" and vu.steps == [] and vu.turns == []
+
+
+def test_run_level_keeps_the_other_vus_when_one_raises_unexpectedly() -> None:
+    stack = FakeStack(explode_for="physician")  # VU 1; VU 0 is audit-physician and completes
+    lv = asyncio.run(L.run_level(2, config(stream_levels=frozenset()), "pw", factory_for(stack)))
+    assert lv["vus"] == {"total": 2, "completed": 1, "failed": 1} and lv["failed_at"] == {"login": 1}
+    records = {r["user"]: r for r in lv["vu_records"]}
+    assert records["physician"]["completed"] is False and records["physician"]["error"] == "RuntimeError"
+    assert records["audit-physician"]["completed"] is True and lv["turns"] == 2
 
 
 def test_run_all_reads_metrics_around_each_level_and_builds_the_schema() -> None:

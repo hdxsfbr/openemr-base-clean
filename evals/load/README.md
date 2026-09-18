@@ -70,15 +70,25 @@ agent/.venv/bin/python evals/load/run_load.py --base-url "$HOST" --users 2 --pla
 agent/.venv/bin/python evals/load/run_load.py --base-url "$HOST" --users 2 --label smoke \
   --metrics-url "$HOST/copilot-api/metrics"
 
-# Baseline (M4): 1, 10 and 50 users with the sampler running in another terminal.
+# Baseline (M4): 1, 10 and 50 users with the sampler running as a background job.
 docs/audit/scripts/droplet-stats.sh --label baseline &
 agent/.venv/bin/python evals/load/run_load.py --base-url "$HOST" --users 1,10,50 --label baseline \
   --metrics-url "$HOST/copilot-api/metrics"
-kill -INT %1      # the sampler writes its end /metrics snapshot on interrupt
+kill -TERM %1     # not -INT (see below); the sampler writes its end /metrics snapshot, then exits
 
 # Capacity without provider limits or spend: the model call is replaced by the fallback.
 agent/.venv/bin/python evals/load/run_load.py --base-url "$HOST" --users 10,50 --label fault-model --fault model
 ```
+
+Stop a backgrounded sampler with `kill -TERM`, not `kill -INT`. The script
+traps both signals, but bash starts a job with `&` with SIGINT set to ignored
+whenever job control is off (a wrapper script, `bash -c`, a CI step), and a
+signal ignored at entry cannot be trapped, so `kill -INT %1` is silently lost
+there and the end `/metrics` snapshot is never written. SIGTERM is never
+ignored that way and reaches the trap from any shell; Ctrl-C still works when
+the sampler runs in the foreground of its own terminal. The trap takes effect
+after the current sleep or SSH sample returns, so allow up to `--interval`
+seconds for the "Wrote N samples" line.
 
 The sampler (`docs/audit/scripts/droplet-stats.sh --help`) is read-only over
 SSH: per 5 s row it records `docker stats` for the openemr, database, agent
@@ -127,8 +137,10 @@ agent/.venv/bin/python -m pytest -q evals/load/test_run_load.py
 
 Offline only: percentiles, buckets, the SSE framer, the metrics parser with
 both label sets, the level summary and the schema, plus the whole VU flow
-(JSON and streamed turns, 504, denial, missing panel, transport failure)
-against an in-process fake stack through `httpx.MockTransport`. No socket is
+(JSON and streamed turns, 504, denial, missing panel, transport failure, a
+ticket without a correlation id, and a non-httpx exception in one VU that must
+not abort the level) against an in-process fake stack through
+`httpx.MockTransport`. No socket is
 opened and no model budget is spent.
 
 ## Not covered
@@ -136,11 +148,24 @@ opened and no model budget is spent.
 - No think time between steps; the scenario is a burst per VU, which is the
   harsher reading of "concurrent users".
 - 25 VUs share one login name at 50 users. No OpenEMR setting that prevents
-  concurrent logins for one user was found (`library/globals.inc.php`,
-  `src/Common/Auth/AuthUtils.php`, `library/authentication/`), but that is
-  unverified live: the run must confirm it from `step_http.login` in the JSON
-  (302 for every VU) before any 50-user number is quoted.
-- Streamed turns are not bounded by the agent's 45 s wall clock, only by the
-  driver's 90 s client timeout, so the 1- and 10-user turn tails come from a
-  different path than the 50-user tail; `stream_levels` in the JSON says which.
+  concurrent logins for one user was found in the files checked on 2026-09-17:
+  `library/auth.inc.php` (the login entry point), `src/Common/Auth/AuthUtils.php`
+  (the password check and the `users_secure` / `ip_tracking` failure counters)
+  and `library/globals.inc.php` (the only login-side limits are on *failed*
+  attempts: `password_max_failed_logins` 20 per user and `ip_max_failed_logins`
+  100 per IP, each reset 3600 s after the last failure). That is unverified
+  live: the run must confirm it from `step_http.login` in the JSON (302 for
+  every VU) before any 50-user number is quoted. The failure counters are a
+  reason to check `DEMO_PASSWORD` with `--users 1` first: 50 wrong passwords
+  from one IP trip the per-user counter and block both demo accounts for an
+  hour.
+- Streamed turns have no ceiling on either side. The agent's 45 s wall clock
+  (`turn_wall_clock_seconds`) applies to the JSON path only and the SSE
+  generator in `agent/app/api.py` has none; the driver's 90 s httpx timeout is
+  a read timeout between SSE frames (every `event: progress` frame resets it),
+  not a bound on the whole turn. Only the agent's per-call timeouts (gateway
+  2 s per tool call, model 30 s per attempt, retried once) add up to a
+  practical limit. So the 1- and 10-user turn tails come from a different path
+  than the 50-user tail, which has the hard 45 s ceiling; `stream_levels` in
+  the JSON says which.
 - The sampler needs SSH as `deployer`; it never changes anything on the host.

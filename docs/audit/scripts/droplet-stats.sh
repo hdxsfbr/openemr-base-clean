@@ -14,7 +14,11 @@
 # Usage:
 #   docs/audit/scripts/droplet-stats.sh [--host deployer@137.184.4.22] [--duration SECONDS]
 #       [--interval 5] [--label NAME] [--out FILE.csv] [--compose-dir /opt/agentforge]
-#   --duration 0 (the default) samples until Ctrl-C. --help never contacts the host.
+#   --duration 0 (the default) samples until interrupted: Ctrl-C in the foreground, or
+#   `kill -TERM %1` / `kill -TERM <pid>` when started with `&`. Use TERM, not INT, for a
+#   background job: bash starts an async command with SIGINT ignored unless job control is
+#   on, and an ignored signal cannot be trapped, so `kill -INT` would be lost and the end
+#   /metrics snapshot never written. --help never contacts the host.
 #
 # Output: --out (default evals/load/results/droplet-stats-<UTC>[-<label>].csv) plus
 # <out stem>-metrics-start.prom and <out stem>-metrics-end.prom.
@@ -98,6 +102,10 @@ cleanup() {
     rm -rf "${control_dir}"
 }
 trap cleanup EXIT
+# Both signals end the loop cleanly (end /metrics snapshot, then cleanup). INT reaches the trap
+# only in the foreground or under job control: a job started with `&` from a non-interactive
+# shell has SIGINT ignored at entry, which no trap can undo, hence `kill -TERM` in
+# evals/load/README.md. The trap runs once the current sleep or SSH sample returns.
 trap 'stop=1' INT TERM
 
 # Container names, resolved once from the compose project (each service has one container).
