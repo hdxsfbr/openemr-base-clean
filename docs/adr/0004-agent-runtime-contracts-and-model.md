@@ -147,7 +147,10 @@ cache-friendly regardless of orchestration.
   while `start.sh` rebuilt with `--pull`; now `agent/requirements.lock` (66
   exact versions from the running container's `pip freeze`, container Python
   3.12.14) is what `agent/Dockerfile` and the CI agent jobs install first,
-  followed by `pip install --no-deps .`, so a rebuild resolves nothing new.
+  followed by `pip install --no-deps .`, so no runtime dependency can resolve
+  newer on a rebuild. The build backend (`setuptools>=69` in
+  `agent/pyproject.toml`) is not in the lock: `pip freeze` omits it and pip's
+  isolated build environment fetches it fresh at image build time.
   Regenerate the lock from the container after any dependency change.
 - The checkpointer persists graph state; raw tool records must be kept out
   of state (ADR-0005) or PHI at rest grows.

@@ -137,8 +137,9 @@ Dashed arrows are streamed events or a denial.*
 Local stack, demo database, audit users, module registration, and cohort
 load: `SETUP.md`.
 
-Agent tests (`agent/README.md` documents `pip install -e '.[dev]'` in a
-venv, then `pytest`; 60 tests):
+Agent tests (`agent/README.md` documents the lock-first install in a venv:
+`pip install -r requirements.lock`, `pip install --no-deps -e .`,
+`pip install -c requirements.lock '.[dev]'`, then `pytest`; 96 tests):
 
 ```bash
 cd agent && .venv/bin/python -m pytest -q
@@ -260,7 +261,7 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 | Item | Status |
 | --- | --- |
 | Bruno collection against the deployment as `audit-physician` | 21/21 requests passing (2026-09-16) |
-| Agent unit tests (`agent/tests/`) | 60 passed |
+| Agent unit tests (`agent/tests/`) | 96 passed (2026-09-17, `pytest -q`) |
 | UC-01 turn, follow-up with tool chaining, Langfuse traces | Verified live |
 | Eval cases and results (`evals/cases/`, `evals/results/`) | 46 cases (14 golden, 4 holdout; `ISO-FRESH-REPEAT-001` added 2026-09-17, not yet run); eleven reports in `evals/results/`. Latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` (2026-09-17): 45 ran, 44 passed, every blocking gate PASS, Golden set integrity 14/14 for the first time, citations 177/177, model-backed p95 24.1 s, $0.0127 per model-backed turn. The one miss, `CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking task-success gate, which still reported PASS at 95%. Two recall checks flip run to run: `MISS-AUTHOR-J-001` (missed at `1ddf824` and `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (missed at `a4a5856`). History: 44/44 at `a7641e9` and 114/116 over a same-commit `--repeat 3` at `1ddf824` (citations 528/528) |
 | GitLab CI | Green on the dedicated runner (lints, agent tests, offline evals); manual `test:evals-live` job ran 44/44 against the deployment (`docs/SUBMISSION_CHECKLIST.md`) |

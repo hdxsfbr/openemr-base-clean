@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
+import types
 from typing import Any
 
 import anthropic
@@ -47,6 +49,109 @@ def test_exception_inside_an_observation_propagates_unchanged(cm, args) -> None:
         with cm(*args):
             raise ModelError("rate_limited")
     assert info.value.kind == "rate_limited"
+
+
+class _RecordingObservation:
+    """What the fake Langfuse context manager yields: records the PHI-free
+    calls the telemetry helpers make on it."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def update(self, **kwargs: Any) -> None:
+        self.calls.append(("update", kwargs))
+
+    def update_trace(self, **kwargs: Any) -> None:
+        self.calls.append(("update_trace", kwargs))
+
+    def score_trace(self, **kwargs: Any) -> None:
+        self.calls.append(("score_trace", kwargs))
+
+
+class _RecordingContext:
+    """Stands in for `get_client().start_as_current_observation(...)`: records
+    the `__enter__` call and the `(exc_type, exc, tb)` triple `__exit__` gets."""
+
+    def __init__(self, exit_raises: bool = False, **kwargs: Any) -> None:
+        self.kwargs = kwargs
+        self.exit_raises = exit_raises
+        self.entered = False
+        self.exit_args: tuple[Any, Any, Any] | None = None
+        self.observation = _RecordingObservation()
+
+    def __enter__(self) -> _RecordingObservation:
+        self.entered = True
+        return self.observation
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+        self.exit_args = (exc_type, exc, tb)
+        if self.exit_raises:
+            raise RuntimeError("langfuse flush failed")
+        return False
+
+
+def _fake_langfuse(monkeypatch: pytest.MonkeyPatch, *, exit_raises: bool = False) -> list[_RecordingContext]:
+    """Route `_observation` through its production branch without a network:
+    `_ensure_client()` reports a client and a fake `langfuse` module in
+    `sys.modules` serves `get_client()`, whose `start_as_current_observation`
+    hands out recording context managers. Returns the list they are appended to."""
+    opened: list[_RecordingContext] = []
+
+    class Client:
+        def start_as_current_observation(self, **kwargs: Any) -> _RecordingContext:
+            cm = _RecordingContext(exit_raises=exit_raises, **kwargs)
+            opened.append(cm)
+            return cm
+
+    fake = types.ModuleType("langfuse")
+    fake.get_client = lambda: Client()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "langfuse", fake)
+    monkeypatch.setattr(telemetry, "_ensure_client", lambda: True)
+    return opened
+
+
+@pytest.mark.parametrize(
+    ("cm", "args", "opened_as"),
+    [
+        (generation, ("narrate", "model-x", "cid-1"), {"as_type": "generation", "name": "narrate", "model": "model-x"}),
+        (tool_observation, ("problems", "cid-1"), {"as_type": "tool", "name": "problems"}),
+        (turn_trace, ("cid-1", "conv-1"), {"as_type": "span", "name": "copilot.turn"}),
+    ],
+    ids=["generation", "tool_observation", "turn_trace"],
+)
+def test_exception_inside_a_real_observation_propagates_unchanged_and_closes_the_span(cm, args, opened_as, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The production branch of `_observation` (tracer on): the Langfuse
+    context manager is entered, the body raises, `__exit__` receives the
+    body's own `(ModelError, instance, traceback)`, and the ModelError reaches
+    the caller unchanged instead of RuntimeError('generator didn't stop after
+    throw()')."""
+    opened = _fake_langfuse(monkeypatch)
+    with pytest.raises(ModelError) as info:
+        with cm(*args) as obs:
+            assert obs is opened[0].observation, "the span yielded is the one the Langfuse context manager returned"
+            raise ModelError("rate_limited")
+    assert info.value.kind == "rate_limited"
+    assert len(opened) == 1 and opened[0].entered and opened[0].kwargs == opened_as
+    exc_type, exc, tb = opened[0].exit_args
+    assert exc_type is ModelError and exc is info.value and tb is not None
+
+
+def test_a_real_observation_is_closed_cleanly_on_normal_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened = _fake_langfuse(monkeypatch)
+    with generation("narrate", "model-x", "cid-1") as gen:
+        gen.update(metadata={"claims": 1})
+    assert opened[0].exit_args == (None, None, None)
+    assert opened[0].observation.calls == [("update", {"metadata": {"claims": 1}})]
+
+
+def test_a_failing_observation_exit_never_masks_the_body_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`_close` swallows the tracer's own `__exit__` failure so the body's
+    ModelError, not the tracer's RuntimeError, is what propagates."""
+    opened = _fake_langfuse(monkeypatch, exit_raises=True)
+    with pytest.raises(ModelError) as info:
+        with generation("narrate", "model-x", "cid-1"):
+            raise ModelError("overloaded")
+    assert info.value.kind == "overloaded" and opened[0].exit_args[0] is ModelError
 
 
 def test_observation_failure_logs_the_correlation_id(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:

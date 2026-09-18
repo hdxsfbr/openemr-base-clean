@@ -155,6 +155,16 @@ memory.
   them. The test found the token in graph state (`TurnState.token` at
   `66a6711`); it now lives in the per-turn cache (`state_store.put_token`).
   `AF-HEAVY` has no offline fixture, so the offline check runs on af-dq-a2.
+  Checkpoints written before 2026-09-17 (the deployed tag `week1`, commit
+  `e1dd331`, whose `TurnState` declared `token: str`) carry the delegation
+  token in the `token` channel of every checkpoint on the Droplet's
+  `agent_state` volume. The channel is no longer declared in `TurnState`, so
+  those checkpoints hold a channel the current schema does not know. The M3
+  deploy must either open a conversation checkpointed before the deploy and
+  confirm it still loads, or confirm that the `agent_state` volume is
+  recreated (which also removes the token bytes at rest). Each such token
+  expired 90 s after minting and carries no user or patient identifier
+  (Decision 2), so the residual is stale credential material, not PHI.
 
 ## Revisit Triggers
 

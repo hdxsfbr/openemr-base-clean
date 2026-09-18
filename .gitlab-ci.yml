@@ -80,7 +80,7 @@ test:evals-live:
     COPILOT_EVAL_BASE_URL: "https://openemr-137-184-4-22.sslip.io"
   script:
     - test -n "$DEMO_PASSWORD" || { echo "set the masked CI variable DEMO_PASSWORD"; exit 2; }
-    - cd agent && pip install --quiet '.[dev]' && cd ..
+    - cd agent && pip install --quiet -r requirements.lock && pip install --quiet --no-deps . && pip install --quiet -c requirements.lock '.[dev]' && cd ..
     - python evals/run.py --base-url "$COPILOT_EVAL_BASE_URL" --label "gitlab-ci $CI_PIPELINE_ID"
   artifacts:
     when: always

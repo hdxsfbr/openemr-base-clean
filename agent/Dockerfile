@@ -13,7 +13,9 @@ RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin copil
 
 WORKDIR /app
 # Exact versions first (requirements.lock, generated from the running container), then the
-# package itself with --no-deps so a rebuild with --pull cannot resolve anything newer.
+# package itself with --no-deps so no runtime dependency can resolve newer on a rebuild with
+# --pull. The build backend (setuptools>=69 in pyproject.toml) is not in the lock: pip freeze
+# omits it and pip's isolated build environment fetches it fresh at image build time.
 COPY requirements.lock ./
 RUN pip install -r requirements.lock
 COPY pyproject.toml README.md ./

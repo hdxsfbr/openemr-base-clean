@@ -42,9 +42,10 @@ It holds no database credentials and no OpenEMR session. Layout under `app/`:
   `state_store.py` (SQLite checkpointer path, per-turn record and token
   caches).
 
-`pytest` runs 91 tests under `tests/` (API, contracts, graph, health,
-alerts, telemetry, and `test_controls.py` for the checkpoint content, the
-circuit breaker, and the LangSmith guard); the offline eval cases in
+`pytest` runs 96 tests under `tests/` (API, contracts, graph, health,
+alerts, telemetry including the tracer-on branch of every observation
+against a fake `langfuse` module, and `test_controls.py` for the checkpoint
+content, the circuit breaker, and the LangSmith guard); the offline eval cases in
 `evals/cases/` delegate to these pytest node ids (`evals/README.md`).
 
 Dependencies are pinned. `pyproject.toml` carries the lower bounds;
@@ -52,9 +53,12 @@ Dependencies are pinned. `pyproject.toml` carries the lower bounds;
 `pip freeze` (Python 3.12.14 in `python:3.12-slim`; the header records the
 read-only command that generated it). `Dockerfile` and the CI agent jobs
 install `-r requirements.lock` first and then the package with
-`pip install --no-deps .`, so a rebuild with `--pull` cannot resolve anything
-newer. After changing a dependency, regenerate the lock from the container
-and commit both files. A fresh venv from the lock passes the suite on host
+`pip install --no-deps .`, so no runtime dependency can resolve newer on a
+rebuild with `--pull`. The build backend (`setuptools>=69` in
+`pyproject.toml`) is not in the lock: `pip freeze` omits it and pip's
+isolated build environment fetches it fresh at image build time. After
+changing a dependency, regenerate the lock from the container and commit
+both files. A fresh venv from the lock passes the suite on host
 Python 3.13 too, but the container's 3.12 is the version of record.
 
 ```bash
