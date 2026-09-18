@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     # decision, unlike narrate/repair's open-ended clinical synthesis). None falls back to
     # model_id, so leaving this unset is a no-op (2026-09-18 experiment, not yet adopted).
     plan_model_id: str | None = None
+    # output_config.effort is a Claude 5-family parameter (400s on e.g. Haiku 4.5,
+    # confirmed 2026-09-18). Set false alongside a plan_model_id override to a
+    # model outside that family.
+    plan_model_supports_effort: bool = True
     effort_first_turn: str = "low"
     effort_followup: str = "medium"
     model_timeout_seconds: float = 30.0

@@ -155,6 +155,9 @@ services:
       # Optional override for the plan call only; empty falls back to COPILOT_MODEL_ID
       # (2026-09-18 per-node model experiment, not yet adopted -- see AI_COST_ANALYSIS.md).
       COPILOT_PLAN_MODEL_ID: ${COPILOT_PLAN_MODEL_ID:-}
+      # Set false alongside a plan_model_id override to a model outside the
+      # Claude 5 family -- output_config.effort 400s on e.g. Haiku 4.5.
+      COPILOT_PLAN_MODEL_SUPPORTS_EFFORT: ${COPILOT_PLAN_MODEL_SUPPORTS_EFFORT:-true}
       # Follow-up plan->retrieve rounds per turn (ADR-0004 decision 5: 3).
       # 2026-09-18 experiment: fewer rounds trades tool-chaining depth for latency.
       COPILOT_MAX_PLAN_ROUNDS: ${COPILOT_MAX_PLAN_ROUNDS:-3}

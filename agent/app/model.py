@@ -279,19 +279,23 @@ class AnthropicModel:
             "If the pack already answers the question, call no tool."
         )
         plan_model = settings.plan_model_id or settings.model_id
+        kwargs: dict[str, Any] = {
+            "model": plan_model,
+            "max_tokens": 1500,
+            "system": self._system(),
+            "messages": [{"role": "user", "content": user}],
+            "tools": tool_definitions(),
+            "tool_choice": {"type": "auto"},
+        }
+        # output_config.effort (adaptive thinking) is a Claude 5-family parameter;
+        # a plan_model_id override to an older/smaller model (e.g. Haiku 4.5) 400s
+        # on it (confirmed 2026-09-18: "This model does not support the effort
+        # parameter"), so only send it when the effective model supports it.
+        if settings.plan_model_supports_effort:
+            kwargs["output_config"] = {"effort": settings.effort_followup}
         with generation("plan", plan_model, correlation_id) as gen:
-            response = await self._guarded(
-                lambda: self.client.messages.create(
-                    model=plan_model,
-                    max_tokens=1500,
-                    system=self._system(),
-                    messages=[{"role": "user", "content": user}],
-                    tools=tool_definitions(),
-                    tool_choice={"type": "auto"},
-                    output_config={"effort": settings.effort_followup},
-                )
-            )
-            record_usage(gen, _usage_of(response), effort=settings.effort_followup, tool_calls=sum(1 for b in response.content if b.type == "tool_use"))
+            response = await self._guarded(lambda: self.client.messages.create(**kwargs))
+            record_usage(gen, _usage_of(response), effort=settings.effort_followup if settings.plan_model_supports_effort else "n/a", tool_calls=sum(1 for b in response.content if b.type == "tool_use"))
         calls: list[tuple[str, dict[str, Any]]] = []
         text = ""
         for block in response.content:
