@@ -4,6 +4,8 @@
 stages:
   - lint
   - test
+  - deploy
+  - verify
 
 lint:whitespace:
   stage: lint
@@ -68,14 +70,58 @@ test:evals-offline:
       - evals/results/
     expire_in: 30 days
 
+# Deploys HEAD of main to the single Droplet (137.184.4.22) every push, automatically:
+# the owner decided (2026-09-17) that the early submission is already graded and the
+# priority now is deploying continuously rather than saving one push for M5. This
+# reverses the "never deploy without explicit approval" default the rest of the plan
+# still uses for terraform apply / destroy / load tests / the release run -- those
+# stay human-gated; only this one script, run against this one Droplet, is now
+# unattended. Needs the protected CI/CD variables DEPLOY_SSH_PRIVATE_KEY (file type;
+# the public half must be appended by hand to ~/.ssh/authorized_keys for the deployer
+# user on the Droplet -- the CI runner cannot do this itself) and TLS_EMAIL.
+# push-secrets.sh (inside deploy.sh) finds no ~/.config/agentforge/ on the runner and
+# skips every secret push, so it never overwrites the operator-pushed model/tracer
+# keys already on the host.
+deploy:production:
+  stage: deploy
+  image: alpine:3.21
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - cp "$DEPLOY_SSH_PRIVATE_KEY" ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+  script:
+    - test "$TLS_EMAIL" != "CHANGE_ME@example.com" || { echo "set the real TLS_EMAIL CI/CD variable"; exit 2; }
+    - bash infra/digitalocean/deploy.sh 137.184.4.22 openemr-137-184-4-22.sslip.io "$TLS_EMAIL"
+  environment:
+    name: production
+    url: https://openemr-137-184-4-22.sslip.io
+
+# Cheap, no-secret liveness check right after every deploy: OpenEMR itself plus the
+# agent's own /ready detail (informational -- a tracer or gateway hiccup here is a
+# real finding to look at, not proof the deploy failed, so it never fails the job).
+verify:smoke:
+  stage: verify
+  image: alpine:3.21
+  needs: ["deploy:production"]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+  before_script:
+    - apk add --no-cache bash curl
+  script:
+    - bash infra/digitalocean/smoke.sh openemr-137-184-4-22.sslip.io
+    - curl -sS --max-time 20 https://openemr-137-184-4-22.sslip.io/copilot-api/ready || true
+
 # The full suite against the deployment: 45 cases, ~40 model-backed turns, about $0.55 and
-# 12 minutes per run. Manual so a push never spends model budget by itself; needs the
-# masked CI variable DEMO_PASSWORD (the demo clinician password) set in the project.
+# 12 minutes per run. Manual so a push never spends model budget by itself, and it runs
+# after the deploy stage so it exercises the commit just deployed, not whatever was live
+# before it. Needs the masked CI variable DEMO_PASSWORD (the demo clinician password).
 test:evals-live:
-  stage: test
+  stage: verify
   image: python:3.12-slim
   when: manual
-  allow_failure: false
+  allow_failure: true
   variables:
     COPILOT_EVAL_BASE_URL: "https://openemr-137-184-4-22.sslip.io"
   script:

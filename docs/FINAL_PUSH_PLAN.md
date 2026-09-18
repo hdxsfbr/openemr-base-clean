@@ -23,13 +23,21 @@ STOP gate and wait for me.
 The orchestrator should track every task with TaskCreate/TaskUpdate so
 progress is visible outside the run.
 
-**Working branch: `week1-final-push`.** All of M1 through M5 happens on
-this branch, not on `main`. It reaches `main` through one GitLab merge
-request at M5, before the tag and before the form is submitted. Check with
-`git branch --show-current` at the start of every session and switch if it
-says anything else; never commit this work to `main` directly. The branch
-name deliberately differs from the `week1-final` tag created at M5, because
-a branch and a tag sharing a name make every ref lookup ambiguous.
+**Working branch, superseded 2026-09-17.** M1 and M2 happened on
+`week1-final-push` as planned below and reached `main` through
+[!2](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/merge_requests/2),
+merged the same day at the owner's decision, not at M5. Rationale: the early
+submission is already graded, so the risk this section was written to avoid
+(a reviewer opening `main` mid-week and seeing unfinished work) no longer
+applies, and the owner wants to deploy continuously rather than save
+everything for one push on Sunday. **From here, `main` is the working
+branch.** New work commits (or small MRs, either is fine) directly against
+`main`; there is no new per-milestone branch. Treat every "on the branch" /
+"at M5, merge to main" instruction below as historical description of how
+M1-M2 actually happened, not as an instruction to repeat. Invariant 4 is
+amended to match (see below). M3-M5 still apply as milestones, just against
+`main` instead of a side branch, and the M5 tag/submission steps (freeze,
+release run, tag `week1-final`) are unaffected by this change.
 
 ---
 
@@ -52,9 +60,18 @@ breaks one has failed its task even if its tests pass.
    is ever proposed, it requires a baseline `--repeat 2` run, the change, a
    second `--repeat 2` run, and `evals/compare.py` output. There is no time
    for that before Sunday, so the answer is no.
-4. **Never deploy without explicit human approval.** `infra/digitalocean/deploy.sh`,
-   `tf.sh apply`, `destroy.sh`, `smoke-cycle.sh`, and `push-secrets.sh`
-   against `137.184.4.22` are human-gated. Agents prepare; humans run.
+4. **Amended 2026-09-17: `infra/digitalocean/deploy.sh` against `137.184.4.22`
+   now runs unattended in CI on every push to `main`** (`.gitlab-ci.yml`
+   `deploy:production`, stage `deploy`), at the owner's explicit decision,
+   for the same reason the branch model above changed. **Everything else in
+   this invariant is unchanged and still human-gated:** `tf.sh apply`,
+   `destroy.sh`, `smoke-cycle.sh`, and `push-secrets.sh` run by a human, not
+   CI. Agents prepare those; humans run them. The CI deploy job's SSH access
+   is a dedicated key (`DEPLOY_SSH_PRIVATE_KEY`, a protected file-type CI/CD
+   variable) authorized only for the `deployer` user's `authorized_keys` on
+   that one Droplet; the CI runner's static IP needs adding to
+   `allowed_ssh_cidrs` in `terraform.tfvars` and applying, which is a
+   `tf.sh apply` and therefore still the owner's step.
 5. **Never spend model budget against the deployment without approval.**
    Live eval runs, load tests, and the release run are human-gated.
 6. **Never print or commit a secret.** Do not run `git remote -v` (the
