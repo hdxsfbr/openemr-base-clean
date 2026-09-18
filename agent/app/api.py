@@ -21,8 +21,9 @@ from .delegation import Delegation, DelegationError, verify
 from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
 from .settings import settings
-from .state_store import get_pack
+from .state_store import drop_token, put_token
 from .telemetry import finish_turn_trace, trace_config, turn_trace
+from .turn_outcome import verification_outcome
 
 router = APIRouter(prefix="/v1")
 
@@ -79,11 +80,12 @@ def _fault(request: Request) -> str | None:
 
 def _turn_input(delegation: Delegation, req: TurnRequest, correlation_id: str, fault: str | None) -> dict[str, Any]:
     state = dict(PER_TURN_DEFAULTS)
+    # The delegation token is deliberately absent: graph state is checkpointed after every
+    # step (ADR-0005), so the token goes into the per-turn cache (`put_token`) instead.
     state.update({
         "conversation_id": delegation.conversation_id,
         "turn_id": delegation.turn_id,
         "correlation_id": correlation_id,
-        "token": delegation.raw,
         "question": req.message,
         "fault": fault,
     })
@@ -108,7 +110,7 @@ def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResp
         "suggestions": state.get("suggestions") or [],
         "answered_at": state.get("answered_at"),
         "verification": Verification(
-            outcome="not_run" if state.get("raw_claims") is None and not state.get("narrate_error") else ("failed_closed" if state.get("narrate_error") and state.get("turn_type") != "uc01_first" else ("partial" if state.get("rejected") else "passed")),
+            outcome=verification_outcome(state),
             rules_applied=state.get("rules") or [],
             rejected=state.get("rejected") or [],
             repair_attempted=bool(state.get("repair_attempted")),
@@ -150,38 +152,58 @@ async def post_turn(
     stream = req.stream or (accept or "").startswith("text/event-stream")
 
     if not stream:
-        with turn_trace(correlation_id, conversation_id) as span:
-            try:
-                final = await asyncio.wait_for(graph.ainvoke(turn_input, config), timeout=settings.turn_wall_clock_seconds)
-            except asyncio.TimeoutError:
-                metrics.turn("failed", (time.perf_counter() - started) * 1000, {})
-                finish_turn_trace(span, {"status": "timeout"})
-                return _error(504, "dependency_unavailable", "The turn exceeded its time budget.", correlation_id)
-            finish_turn_trace(span, final)
+        put_token(auth.turn_id, auth.raw)
+        metrics.turn_started()
+        try:
+            with turn_trace(correlation_id, conversation_id) as span:
+                try:
+                    final = await asyncio.wait_for(graph.ainvoke(turn_input, config), timeout=settings.turn_wall_clock_seconds)
+                except asyncio.TimeoutError:
+                    metrics.turn("failed", (time.perf_counter() - started) * 1000, {})
+                    finish_turn_trace(span, {"status": "timeout"})
+                    return _error(504, "dependency_unavailable", "The turn exceeded its time budget.", correlation_id)
+                except Exception:
+                    # The middleware answers 500 `internal_error`; the trace still records the error.
+                    metrics.turn("failed", (time.perf_counter() - started) * 1000, {})
+                    finish_turn_trace(span, {"status": "failed"})
+                    raise
+                finish_turn_trace(span, final)
+        finally:
+            metrics.turn_finished()
+            drop_token(auth.turn_id)
         response = _response_from_state(final, correlation_id)
-        metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final.get("usage") or {}), final.get("evidence") or [], final.get("rejected") or [])
+        metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final.get("usage") or {}), final.get("rejected") or [], verification=response.verification.outcome)
         status_code = 403 if response.status == "denied" else 200
         return JSONResponse(status_code=status_code, content=response.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id})
 
     async def events():
         final_state: dict[str, Any] = dict(turn_input)
+        put_token(auth.turn_id, auth.raw)
+        metrics.turn_started()
         try:
             with turn_trace(correlation_id, conversation_id) as span:
-                async for update in graph.astream(turn_input, config, stream_mode="updates"):
-                    for node, delta in update.items():
-                        final_state.update(delta or {})
-                        if node == "retrieve":
-                            yield f"event: evidence\ndata: {json.dumps({'evidence': delta.get('evidence', []), 'window_since': delta.get('window_since'), 'correlation_id': correlation_id})}\n\n"
-                        # Node completions drive the panel's progress line; no claim text leaves before the verifier.
-                        yield f"event: progress\ndata: {json.dumps({'node': node, 'next': (delta or {}).get('route', '')})}\n\n"
+                try:
+                    async for update in graph.astream(turn_input, config, stream_mode="updates"):
+                        for node, delta in update.items():
+                            final_state.update(delta or {})
+                            if node == "retrieve":
+                                yield f"event: evidence\ndata: {json.dumps({'evidence': delta.get('evidence', []), 'window_since': delta.get('window_since'), 'correlation_id': correlation_id})}\n\n"
+                            # Node completions drive the panel's progress line; no claim text leaves before the verifier.
+                            yield f"event: progress\ndata: {json.dumps({'node': node, 'next': (delta or {}).get('route', '')})}\n\n"
+                except Exception:
+                    finish_turn_trace(span, {"status": "failed"})
+                    raise
                 finish_turn_trace(span, final_state)
             response = _response_from_state(final_state, correlation_id)
-            metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final_state.get("usage") or {}), final_state.get("evidence") or [], final_state.get("rejected") or [])
+            metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final_state.get("usage") or {}), final_state.get("rejected") or [], verification=response.verification.outcome)
             yield f"event: claims\ndata: {json.dumps(response.model_dump(mode='json'))}\n\n"
             yield f"event: done\ndata: {json.dumps({'status': response.status})}\n\n"
         except Exception as exc:  # noqa: BLE001
             metrics.turn("failed", (time.perf_counter() - started) * 1000, {})
             yield f"event: error\ndata: {json.dumps({'code': 'internal_error', 'message': 'Turn failed.', 'error_class': exc.__class__.__name__, 'correlation_id': correlation_id})}\n\n"
+        finally:
+            metrics.turn_finished()
+            drop_token(auth.turn_id)
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"X-Correlation-Id": correlation_id, "Cache-Control": "no-store"})
 

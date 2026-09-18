@@ -17,10 +17,14 @@ a process restart (the counter went backwards) by treating the current value
 as the whole delta. The metrics carry no PHI and no unbounded labels, and the
 alert messages are generic by construction.
 
-Known gap: `copilot_tool_calls_total` carries `status` but not `reason`, so a
-`forbidden` denial (reason under status `unavailable`) counts toward the tool
-failure rate. KEY_METRICS.md excludes it; the metric cannot yet. See
-docs/operations/alerts.md.
+`copilot_tool_calls_total` carries `tool`, `status`, and a bounded `reason`
+(`TOOL_REASONS` in app/contracts/tools.py, plus `none`, `other`, and the
+`http_Nxx` classes). KEY_METRICS.md defines the tool failure rate as
+`unavailable` results excluding `forbidden`, and docs/operations/alerts.md
+keeps the denominator as all tool calls, so an authorization denial
+(`status="unavailable", reason="forbidden"`) is left out of the failure
+numerator only: a front-desk user denied on every clinical tool raises
+`copilot_denials_total` at the gateway, not this alert.
 """
 
 from __future__ import annotations
@@ -47,6 +51,8 @@ WINDOW = "5m"
 # /health poll every few seconds cannot mask turn failures.
 PROBE_PATHS = frozenset({"health", "ready", "metrics", "root"})
 TOOL_FAILURE_STATUS = "unavailable"
+# Reasons under `unavailable` that are not tool failures (KEY_METRICS.md, tool failure rate row).
+TOOL_FAILURE_EXCLUDED_REASONS = frozenset({"forbidden"})
 
 SEVERITY_WARN = "warn"
 SEVERITY_PAGE = "page"
@@ -216,14 +222,15 @@ def evaluate_readiness(ready_ok: bool, now: float, failing_since: float | None) 
 
 
 def evaluate_tool_failure_rate(sample: Sample, previous: Sample | None = None, min_calls: int = 1) -> list[Alert]:
-    """PRD alert 3. `unavailable` tool results over all tool calls, on the
-    counter deltas since `previous`; plus the single-tool 50% page rule."""
+    """PRD alert 3. `unavailable` tool results that are not authorization
+    denials (`reason="forbidden"`) over all tool calls, denials included, on
+    the counter deltas since `previous`; plus the single-tool 50% page rule."""
     per_tool_total: dict[str, float] = {}
     per_tool_failed: dict[str, float] = {}
     for labels, delta in _labelled_deltas(sample, previous, "copilot_tool_calls_total"):
         tool = labels.get("tool", "?")
         per_tool_total[tool] = per_tool_total.get(tool, 0.0) + delta
-        if labels.get("status") == TOOL_FAILURE_STATUS:
+        if labels.get("status") == TOOL_FAILURE_STATUS and labels.get("reason") not in TOOL_FAILURE_EXCLUDED_REASONS:
             per_tool_failed[tool] = per_tool_failed.get(tool, 0.0) + delta
     total = sum(per_tool_total.values())
     failed = sum(per_tool_failed.values())

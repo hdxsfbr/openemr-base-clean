@@ -8,7 +8,11 @@ It holds no database credentials and no OpenEMR session. Layout under `app/`:
   `evidence`, `progress`, `claims`, `done`, `error` when `Accept:
   text/event-stream`), `GET` and `DELETE /v1/conversations/{id}`; delegation
   token in `X-Copilot-Token` (or `Authorization: Bearer`), 10 turns per
-  minute per conversation. `main.py` adds `/health`, `/ready`, `/metrics`,
+  minute per conversation (429 `rate_limited`). The token goes into the
+  per-turn cache, never into graph state, so it is never checkpointed.
+  `main.py` adds `/health`, `/ready` (gateway ping, `models.retrieve`, a
+  `GET /api/public/projects` probe of the Langfuse host, delegation secret,
+  writable state dir; the three network checks run concurrently), `/metrics`,
   the correlation-ID middleware, and structured JSON logs (`logging_setup.py`).
 - `graph/`: the eight-node LangGraph turn graph (`build.py`: authorize,
   classify, plan, retrieve, narrate, verify, repair, render; `nodes.py`,
@@ -24,19 +28,39 @@ It holds no database credentials and no OpenEMR session. Layout under `app/`:
 - `model.py` (Anthropic SDK, circuit breaker, one retry on 429/5xx, strict
   tool schemas), `evidence.py` (evidence pack), `budget.py` (per-turn,
   per-conversation, and daily token budgets), `readiness.py`, `metrics.py`
-  (Prometheus text), `alerts.py` and `alerts_cli.py` (the three PRD alerts
-  over `/metrics`), `telemetry.py` (Langfuse callback handler with the PHI
-  mask, a tool-type observation per gateway call), `state_store.py` (SQLite
-  checkpointer path, per-turn record cache).
+  (Prometheus text: request, turn, denial, tool call with a bounded
+  `reason` label, verification outcome, verifier rejection and token
+  counters, `copilot_in_flight` for every HTTP request and
+  `copilot_turns_in_flight` for turns inside the graph or the SSE stream),
+  `turn_outcome.py` (the one verification-outcome computation shared by the
+  response, the counter, and the trace scores), `alerts.py` and
+  `alerts_cli.py` (the three PRD alerts over `/metrics`; `forbidden` is
+  excluded from the tool-failure numerator, not the denominator),
+  `telemetry.py` (Langfuse callback handler with the PHI mask, a tool-type
+  observation per gateway call, the `verification_passed` and `turn_error`
+  scores on every turn trace, every warning carrying the correlation id),
+  `state_store.py` (SQLite checkpointer path, per-turn record and token
+  caches).
 
-`pytest` runs 60 tests under `tests/` (API, contracts, graph, health,
-alerts); the offline eval cases in `evals/cases/` delegate to these pytest
-node ids (`evals/README.md`).
+`pytest` runs 91 tests under `tests/` (API, contracts, graph, health,
+alerts, telemetry, and `test_controls.py` for the checkpoint content, the
+circuit breaker, and the LangSmith guard); the offline eval cases in
+`evals/cases/` delegate to these pytest node ids (`evals/README.md`).
+
+Dependencies are pinned. `pyproject.toml` carries the lower bounds;
+`requirements.lock` is the exact set from the running container's
+`pip freeze` (Python 3.12.14 in `python:3.12-slim`; the header records the
+read-only command that generated it). `Dockerfile` and the CI agent jobs
+install `-r requirements.lock` first and then the package with
+`pip install --no-deps .`, so a rebuild with `--pull` cannot resolve anything
+newer. After changing a dependency, regenerate the lock from the container
+and commit both files. A fresh venv from the lock passes the suite on host
+Python 3.13 too, but the container's 3.12 is the version of record.
 
 ```bash
 cd agent
 python -m venv .venv && . .venv/bin/activate
-pip install -e '.[dev]'
+pip install -r requirements.lock && pip install --no-deps -e . && pip install -c requirements.lock '.[dev]'
 pytest
 uvicorn app.main:app --port 8080
 ```

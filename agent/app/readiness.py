@@ -1,7 +1,10 @@
-"""Dependency checks behind /ready (PRD: readiness must validate real dependencies)."""
+"""Dependency checks behind /ready (PRD: readiness must validate real dependencies,
+including the observability backend, so a check that only reads key files is
+not enough; ADR-0007 decision 6)."""
 
 from __future__ import annotations
 
+import asyncio
 import os
 import tempfile
 import time
@@ -11,6 +14,11 @@ from pathlib import Path
 import httpx
 
 from .settings import Settings
+
+# The tracer probe is a bounded HTTP round trip so /ready stays fast under a 30 s
+# healthcheck; the Langfuse project listing is the cheapest authenticated call.
+TRACER_TIMEOUT_SECONDS = 5.0
+TRACER_PROBE_PATH = "/api/public/projects"
 
 
 @dataclass
@@ -70,10 +78,26 @@ async def check_llm(settings: Settings) -> DependencyStatus:
         return DependencyStatus("llm_provider", False, exc.__class__.__name__)
 
 
-def check_tracer(settings: Settings) -> DependencyStatus:
-    if _secret_present(settings.langfuse_public_key_file) and _secret_present(settings.langfuse_secret_key_file):
-        return DependencyStatus("tracer", True, "configured")
-    return DependencyStatus("tracer", False, "not_configured")
+async def check_tracer(settings: Settings, transport: httpx.AsyncBaseTransport | None = None) -> DependencyStatus:
+    """Both keys present and the Langfuse host answering to them: `GET
+    {langfuse_host}/api/public/projects` with the public key as the basic-auth
+    user and the secret key as the password. `not_configured` when a key is
+    absent, `reachable` on 200, `http_<code>` on any other status, and the
+    httpx error class (never its message) when the request fails. `transport`
+    is a test seam so the status branches run without network access."""
+    public = settings.secret(settings.langfuse_public_key_file)
+    secret = settings.secret(settings.langfuse_secret_key_file)
+    if not public or not secret:
+        return DependencyStatus("tracer", False, "not_configured")
+    url = settings.langfuse_host.rstrip("/") + TRACER_PROBE_PATH
+    try:
+        async with httpx.AsyncClient(timeout=TRACER_TIMEOUT_SECONDS, auth=httpx.BasicAuth(public, secret), transport=transport) as client:
+            response = await client.get(url)
+    except httpx.HTTPError as exc:
+        return DependencyStatus("tracer", False, exc.__class__.__name__)
+    if response.status_code == 200:
+        return DependencyStatus("tracer", True, "reachable")
+    return DependencyStatus("tracer", False, f"http_{response.status_code}")
 
 
 def check_delegation_secret(settings: Settings) -> DependencyStatus:
@@ -94,11 +118,8 @@ def check_state_dir(settings: Settings) -> DependencyStatus:
 
 
 async def evaluate(settings: Settings) -> ReadinessReport:
-    deps = [
-        await check_gateway(settings),
-        await check_llm(settings),
-        check_tracer(settings),
-        check_delegation_secret(settings),
-        check_state_dir(settings),
-    ]
+    """The three network checks run concurrently so /ready costs one round trip
+    (the slowest of the three), not their sum; the local checks follow."""
+    gateway, llm, tracer = await asyncio.gather(check_gateway(settings), check_llm(settings), check_tracer(settings))
+    deps = [gateway, llm, tracer, check_delegation_secret(settings), check_state_dir(settings)]
     return ReadinessReport(ok=all(d.ok for d in deps), checked_at=time.time(), dependencies=deps)

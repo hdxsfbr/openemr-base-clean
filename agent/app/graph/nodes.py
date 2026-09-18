@@ -17,9 +17,10 @@ from .. import budget
 from ..contracts import Claim, ClaimType, LabsParams, NotesParams, ToolResponse, WindowParams
 from ..evidence import EvidencePack, _day, add_responses, build_uc01_window, derive_changes, render
 from ..gateway_client import GatewayPort, unavailable
+from ..metrics import metrics
 from ..model import ModelError, ModelPort, NarrateResult, PlanResult, Usage
 from ..settings import settings
-from ..state_store import get_pack, put_pack
+from ..state_store import get_pack, get_token, put_pack
 from ..telemetry import record_tool_result, tool_observation
 from ..verifier import default_suggestions, deterministic_summary, filter_suggestions, verify, verify_summary
 from .state import TurnState
@@ -105,9 +106,10 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         return {"turn_type": turn_type, "route": "retrieve" if turn_type == "uc01_first" else "plan"}
 
     async def _call(tool: str, params: dict[str, Any], state: TurnState) -> ToolResponse:
-        with tool_observation(tool) as obs:
+        with tool_observation(tool, state["correlation_id"]) as obs:
             response = await _call_inner(tool, params, state)
             record_tool_result(obs, response)
+            metrics.tool_call(tool, response.status.value, response.reason)
             return response
 
     async def _call_inner(tool: str, params: dict[str, Any], state: TurnState) -> ToolResponse:
@@ -118,7 +120,9 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             clean = model.model_validate(params).model_dump(mode="json", exclude_none=True)
         except ValidationError:
             return unavailable(tool, "invalid_params", state["correlation_id"])
-        return await rt.gateway.call(tool, clean, state["token"], state["correlation_id"])
+        # The token lives in the per-turn cache, never in graph state (ADR-0005); a turn the API
+        # did not register sends an empty token and the gateway denies and audits it.
+        return await rt.gateway.call(tool, clean, get_token(state["turn_id"]) or "", state["correlation_id"])
 
     async def retrieve(state: TurnState) -> dict[str, Any]:
         pack = get_pack(state["turn_id"]) or EvidencePack()
@@ -172,7 +176,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             return {"plan_round": round_no, "pending_calls": [], "narrate_error": "model_unavailable" if not limit else limit, "route": "narrate"}
         prior = [(c[0], c[1]) for c in (state.get("tool_calls") or [])]
         try:
-            result: PlanResult = await rt.model.plan(state["question"], pack.text, prior)
+            result: PlanResult = await rt.model.plan(state["question"], pack.text, prior, correlation_id=state.get("correlation_id"))
         except ModelError as exc:
             return {"plan_round": round_no, "pending_calls": [], "narrate_error": exc.kind, "usage": state.get("usage") or {}, "route": "narrate"}
         allowed = {t for t in UC01_TOOLS} | {"encounters"}
@@ -195,7 +199,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             return {"raw_claims": [], "raw_summary": "", "raw_suggestions": [], "route": "verify"}
         effort = settings.effort_first_turn if state["turn_type"] == "uc01_first" else settings.effort_followup
         try:
-            result: NarrateResult = await rt.model.narrate(state["question"], pack.text if pack else "", effort)
+            result: NarrateResult = await rt.model.narrate(state["question"], pack.text if pack else "", effort, correlation_id=state.get("correlation_id"))
         except ModelError as exc:
             return {"raw_claims": None, "narrate_error": exc.kind, "route": "render"}
         budget.daily.add(result.usage.total)
@@ -225,7 +229,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         pack = get_pack(state["turn_id"])
         effort = settings.effort_first_turn if state["turn_type"] == "uc01_first" else settings.effort_followup
         try:
-            result = await rt.model.narrate(state["question"], pack.text if pack else "", effort, rejections=state.get("rejected") or [])  # type: ignore[union-attr]
+            result = await rt.model.narrate(state["question"], pack.text if pack else "", effort, rejections=state.get("rejected") or [], correlation_id=state.get("correlation_id"))  # type: ignore[union-attr]
         except ModelError:
             return {"repair_attempted": True, "route": "render"}
         budget.daily.add(result.usage.total)

@@ -59,3 +59,65 @@ def test_ready_is_200_when_all_dependencies_pass(client: TestClient, tmp_path: P
     response = client.get("/ready")
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
+
+
+# /ready probes the tracer (A1): keys present is not enough, the Langfuse host must answer.
+
+import base64  # noqa: E402
+
+import httpx  # noqa: E402
+
+from app.readiness import check_tracer  # noqa: E402
+
+
+def _tracer_settings(tmp_path: Path, **overrides) -> Settings:
+    """Both Langfuse keys present, every network dependency pointed at a closed local port."""
+    (tmp_path / "pk").write_text("pk-lf-test")
+    (tmp_path / "sk").write_text("sk-lf-test")
+    values = dict(
+        gateway_ping_url="http://127.0.0.1:9/nope",
+        state_dir=tmp_path / "state",
+        anthropic_api_key_file=tmp_path / "missing",
+        langfuse_public_key_file=tmp_path / "pk",
+        langfuse_secret_key_file=tmp_path / "sk",
+        langfuse_host="http://127.0.0.1:9",
+    )
+    values.update(overrides)
+    return Settings(**values)
+
+
+def test_ready_is_503_when_tracer_unreachable(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main_module, "settings", _tracer_settings(tmp_path))
+    response = client.get("/ready")
+    assert response.status_code == 503
+    names = {d["name"]: d for d in response.json()["dependencies"]}
+    assert names["tracer"]["ok"] is False
+    assert names["tracer"]["detail"] == "ConnectError"  # the httpx class, never its message
+    assert names["state_store"]["ok"] is True
+
+
+@pytest.mark.anyio
+async def test_check_tracer_is_not_configured_without_both_keys(tmp_path: Path) -> None:
+    status = await check_tracer(_tracer_settings(tmp_path, langfuse_secret_key_file=tmp_path / "absent"))
+    assert (status.ok, status.detail) == (False, "not_configured")
+
+
+@pytest.mark.anyio
+async def test_check_tracer_calls_the_projects_endpoint_with_basic_auth(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"data": []})
+
+    status = await check_tracer(_tracer_settings(tmp_path), transport=httpx.MockTransport(handler))
+    assert (status.ok, status.detail) == (True, "reachable")
+    assert str(seen[0].url) == "http://127.0.0.1:9/api/public/projects"
+    scheme, credentials = seen[0].headers["Authorization"].split(" ", 1)
+    assert scheme == "Basic" and base64.b64decode(credentials).decode() == "pk-lf-test:sk-lf-test"
+
+
+@pytest.mark.anyio
+async def test_check_tracer_reports_a_non_200_as_http_status(tmp_path: Path) -> None:
+    status = await check_tracer(_tracer_settings(tmp_path), transport=httpx.MockTransport(lambda request: httpx.Response(401)))
+    assert (status.ok, status.detail) == (False, "http_401")

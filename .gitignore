@@ -78,3 +78,6 @@ __pycache__/
 
 # Agent-to-agent document deltas (docs/FINAL_PUSH_PLAN.md shared-document protocol)
 docs/_pending/
+
+# setuptools build tree from an in-tree `pip install .` (lock-file checks); never ship it
+agent/build/

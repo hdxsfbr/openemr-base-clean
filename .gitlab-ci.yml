@@ -45,7 +45,11 @@ test:agent:
   image: python:3.12-slim
   script:
     - cd agent
-    - pip install --quiet '.[dev]'
+    # Same order as agent/Dockerfile: the lock first, the package with --no-deps, then the dev
+    # extras constrained to the lock so no runtime pin moves.
+    - pip install --quiet -r requirements.lock
+    - pip install --quiet --no-deps .
+    - pip install --quiet -c requirements.lock '.[dev]'
     - pytest -q
     - python -m app.contracts.export --check
 
@@ -56,7 +60,7 @@ test:evals-offline:
   stage: test
   image: python:3.12-slim
   script:
-    - cd agent && pip install --quiet '.[dev]' && cd ..
+    - cd agent && pip install --quiet -r requirements.lock && pip install --quiet --no-deps . && pip install --quiet -c requirements.lock '.[dev]' && cd ..
     - python evals/run.py --offline-only
   artifacts:
     when: always

@@ -152,8 +152,8 @@ class ModelError(Exception):
 
 
 class ModelPort(Protocol):
-    async def narrate(self, question: str, pack_text: str, effort: str, rejections: list[dict[str, str]] | None = None) -> NarrateResult: ...
-    async def plan(self, question: str, pack_text: str, prior_calls: list[tuple[str, dict[str, Any]]]) -> PlanResult: ...
+    async def narrate(self, question: str, pack_text: str, effort: str, rejections: list[dict[str, str]] | None = None, correlation_id: str | None = None) -> NarrateResult: ...
+    async def plan(self, question: str, pack_text: str, prior_calls: list[tuple[str, dict[str, Any]]], correlation_id: str | None = None) -> PlanResult: ...
 
 
 @dataclass
@@ -227,7 +227,7 @@ class AnthropicModel:
         breaker.record(True)
         return response
 
-    async def narrate(self, question: str, pack_text: str, effort: str, rejections: list[dict[str, str]] | None = None) -> NarrateResult:
+    async def narrate(self, question: str, pack_text: str, effort: str, rejections: list[dict[str, str]] | None = None, correlation_id: str | None = None) -> NarrateResult:
         """JSON-as-text output validated by us. The grammar-constrained
         `output_format` path was measured at 45 s+ even for two claims
         (2026-09-15), so the model writes JSON and the contract is enforced
@@ -242,7 +242,7 @@ class AnthropicModel:
         messages: list[dict[str, Any]] = [{"role": "user", "content": [pack_block, {"type": "text", "text": tail}]}]
         usage = Usage()
         for attempt in range(2):
-            with generation("repair" if rejections else "narrate", settings.model_id) as gen:
+            with generation("repair" if rejections else "narrate", settings.model_id, correlation_id) as gen:
                 response = await self._guarded(
                     lambda: self.client.messages.create(
                         model=settings.model_id,
@@ -262,7 +262,7 @@ class AnthropicModel:
             if output is not None:
                 claims, dropped = to_claims(output)
                 if dropped:
-                    log.info("claims dropped by contract", extra={"component": "model", "duration_ms": len(dropped)})
+                    log.info("claims dropped by contract", extra={"component": "model", "duration_ms": len(dropped), "correlation_id": correlation_id})
                 return NarrateResult(TurnClaims(claims=claims, summary=model_summary(output), suggestions=model_suggestions(output)), usage)
             if attempt == 0:
                 messages = messages + [
@@ -271,14 +271,14 @@ class AnthropicModel:
                 ]
         return NarrateResult(None, usage, "malformed_output")
 
-    async def plan(self, question: str, pack_text: str, prior_calls: list[tuple[str, dict[str, Any]]]) -> PlanResult:
+    async def plan(self, question: str, pack_text: str, prior_calls: list[tuple[str, dict[str, Any]]], correlation_id: str | None = None) -> PlanResult:
         user = (
             f"EVIDENCE PACK SO FAR:\n{pack_text}\n\nPHYSICIAN QUESTION: {question}\n\n"
             f"Tools already called this turn: {json.dumps([c for c, _ in prior_calls])}. "
             "Call the tools needed to answer from the chart (no patient identifier exists; the chart is fixed). "
             "If the pack already answers the question, call no tool."
         )
-        with generation("plan", settings.model_id) as gen:
+        with generation("plan", settings.model_id, correlation_id) as gen:
             response = await self._guarded(
                 lambda: self.client.messages.create(
                     model=settings.model_id,

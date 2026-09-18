@@ -12,9 +12,13 @@ RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin copil
     && chown copilot:copilot /var/lib/copilot
 
 WORKDIR /app
+# Exact versions first (requirements.lock, generated from the running container), then the
+# package itself with --no-deps so a rebuild with --pull cannot resolve anything newer.
+COPY requirements.lock ./
+RUN pip install -r requirements.lock
 COPY pyproject.toml README.md ./
 COPY app ./app
-RUN pip install .
+RUN pip install --no-deps .
 
 USER copilot
 EXPOSE 8080

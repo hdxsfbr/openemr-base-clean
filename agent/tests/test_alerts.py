@@ -23,16 +23,17 @@ def metrics_text(
     turn_2xx: int = 100,
     turn_5xx: int = 0,
     health_2xx: int = 1000,
-    tools: dict[tuple[str, str], int] | None = None,
+    tools: dict[tuple[str, str, str], int] | None = None,
 ) -> str:
-    tools = tools if tools is not None else {("problems", "ok"): 100, ("medications", "ok"): 100}
+    """A /metrics sample in the agent's own shape; `tools` maps (tool, status, reason) to a count."""
+    tools = tools if tools is not None else {("problems", "ok", "none"): 100, ("medications", "ok", "none"): 100}
     lines = [
         "# TYPE copilot_requests_total counter",
         f'copilot_requests_total{{path="health",status="2xx"}} {health_2xx}',
         f'copilot_requests_total{{path="turn",status="2xx"}} {turn_2xx}',
         f'copilot_requests_total{{path="turn",status="5xx"}} {turn_5xx}',
         "# TYPE copilot_tool_calls_total counter",
-        *[f'copilot_tool_calls_total{{tool="{tool}",status="{status}"}} {n}' for (tool, status), n in tools.items()],
+        *[f'copilot_tool_calls_total{{tool="{tool}",status="{status}",reason="{reason}"}} {n}' for (tool, status, reason), n in tools.items()],
         "# TYPE copilot_turn_latency_ms gauge",
         f'copilot_turn_latency_ms{{quantile="p50",window="5m"}} {p95_ms / 2:.1f}',
         f'copilot_turn_latency_ms{{quantile="p95",window="5m"}} {p95_ms:.1f}',
@@ -73,10 +74,17 @@ def test_parser_reads_the_agents_real_exposition() -> None:
     m = Metrics()
     m.request("turn", 200)
     m.request("turn", 500)
-    m.turn("complete", 1500.0, {"input_tokens": 10}, evidence=[{"tool": "problems", "status": "ok"}, {"tool": "labs", "status": "unavailable"}])
+    m.tool_call("problems", "ok", None)
+    m.tool_call("labs", "unavailable", "timeout")
+    m.tool_call("labs", "unavailable", "http_502")
+    m.turn("complete", 1500.0, {"input_tokens": 10}, verification="passed")
     sample = A.parse_metrics(m.prometheus())
     assert sample.total("copilot_requests_total", path="turn") == 2
-    assert sample.get("copilot_tool_calls_total", tool="labs", status="unavailable") == 1
+    assert sample.get("copilot_tool_calls_total", tool="problems", status="ok", reason="none") == 1
+    assert sample.get("copilot_tool_calls_total", tool="labs", status="unavailable", reason="timeout") == 1
+    assert sample.get("copilot_tool_calls_total", tool="labs", status="unavailable", reason="http_5xx") == 1
+    assert sample.get("copilot_verification_total", outcome="passed") == 1
+    assert sample.get("copilot_turns_in_flight") == 0
     assert sample.get("copilot_turn_latency_count_5m") == 1
     assert sample.get("copilot_turn_latency_ms", quantile="p95", window="5m") == 1500.0
 
@@ -179,12 +187,12 @@ def test_readiness_pages_only_after_two_minutes_of_failure() -> None:
 
 
 def test_tool_failure_quiet_at_or_below_two_percent() -> None:
-    tools = {("problems", "ok"): 98, ("problems", "unavailable"): 2}
+    tools = {("problems", "ok", "none"): 98, ("problems", "unavailable", "service_error"): 2}
     assert A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools))) == []
 
 
 def test_tool_failure_warns_above_two_percent() -> None:
-    tools = {("problems", "ok"): 97, ("medications", "unavailable"): 3}
+    tools = {("problems", "ok", "none"): 97, ("medications", "unavailable", "service_error"): 3}
     alerts = A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools)))
     assert names(alerts) == [("tool_failure_rate", "page"), ("tool_failure_rate", "warn")]
     # medications failed 3 of 3, so the single-tool rule pages; the fleet rate warns.
@@ -193,14 +201,14 @@ def test_tool_failure_warns_above_two_percent() -> None:
 
 def test_tool_failure_fleet_warn_without_single_tool_page() -> None:
     # 5 of 200 is 2.5% (warn); problems alone is 5%, well under the 50% single-tool page.
-    tools = {("problems", "ok"): 95, ("problems", "unavailable"): 5, ("labs", "ok"): 100}
+    tools = {("problems", "ok", "none"): 95, ("problems", "unavailable", "service_error"): 5, ("labs", "ok", "none"): 100}
     alerts = A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools)))
     assert names(alerts) == [("tool_failure_rate", "warn")]
     assert alerts[0].value == pytest.approx(0.025)
 
 
 def test_tool_failure_pages_above_five_percent() -> None:
-    tools = {("problems", "ok"): 94, ("problems", "unavailable"): 6}
+    tools = {("problems", "ok", "none"): 94, ("problems", "unavailable", "service_error"): 6}
     alerts = A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools)))
     assert names(alerts) == [("tool_failure_rate", "page")]
     assert alerts[0].threshold == 0.05 and alerts[0].value == pytest.approx(0.06)
@@ -208,20 +216,41 @@ def test_tool_failure_pages_above_five_percent() -> None:
 
 def test_tool_failure_pages_when_one_tool_is_over_half_broken() -> None:
     # 3 of 1003 calls is 0.3% overall, but the labs path is 100% broken (PERF-MED-001 shape).
-    tools = {("problems", "ok"): 1000, ("lab_results", "unavailable"): 3}
+    tools = {("problems", "ok", "none"): 1000, ("lab_results", "unavailable", "service_error"): 3}
     alerts = A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools)))
     assert names(alerts) == [("tool_failure_rate", "page")]
     assert "lab_results" in alerts[0].message and alerts[0].threshold == 0.5
 
 
 def test_tool_failure_empty_and_partial_are_not_failures() -> None:
-    tools = {("allergies", "empty"): 50, ("notes", "partial"): 50}
+    tools = {("allergies", "empty", "none"): 50, ("notes", "partial", "orphan_rows_omitted"): 50}
     assert A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools))) == []
 
 
+def test_tool_failure_ignores_forbidden_denials() -> None:
+    # Six front-desk denials among forty calls (the a4a5856 AUTH-FRONTDESK-001 shape): 15% of
+    # results are `unavailable`, none is a tool failure, so nothing fires (KEY_METRICS.md
+    # excludes `forbidden` from the rate).
+    tools = {("problems", "ok", "none"): 34, ("problems", "unavailable", "forbidden"): 6}
+    assert A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools))) == []
+    # Every clinical tool denied at once (a Front Office user) is still not a broken service path.
+    denied = {(tool, "unavailable", "forbidden"): 5 for tool in ("problems", "medications", "allergies", "lab_results", "clinical_notes")}
+    assert A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=denied))) == []
+
+
+def test_tool_failure_keeps_forbidden_in_the_denominator() -> None:
+    # Two real failures among forty calls, six of them denials: 2/40 is 5.0%, a warn. If the
+    # denials left the denominator too it would be 2/34 = 5.9% and page (docs/operations/alerts.md
+    # keeps the denominator as all tool calls).
+    tools = {("problems", "ok", "none"): 32, ("problems", "unavailable", "forbidden"): 6, ("problems", "unavailable", "service_error"): 2}
+    alerts = A.evaluate_tool_failure_rate(A.parse_metrics(metrics_text(tools=tools)))
+    assert names(alerts) == [("tool_failure_rate", "warn")]
+    assert alerts[0].value == pytest.approx(0.05)
+
+
 def test_tool_failure_rate_across_two_samples() -> None:
-    previous = A.parse_metrics(metrics_text(tools={("problems", "ok"): 100, ("problems", "unavailable"): 50}))
-    current = A.parse_metrics(metrics_text(tools={("problems", "ok"): 200, ("problems", "unavailable"): 50}))
+    previous = A.parse_metrics(metrics_text(tools={("problems", "ok", "none"): 100, ("problems", "unavailable", "service_error"): 50}))
+    current = A.parse_metrics(metrics_text(tools={("problems", "ok", "none"): 200, ("problems", "unavailable", "service_error"): 50}))
     assert A.evaluate_tool_failure_rate(current) != []
     assert A.evaluate_tool_failure_rate(current, previous) == []
 
@@ -230,7 +259,7 @@ def test_tool_failure_rate_across_two_samples() -> None:
 
 
 def test_evaluate_combines_all_three_rules_and_reports_worst_severity() -> None:
-    tools = {("problems", "ok"): 90, ("problems", "unavailable"): 10}
+    tools = {("problems", "ok", "none"): 90, ("problems", "unavailable", "service_error"): 10}
     sample = A.parse_metrics(metrics_text(p95_ms=31_000.0, turn_2xx=990, turn_5xx=10, tools=tools))
     alerts = A.evaluate(sample)
     assert names(alerts) == [("turn_latency", "warn"), ("error_rate", "warn"), ("tool_failure_rate", "page")]
