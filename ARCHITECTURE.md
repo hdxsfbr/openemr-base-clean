@@ -632,10 +632,47 @@ process (`agent/Dockerfile`) serving turns asynchronously. In-flight HTTP
 requests are exposed as `copilot_in_flight` (every request, the 30 s
 healthcheck and `/metrics` scrapes included) and the queue depth as
 `copilot_turns_in_flight` (turns inside `graph.ainvoke` or the SSE generator
-only, incremented and decremented in `agent/app/api.py`); worker count is
-sized after the load test (**planned**). Load tests at 10 and 50 concurrent
-users (2026-09-19) validate the budget and size the Droplet; the first
-fallback is the 8 GiB size (ADR-0001).
+only, incremented and decremented in `agent/app/api.py`).
+
+**Load test results (2026-09-18, `docs/audit/evidence/performance/load-test-2026-09-18.md`
+and `baseline-2026-09-18.md`) contradict the 30 s threshold and change the
+scaling story.** At 10 concurrent users, real-model turn p95 was already
+45.0 s, 50% over budget, with two `504` errors. At 50 users the system
+degrades hard: only 31/50 VUs completed, 76% of turns landed `partial` (only
+18% `complete`), and 90% of tool-gateway calls came back `unavailable`. A
+`--fault model` control run (zero model calls, $0 spent) reproduced nearly
+identical numbers at 50 users — chart-open p95 46.15 s (a pure OpenEMR/Apache
+request the agent is not involved in) and 97.7% tool-call unavailability —
+which rules out the model or the agent as the cause.
+
+Container-level data confirms it directly: at 50 users, `openemr` and
+`database` each independently peak at or above 100% CPU (Docker's
+normalized figure, where 100% = one full vCPU core) on the Droplet's two
+cores, with `load1` peaking around 24 — roughly 12x the box's actual
+capacity. `agent` CPU never exceeded 54% peak / 12% mean at any level,
+including under real model load. Host memory never dropped below 61% free
+at the worst observed point. **One asyncio process per node was correct as
+written** — the limiter, metrics, breaker, daily halt and SQLite
+checkpointer are all process-local, so scale is by nodes, not by adding
+workers inside one process — but "worker count" was never the actual lever
+here: the bottleneck is OpenEMR's Apache/PHP and MariaDB layer (both
+CPU-bound), reached over the same internal HTTP call every tool uses
+(`POST http://openemr:80/.../gateway/tools.php`, `agent/app/gateway_client.py:44`,
+served by the same Apache prefork pool that renders every browser page,
+`tools.php:21`). Adding agent replicas would not help; it would only let
+more requests queue up against the same saturated OpenEMR/MariaDB layer
+faster.
+
+This also corrects `ADR-0001`'s scaling premise: it names the 4 vCPU / 8 GiB
+size as "the first fallback if measurement shows memory pressure," but the
+measurement shows no memory pressure at any level (2,389 MiB free at the
+worst point, out of 3,916 MiB) — the constraint is CPU cores, not RAM. A
+bigger Droplet would still help (it happens to add both), but the reason to
+resize is CPU headroom for Apache/MariaDB, not memory. Scale is linear until
+the load test's numbers become the saturation point, not indefinitely, so
+the KEY_METRICS.md 30 s p95 threshold needs either a written risk
+acceptance at a revised number, or a resize before the release run — both
+owner decisions, per the M4 STOP gate.
 
 ## Observability
 

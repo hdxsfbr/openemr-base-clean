@@ -1,0 +1,2232 @@
+{
+  "schema_version": 1,
+  "kind": "load",
+  "commit": "5d67903",
+  "timestamp": "2026-09-18T10:02:50+00:00",
+  "label": "M4 load test: fault model (capacity, no spend)",
+  "base_url": "https://openemr-137-184-4-22.sslip.io",
+  "fault": "model",
+  "ramp_seconds": 30.0,
+  "stream_levels": [
+    1,
+    10
+  ],
+  "users_levels": [
+    10,
+    50
+  ],
+  "scenarios": {
+    "AF-DQ-A2": 900001,
+    "AF-DQ-N": 900018,
+    "AF-HEAVY": 900023
+  },
+  "messages": {
+    "first": "What changed since the last visit?",
+    "followup": "Which of those lab results are flagged abnormal?"
+  },
+  "interrupted": false,
+  "levels": [
+    {
+      "users": 10,
+      "started_at": "2026-09-18T10:02:50+00:00",
+      "finished_at": "2026-09-18T10:03:28+00:00",
+      "duration_s": 38.1,
+      "vus": {
+        "total": 10,
+        "completed": 10,
+        "failed": 0
+      },
+      "failed_at": {},
+      "latency_ms": {
+        "login": {
+          "n": 10,
+          "p50": 523.8,
+          "p95": 656.1,
+          "p99": 656.1,
+          "max": 656.1
+        },
+        "chart_open": {
+          "n": 10,
+          "p50": 6478.0,
+          "p95": 7577.6,
+          "p99": 7577.6,
+          "max": 7577.6
+        },
+        "session": {
+          "n": 10,
+          "p50": 109.9,
+          "p95": 132.5,
+          "p99": 132.5,
+          "max": 132.5
+        },
+        "start": {
+          "n": 10,
+          "p50": 142.9,
+          "p95": 247.8,
+          "p99": 247.8,
+          "max": 247.8
+        },
+        "ticket": {
+          "n": 30,
+          "p50": 144.4,
+          "p95": 273.3,
+          "p99": 280.7,
+          "max": 280.7
+        },
+        "history": {
+          "n": 10,
+          "p50": 26.3,
+          "p95": 62.0,
+          "p99": 62.0,
+          "max": 62.0
+        },
+        "turn": {
+          "n": 20,
+          "p50": 1052.2,
+          "p95": 2172.4,
+          "p99": 2406.2,
+          "max": 2406.2
+        },
+        "turn_first": {
+          "n": 10,
+          "p50": 1464.9,
+          "p95": 2406.2,
+          "p99": 2406.2,
+          "max": 2406.2
+        },
+        "turn_followup": {
+          "n": 10,
+          "p50": 109.1,
+          "p95": 218.0,
+          "p99": 218.0,
+          "max": 218.0
+        },
+        "ttfe": {
+          "n": 10,
+          "p50": 1440.8,
+          "p95": 2392.3,
+          "p99": 2392.3,
+          "max": 2392.3
+        }
+      },
+      "by_scenario": {
+        "AF-DQ-A2": {
+          "vus": 4,
+          "latency_ms": {
+            "chart_open": {
+              "n": 4,
+              "p50": 6473.5,
+              "p95": 7003.8,
+              "p99": 7003.8,
+              "max": 7003.8
+            },
+            "ticket": {
+              "n": 12,
+              "p50": 146.1,
+              "p95": 218.4,
+              "p99": 250.6,
+              "max": 250.6
+            },
+            "turn": {
+              "n": 8,
+              "p50": 1052.2,
+              "p95": 1894.4,
+              "p99": 1894.4,
+              "max": 1894.4
+            },
+            "ttfe": {
+              "n": 4,
+              "p50": 1341.7,
+              "p95": 1882.0,
+              "p99": 1882.0,
+              "max": 1882.0
+            }
+          },
+          "turns": 8,
+          "errors": {
+            "5xx": 0,
+            "504": 0,
+            "429": 0,
+            "transport": 0,
+            "other": 0,
+            "total": 0,
+            "rate": 0.0
+          },
+          "status_counts": {
+            "complete": 0,
+            "partial": 0,
+            "fallback": 8,
+            "failed": 0,
+            "denied": 0
+          },
+          "status_share": {
+            "complete": 0.0,
+            "partial": 0.0,
+            "fallback": 1.0,
+            "failed": 0.0,
+            "denied": 0.0
+          }
+        },
+        "AF-DQ-N": {
+          "vus": 3,
+          "latency_ms": {
+            "chart_open": {
+              "n": 3,
+              "p50": 6478.0,
+              "p95": 6653.3,
+              "p99": 6653.3,
+              "max": 6653.3
+            },
+            "ticket": {
+              "n": 9,
+              "p50": 144.4,
+              "p95": 273.3,
+              "p99": 273.3,
+              "max": 273.3
+            },
+            "turn": {
+              "n": 6,
+              "p50": 209.5,
+              "p95": 1895.5,
+              "p99": 1895.5,
+              "max": 1895.5
+            },
+            "ttfe": {
+              "n": 3,
+              "p50": 1440.8,
+              "p95": 1894.3,
+              "p99": 1894.3,
+              "max": 1894.3
+            }
+          },
+          "turns": 6,
+          "errors": {
+            "5xx": 0,
+            "504": 0,
+            "429": 0,
+            "transport": 0,
+            "other": 0,
+            "total": 0,
+            "rate": 0.0
+          },
+          "status_counts": {
+            "complete": 0,
+            "partial": 0,
+            "fallback": 6,
+            "failed": 0,
+            "denied": 0
+          },
+          "status_share": {
+            "complete": 0.0,
+            "partial": 0.0,
+            "fallback": 1.0,
+            "failed": 0.0,
+            "denied": 0.0
+          }
+        },
+        "AF-HEAVY": {
+          "vus": 3,
+          "latency_ms": {
+            "chart_open": {
+              "n": 3,
+              "p50": 7544.2,
+              "p95": 7577.6,
+              "p99": 7577.6,
+              "max": 7577.6
+            },
+            "ticket": {
+              "n": 9,
+              "p50": 142.4,
+              "p95": 280.7,
+              "p99": 280.7,
+              "max": 280.7
+            },
+            "turn": {
+              "n": 6,
+              "p50": 218.0,
+              "p95": 2406.2,
+              "p99": 2406.2,
+              "max": 2406.2
+            },
+            "ttfe": {
+              "n": 3,
+              "p50": 2058.5,
+              "p95": 2392.3,
+              "p99": 2392.3,
+              "max": 2392.3
+            }
+          },
+          "turns": 6,
+          "errors": {
+            "5xx": 0,
+            "504": 0,
+            "429": 0,
+            "transport": 0,
+            "other": 0,
+            "total": 0,
+            "rate": 0.0
+          },
+          "status_counts": {
+            "complete": 0,
+            "partial": 0,
+            "fallback": 6,
+            "failed": 0,
+            "denied": 0
+          },
+          "status_share": {
+            "complete": 0.0,
+            "partial": 0.0,
+            "fallback": 1.0,
+            "failed": 0.0,
+            "denied": 0.0
+          }
+        }
+      },
+      "turns": 20,
+      "errors": {
+        "5xx": 0,
+        "504": 0,
+        "429": 0,
+        "transport": 0,
+        "other": 0,
+        "total": 0,
+        "rate": 0.0
+      },
+      "denials": {
+        "turn_http_401_403": 0,
+        "handshake_http_401_403": 0,
+        "metrics_by_reason": {}
+      },
+      "status_counts": {
+        "complete": 0,
+        "partial": 0,
+        "fallback": 20,
+        "failed": 0,
+        "denied": 0
+      },
+      "status_share": {
+        "complete": 0.0,
+        "partial": 0.0,
+        "fallback": 1.0,
+        "failed": 0.0,
+        "denied": 0.0
+      },
+      "server_turns_by_status": {
+        "fallback": 20
+      },
+      "tool_unavailable": {
+        "calls_total": 70,
+        "total": 0,
+        "by_reason": {},
+        "by_tool": {}
+      },
+      "client_tool_unavailable": 0,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "model_calls": 0
+      },
+      "step_http": {
+        "chart_open": {
+          "200": 10
+        },
+        "history": {
+          "200": 10
+        },
+        "login": {
+          "302": 10
+        },
+        "session": {
+          "200": 10
+        },
+        "start": {
+          "200": 10
+        },
+        "ticket": {
+          "200": 30
+        },
+        "turn": {
+          "200": 20
+        }
+      },
+      "metrics": {
+        "before": true,
+        "after": true
+      },
+      "vu_records": [
+        {
+          "index": 0,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1382.6,
+              "ttfe_ms": 1341.7,
+              "correlation_id": "154dccec8650bb04.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 195.2,
+              "ttfe_ms": null,
+              "correlation_id": "154dccec8650bb04.2"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1895.5,
+              "ttfe_ms": 1894.3,
+              "correlation_id": "a9f0f615b0cda4a8.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 171.5,
+              "ttfe_ms": null,
+              "correlation_id": "a9f0f615b0cda4a8.2"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 2406.2,
+              "ttfe_ms": 2392.3,
+              "correlation_id": "e3a85ed1ea9db203.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 218.0,
+              "ttfe_ms": null,
+              "correlation_id": "e3a85ed1ea9db203.2"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1362.6,
+              "ttfe_ms": 1308.3,
+              "correlation_id": "9000cd6cfe78af5d.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 107.5,
+              "ttfe_ms": null,
+              "correlation_id": "9000cd6cfe78af5d.2"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1414.8,
+              "ttfe_ms": 1383.9,
+              "correlation_id": "1595ea4d2f79645a.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 209.5,
+              "ttfe_ms": null,
+              "correlation_id": "1595ea4d2f79645a.2"
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 2172.4,
+              "ttfe_ms": 2058.5,
+              "correlation_id": "5e3fa778cb11a7ea.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 109.1,
+              "ttfe_ms": null,
+              "correlation_id": "5e3fa778cb11a7ea.2"
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1894.4,
+              "ttfe_ms": 1882.0,
+              "correlation_id": "3d3385c10a9c0652.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 106.8,
+              "ttfe_ms": null,
+              "correlation_id": "3d3385c10a9c0652.2"
+            }
+          ]
+        },
+        {
+          "index": 7,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1464.9,
+              "ttfe_ms": 1440.8,
+              "correlation_id": "195c9eafcdfa9e5f.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 90.9,
+              "ttfe_ms": null,
+              "correlation_id": "195c9eafcdfa9e5f.2"
+            }
+          ]
+        },
+        {
+          "index": 8,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1813.4,
+              "ttfe_ms": 1774.0,
+              "correlation_id": "2dc089bd7085dd4b.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 143.1,
+              "ttfe_ms": null,
+              "correlation_id": "2dc089bd7085dd4b.2"
+            }
+          ]
+        },
+        {
+          "index": 9,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": true,
+              "ms": 1052.2,
+              "ttfe_ms": 1039.9,
+              "correlation_id": "ae4ae7030866c1a8.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 73.3,
+              "ttfe_ms": null,
+              "correlation_id": "ae4ae7030866c1a8.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "users": 50,
+      "started_at": "2026-09-18T10:03:38+00:00",
+      "finished_at": "2026-09-18T10:05:09+00:00",
+      "duration_s": 90.7,
+      "vus": {
+        "total": 50,
+        "completed": 33,
+        "failed": 17
+      },
+      "failed_at": {
+        "chart_open": 4,
+        "login": 3,
+        "session": 3,
+        "start": 2,
+        "ticket": 5
+      },
+      "latency_ms": {
+        "login": {
+          "n": 50,
+          "p50": 6018.2,
+          "p95": 12561.2,
+          "p99": 12704.0,
+          "max": 12704.0
+        },
+        "chart_open": {
+          "n": 47,
+          "p50": 40734.0,
+          "p95": 46150.5,
+          "p99": 46429.5,
+          "max": 46429.5
+        },
+        "session": {
+          "n": 43,
+          "p50": 674.2,
+          "p95": 1435.6,
+          "p99": 1946.5,
+          "max": 1946.5
+        },
+        "start": {
+          "n": 40,
+          "p50": 960.4,
+          "p95": 1954.5,
+          "p99": 2513.6,
+          "max": 2513.6
+        },
+        "ticket": {
+          "n": 109,
+          "p50": 951.7,
+          "p95": 1832.4,
+          "p99": 2490.9,
+          "max": 2660.0
+        },
+        "history": {
+          "n": 33,
+          "p50": 35.0,
+          "p95": 191.4,
+          "p99": 290.6,
+          "max": 290.6
+        },
+        "turn": {
+          "n": 71,
+          "p50": 2724.0,
+          "p95": 7986.1,
+          "p99": 8960.2,
+          "max": 9479.8
+        },
+        "turn_first": {
+          "n": 37,
+          "p50": 4658.4,
+          "p95": 8848.6,
+          "p99": 9479.8,
+          "max": 9479.8
+        },
+        "turn_followup": {
+          "n": 34,
+          "p50": 361.9,
+          "p95": 2152.6,
+          "p99": 2520.9,
+          "max": 2520.9
+        },
+        "ttfe": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        }
+      },
+      "by_scenario": {
+        "AF-DQ-A2": {
+          "vus": 17,
+          "latency_ms": {
+            "chart_open": {
+              "n": 16,
+              "p50": 40293.3,
+              "p95": 42502.0,
+              "p99": 42726.8,
+              "max": 42726.8
+            },
+            "ticket": {
+              "n": 31,
+              "p50": 1007.8,
+              "p95": 1640.7,
+              "p99": 1882.4,
+              "max": 1882.4
+            },
+            "turn": {
+              "n": 20,
+              "p50": 4545.6,
+              "p95": 8640.3,
+              "p99": 9479.8,
+              "max": 9479.8
+            },
+            "ttfe": {
+              "n": 0,
+              "p50": null,
+              "p95": null,
+              "p99": null,
+              "max": null
+            }
+          },
+          "turns": 20,
+          "errors": {
+            "5xx": 0,
+            "504": 0,
+            "429": 0,
+            "transport": 0,
+            "other": 0,
+            "total": 0,
+            "rate": 0.0
+          },
+          "status_counts": {
+            "complete": 0,
+            "partial": 0,
+            "fallback": 20,
+            "failed": 0,
+            "denied": 0
+          },
+          "status_share": {
+            "complete": 0.0,
+            "partial": 0.0,
+            "fallback": 1.0,
+            "failed": 0.0,
+            "denied": 0.0
+          }
+        },
+        "AF-DQ-N": {
+          "vus": 17,
+          "latency_ms": {
+            "chart_open": {
+              "n": 17,
+              "p50": 39653.3,
+              "p95": 43017.7,
+              "p99": 44803.6,
+              "max": 44803.6
+            },
+            "ticket": {
+              "n": 43,
+              "p50": 1030.1,
+              "p95": 1832.4,
+              "p99": 2660.0,
+              "max": 2660.0
+            },
+            "turn": {
+              "n": 28,
+              "p50": 2152.6,
+              "p95": 7619.4,
+              "p99": 8848.6,
+              "max": 8848.6
+            },
+            "ttfe": {
+              "n": 0,
+              "p50": null,
+              "p95": null,
+              "p99": null,
+              "max": null
+            }
+          },
+          "turns": 28,
+          "errors": {
+            "5xx": 0,
+            "504": 0,
+            "429": 0,
+            "transport": 0,
+            "other": 0,
+            "total": 0,
+            "rate": 0.0
+          },
+          "status_counts": {
+            "complete": 0,
+            "partial": 0,
+            "fallback": 28,
+            "failed": 0,
+            "denied": 0
+          },
+          "status_share": {
+            "complete": 0.0,
+            "partial": 0.0,
+            "fallback": 1.0,
+            "failed": 0.0,
+            "denied": 0.0
+          }
+        },
+        "AF-HEAVY": {
+          "vus": 16,
+          "latency_ms": {
+            "chart_open": {
+              "n": 14,
+              "p50": 44598.8,
+              "p95": 46302.1,
+              "p99": 46429.5,
+              "max": 46429.5
+            },
+            "ticket": {
+              "n": 35,
+              "p50": 850.1,
+              "p95": 1653.0,
+              "p99": 2490.9,
+              "max": 2490.9
+            },
+            "turn": {
+              "n": 23,
+              "p50": 3277.0,
+              "p95": 7986.1,
+              "p99": 8960.2,
+              "max": 8960.2
+            },
+            "ttfe": {
+              "n": 0,
+              "p50": null,
+              "p95": null,
+              "p99": null,
+              "max": null
+            }
+          },
+          "turns": 23,
+          "errors": {
+            "5xx": 0,
+            "504": 0,
+            "429": 0,
+            "transport": 0,
+            "other": 0,
+            "total": 0,
+            "rate": 0.0
+          },
+          "status_counts": {
+            "complete": 0,
+            "partial": 0,
+            "fallback": 23,
+            "failed": 0,
+            "denied": 0
+          },
+          "status_share": {
+            "complete": 0.0,
+            "partial": 0.0,
+            "fallback": 1.0,
+            "failed": 0.0,
+            "denied": 0.0
+          }
+        }
+      },
+      "turns": 71,
+      "errors": {
+        "5xx": 0,
+        "504": 0,
+        "429": 0,
+        "transport": 0,
+        "other": 0,
+        "total": 0,
+        "rate": 0.0
+      },
+      "denials": {
+        "turn_http_401_403": 0,
+        "handshake_http_401_403": 0,
+        "metrics_by_reason": {}
+      },
+      "status_counts": {
+        "complete": 0,
+        "partial": 0,
+        "fallback": 71,
+        "failed": 0,
+        "denied": 0
+      },
+      "status_share": {
+        "complete": 0.0,
+        "partial": 0.0,
+        "fallback": 1.0,
+        "failed": 0.0,
+        "denied": 0.0
+      },
+      "server_turns_by_status": {
+        "fallback": 71
+      },
+      "tool_unavailable": {
+        "calls_total": 259,
+        "total": 253,
+        "by_reason": {
+          "http_5xx": 78,
+          "timeout": 175
+        },
+        "by_tool": {
+          "allergies": {
+            "http_5xx": 12,
+            "timeout": 25
+          },
+          "clinical_notes": {
+            "http_5xx": 13,
+            "timeout": 24
+          },
+          "encounters": {
+            "http_5xx": 4,
+            "timeout": 28
+          },
+          "lab_results": {
+            "http_5xx": 14,
+            "timeout": 23
+          },
+          "medications": {
+            "http_5xx": 11,
+            "timeout": 26
+          },
+          "patient_context": {
+            "http_5xx": 12,
+            "timeout": 24
+          },
+          "problems": {
+            "http_5xx": 12,
+            "timeout": 25
+          }
+        }
+      },
+      "client_tool_unavailable": 253,
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_tokens": 0,
+        "model_calls": 0
+      },
+      "step_http": {
+        "chart_open": {
+          "200": 43,
+          "500": 4
+        },
+        "history": {
+          "200": 33
+        },
+        "login": {
+          "302": 47,
+          "500": 3
+        },
+        "session": {
+          "200": 40,
+          "500": 3
+        },
+        "start": {
+          "200": 38,
+          "500": 2
+        },
+        "ticket": {
+          "200": 104,
+          "500": 5
+        },
+        "turn": {
+          "200": 71
+        }
+      },
+      "metrics": {
+        "before": true,
+        "after": true
+      },
+      "vu_records": [
+        {
+          "index": 0,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4203.4,
+              "ttfe_ms": null,
+              "correlation_id": "24d1db2bcd5dc58e.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 161.1,
+              "ttfe_ms": null,
+              "correlation_id": "24d1db2bcd5dc58e.2"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4365.6,
+              "ttfe_ms": null,
+              "correlation_id": "e7228e45fe54ef37.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 238.9,
+              "ttfe_ms": null,
+              "correlation_id": "e7228e45fe54ef37.2"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4498.1,
+              "ttfe_ms": null,
+              "correlation_id": "73a0a27c73e6bf05.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 144.6,
+              "ttfe_ms": null,
+              "correlation_id": "73a0a27c73e6bf05.2"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "ticket",
+          "error": "HTTP 500",
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4545.6,
+              "ttfe_ms": null,
+              "correlation_id": "5a66ed5c9aaef0b1.1"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4536.7,
+              "ttfe_ms": null,
+              "correlation_id": "88804a223be98823.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 414.5,
+              "ttfe_ms": null,
+              "correlation_id": "88804a223be98823.2"
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": false,
+          "failed_at": "start",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 6,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 5101.6,
+              "ttfe_ms": null,
+              "correlation_id": "66c8bb2444eece7f.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 190.9,
+              "ttfe_ms": null,
+              "correlation_id": "66c8bb2444eece7f.2"
+            }
+          ]
+        },
+        {
+          "index": 7,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4176.3,
+              "ttfe_ms": null,
+              "correlation_id": "25a166f91c2dc206.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 182.3,
+              "ttfe_ms": null,
+              "correlation_id": "25a166f91c2dc206.2"
+            }
+          ]
+        },
+        {
+          "index": 8,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": false,
+          "failed_at": "ticket",
+          "error": "HTTP 500",
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 3324.6,
+              "ttfe_ms": null,
+              "correlation_id": "53e0dd5b64f2de85.1"
+            }
+          ]
+        },
+        {
+          "index": 9,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4663.5,
+              "ttfe_ms": null,
+              "correlation_id": "a587057151d03479.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 181.4,
+              "ttfe_ms": null,
+              "correlation_id": "a587057151d03479.2"
+            }
+          ]
+        },
+        {
+          "index": 10,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 2724.0,
+              "ttfe_ms": null,
+              "correlation_id": "ced0ddc90dbf29b8.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 181.7,
+              "ttfe_ms": null,
+              "correlation_id": "ced0ddc90dbf29b8.2"
+            }
+          ]
+        },
+        {
+          "index": 11,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4403.6,
+              "ttfe_ms": null,
+              "correlation_id": "329ecccb10478ed3.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 361.9,
+              "ttfe_ms": null,
+              "correlation_id": "329ecccb10478ed3.2"
+            }
+          ]
+        },
+        {
+          "index": 12,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "session",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 13,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4499.5,
+              "ttfe_ms": null,
+              "correlation_id": "87a3343d0c78f8f2.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 389.7,
+              "ttfe_ms": null,
+              "correlation_id": "87a3343d0c78f8f2.2"
+            }
+          ]
+        },
+        {
+          "index": 14,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 3277.0,
+              "ttfe_ms": null,
+              "correlation_id": "607d075cfd0674c4.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 403.9,
+              "ttfe_ms": null,
+              "correlation_id": "607d075cfd0674c4.2"
+            }
+          ]
+        },
+        {
+          "index": 15,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4647.5,
+              "ttfe_ms": null,
+              "correlation_id": "70a05952a522f454.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 214.4,
+              "ttfe_ms": null,
+              "correlation_id": "70a05952a522f454.2"
+            }
+          ]
+        },
+        {
+          "index": 16,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4654.5,
+              "ttfe_ms": null,
+              "correlation_id": "ca6362ccfae55620.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 278.7,
+              "ttfe_ms": null,
+              "correlation_id": "ca6362ccfae55620.2"
+            }
+          ]
+        },
+        {
+          "index": 17,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4486.9,
+              "ttfe_ms": null,
+              "correlation_id": "69144ec2fc90b798.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 140.7,
+              "ttfe_ms": null,
+              "correlation_id": "69144ec2fc90b798.2"
+            }
+          ]
+        },
+        {
+          "index": 18,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4576.5,
+              "ttfe_ms": null,
+              "correlation_id": "116918839ade8011.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 172.4,
+              "ttfe_ms": null,
+              "correlation_id": "116918839ade8011.2"
+            }
+          ]
+        },
+        {
+          "index": 19,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4469.1,
+              "ttfe_ms": null,
+              "correlation_id": "fdcd2f9a3d06fe3e.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 209.5,
+              "ttfe_ms": null,
+              "correlation_id": "fdcd2f9a3d06fe3e.2"
+            }
+          ]
+        },
+        {
+          "index": 20,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": false,
+          "failed_at": "start",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 21,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "session",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 22,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 1816.6,
+              "ttfe_ms": null,
+              "correlation_id": "6b27ae9cf6f3e669.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 134.0,
+              "ttfe_ms": null,
+              "correlation_id": "6b27ae9cf6f3e669.2"
+            }
+          ]
+        },
+        {
+          "index": 23,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4658.4,
+              "ttfe_ms": null,
+              "correlation_id": "5df2df82c63468b1.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 677.0,
+              "ttfe_ms": null,
+              "correlation_id": "5df2df82c63468b1.2"
+            }
+          ]
+        },
+        {
+          "index": 24,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "session",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 25,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4589.8,
+              "ttfe_ms": null,
+              "correlation_id": "5e93a908a50078f7.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 693.1,
+              "ttfe_ms": null,
+              "correlation_id": "5e93a908a50078f7.2"
+            }
+          ]
+        },
+        {
+          "index": 26,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 4951.6,
+              "ttfe_ms": null,
+              "correlation_id": "4ea337811386e5e4.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 184.3,
+              "ttfe_ms": null,
+              "correlation_id": "4ea337811386e5e4.2"
+            }
+          ]
+        },
+        {
+          "index": 27,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "chart_open",
+          "error": "HTTP 500, panel absent",
+          "turns": []
+        },
+        {
+          "index": 28,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": false,
+          "failed_at": "chart_open",
+          "error": "HTTP 500, panel absent",
+          "turns": []
+        },
+        {
+          "index": 29,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": false,
+          "failed_at": "ticket",
+          "error": "HTTP 500",
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 7986.1,
+              "ttfe_ms": null,
+              "correlation_id": "b8bcfbea3249940b.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 2174.6,
+              "ttfe_ms": null,
+              "correlation_id": "b8bcfbea3249940b.2"
+            }
+          ]
+        },
+        {
+          "index": 30,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "chart_open",
+          "error": "HTTP 500, panel absent",
+          "turns": []
+        },
+        {
+          "index": 31,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": false,
+          "failed_at": "chart_open",
+          "error": "HTTP 500, panel absent",
+          "turns": []
+        },
+        {
+          "index": 32,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 8960.2,
+              "ttfe_ms": null,
+              "correlation_id": "c89abdb2ce133223.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 870.5,
+              "ttfe_ms": null,
+              "correlation_id": "c89abdb2ce133223.2"
+            }
+          ]
+        },
+        {
+          "index": 33,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "ticket",
+          "error": "HTTP 500",
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 7228.1,
+              "ttfe_ms": null,
+              "correlation_id": "075ccd29587fb6fb.1"
+            }
+          ]
+        },
+        {
+          "index": 34,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 7619.4,
+              "ttfe_ms": null,
+              "correlation_id": "834d759a14dce424.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 2150.1,
+              "ttfe_ms": null,
+              "correlation_id": "834d759a14dce424.2"
+            }
+          ]
+        },
+        {
+          "index": 35,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 6706.6,
+              "ttfe_ms": null,
+              "correlation_id": "676484c25a6265f9.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 686.5,
+              "ttfe_ms": null,
+              "correlation_id": "676484c25a6265f9.2"
+            }
+          ]
+        },
+        {
+          "index": 36,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 6232.8,
+              "ttfe_ms": null,
+              "correlation_id": "644c39bb1804cea8.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 2520.9,
+              "ttfe_ms": null,
+              "correlation_id": "644c39bb1804cea8.2"
+            }
+          ]
+        },
+        {
+          "index": 37,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 5602.3,
+              "ttfe_ms": null,
+              "correlation_id": "16b78743466dc66d.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 2152.6,
+              "ttfe_ms": null,
+              "correlation_id": "16b78743466dc66d.2"
+            }
+          ]
+        },
+        {
+          "index": 38,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 5711.8,
+              "ttfe_ms": null,
+              "correlation_id": "3f1a486fd6e3c446.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 651.4,
+              "ttfe_ms": null,
+              "correlation_id": "3f1a486fd6e3c446.2"
+            }
+          ]
+        },
+        {
+          "index": 39,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 9479.8,
+              "ttfe_ms": null,
+              "correlation_id": "5eaa22f047d42e65.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 1018.8,
+              "ttfe_ms": null,
+              "correlation_id": "5eaa22f047d42e65.2"
+            }
+          ]
+        },
+        {
+          "index": 40,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 8848.6,
+              "ttfe_ms": null,
+              "correlation_id": "22ec526fb81ce028.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 181.4,
+              "ttfe_ms": null,
+              "correlation_id": "22ec526fb81ce028.2"
+            }
+          ]
+        },
+        {
+          "index": 41,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 5801.5,
+              "ttfe_ms": null,
+              "correlation_id": "4aa483570aa261ec.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 123.2,
+              "ttfe_ms": null,
+              "correlation_id": "4aa483570aa261ec.2"
+            }
+          ]
+        },
+        {
+          "index": 42,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 8640.3,
+              "ttfe_ms": null,
+              "correlation_id": "d93db965b21d390a.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 1005.2,
+              "ttfe_ms": null,
+              "correlation_id": "d93db965b21d390a.2"
+            }
+          ]
+        },
+        {
+          "index": 43,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": false,
+          "failed_at": "ticket",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 44,
+          "user": "audit-physician",
+          "scenario": "AF-HEAVY",
+          "completed": false,
+          "failed_at": "login",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 45,
+          "user": "physician",
+          "scenario": "AF-DQ-A2",
+          "completed": false,
+          "failed_at": "login",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 46,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 6565.6,
+              "ttfe_ms": null,
+              "correlation_id": "cb5dde1ee2943e18.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 841.1,
+              "ttfe_ms": null,
+              "correlation_id": "cb5dde1ee2943e18.2"
+            }
+          ]
+        },
+        {
+          "index": 47,
+          "user": "physician",
+          "scenario": "AF-HEAVY",
+          "completed": false,
+          "failed_at": "login",
+          "error": "HTTP 500",
+          "turns": []
+        },
+        {
+          "index": 48,
+          "user": "audit-physician",
+          "scenario": "AF-DQ-A2",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 7084.6,
+              "ttfe_ms": null,
+              "correlation_id": "a2e274cb15e2da83.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 840.7,
+              "ttfe_ms": null,
+              "correlation_id": "a2e274cb15e2da83.2"
+            }
+          ]
+        },
+        {
+          "index": 49,
+          "user": "physician",
+          "scenario": "AF-DQ-N",
+          "completed": true,
+          "failed_at": null,
+          "error": null,
+          "turns": [
+            {
+              "type": "first",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 6487.6,
+              "ttfe_ms": null,
+              "correlation_id": "dd25219ee531904b.1"
+            },
+            {
+              "type": "followup",
+              "http_status": 200,
+              "error": null,
+              "status": "fallback",
+              "stream": false,
+              "ms": 469.5,
+              "ttfe_ms": null,
+              "correlation_id": "dd25219ee531904b.2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
