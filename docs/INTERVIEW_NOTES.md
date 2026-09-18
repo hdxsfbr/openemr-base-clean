@@ -195,10 +195,12 @@ a file in a local state directory. That SQLite file is exactly why the answer
 is never `--workers N` — a second worker in the same container would contend
 on it — so scaling is a second agent container behind the edge with a shared
 checkpointer, which is a Week 2 change rather than a flag. None of this is
-measured: there is no load test in the repository and the 10- and 50-user runs
-are a final-submission item.
+measured yet: the load driver (`evals/load/run_load.py`, 43 offline tests) and
+the Droplet sampler (`docs/audit/scripts/droplet-stats.sh`) were built
+2026-09-17 and have not been run; the 10- and 50-user runs are the M4 step,
+human-gated.
 
-Evidence: `agent/Dockerfile:25`; `agent/app/graph/nodes.py:134` with `agent/app/settings.py:19`; `agent/app/state_store.py:36-38` and `agent/app/main.py:43-48`; `AI_COST_ANALYSIS.md:86-108`.
+Evidence: `agent/Dockerfile:25`; `agent/app/graph/nodes.py:138` with `agent/app/settings.py:19`; `agent/app/state_store.py:61-63` and `agent/app/main.py:43-48`; `AI_COST_ANALYSIS.md:141-171`; `evals/load/run_load.py`.
 
 **Q11. What is your worst failure mode?**
 
@@ -250,9 +252,9 @@ describe a planned safeguard as implemented. The order was audit, then
 `USERS.md`, then the architecture and the ADRs, then the module gateway, then
 the agent, then the evals — the AI layer was gated on the audit being
 finished, not on a feeling that the codebase was understood. Work lands in
-small conventional commits (69 in this repository), and every push runs the
+small conventional commits (81 at `0fba313`), and every push runs the
 fast deterministic checks in `.gitlab-ci.yml`: whitespace, `php -l` over the
-module, `caddy validate`, `docker compose config`, the 69 pytest cases, the
+module, `caddy validate`, `docker compose config`, the 91 pytest cases, the
 contract drift check and the offline eval subset; the live suite is a manual
 job so a push never spends model budget by itself. The standing rule is
 evals-before-tuning — no change to the prompt, the model id, the effort
@@ -273,13 +275,13 @@ the right-hand column is implemented.
 | Control | Deployed today (2026-09-17) | Planned / gap | Evidence |
 | --- | --- | --- | --- |
 | Edge path allowlist | Deployed. Caddy denies by default; only OpenEMR application paths, `/copilot-api/*` and `/meta/health/livez` are routed, and the module's `gateway/` and `bin/` paths return 404 from the edge | — | `infra/digitalocean/runtime/Caddyfile:22-40` |
-| Secrets | Deployed as Compose file secrets (nine), mounted only into the containers that need them; no key in an image or an environment dump | Docker Swarm / KMS-managed secrets | `infra/digitalocean/runtime/compose.yaml:191-209` |
+| Secrets | Deployed as Compose file secrets (nine), mounted only into the containers that need them; no key in an image or an environment dump | Docker Swarm / KMS-managed secrets | `infra/digitalocean/runtime/compose.yaml:237-256` |
 | `/ready` tracer check | A real probe since 2026-09-17: `GET /api/public/projects` on the Langfuse host with basic auth and a 5 s timeout; `reachable` on 200, `http_<code>` or the httpx error class otherwise, and either fails readiness; the three network checks run concurrently. Verified offline only until the M3 deploy | `tracer: reachable` observed on the Droplet | `agent/app/readiness.py:81-100`; `agent/tests/test_health.py::test_ready_is_503_when_tracer_unreachable` |
 | Alerts | On the live host today: run on demand by hand. In the tree since 2026-09-17: the `alerts` compose service (`python -m app.alerts ... --interval 300`, agent image, state on the `agent_state` volume, health check disabled), on the host from the M3 deploy | Webhook delivery to a pager; the service only logs | `infra/digitalocean/runtime/compose.yaml` (services: `database`, `openemr`, `copilot-setup`, `demo-seed`, `agent`, `alerts`, `caddy`) |
 | Rollback | Procedure only: redeploy tag `week1` from `git worktree add /tmp/rb week1` with the same `deploy.sh`, no data migration because the co-pilot is read-only | **Never rehearsed.** The rehearsal runbook (throwaway Droplet in a `rehearsal` Terraform workspace; the live Droplet excluded by construction) is written and is the M4 step, with an empty timing table until it runs | `docs/deployment/digitalocean.md`, "Rehearsal Runbook" |
 | Backups | **None taken.** Droplet backups are disabled; `infra/digitalocean/backup.sh` (encrypted archive of the database dump, two volumes, secrets and `.env`) and `restore.sh` exist since 2026-09-17 and have not been run against a host | First backup and a restore on the rehearsal Droplet (M4); the Droplet snapshot before the load tests | `infra/digitalocean/backup.sh`, `restore.sh`; `docs/deployment/digitalocean.md`, "Backup and Restore" |
 | Egress restriction | **None.** The firewall allows all outbound TCP, UDP and ICMP | Egress limited to the LLM and tracing endpoints, plus a blocked-egress test | `infra/digitalocean/main.tf:54-70`; `AUDIT.md` remediation table, row SEC-MEDIUM-504 |
-| Load test | **Not run.** The driver `evals/load/run_load.py` and the sampler `docs/audit/scripts/droplet-stats.sh` exist since 2026-09-17 (tested offline); no 10- or 50-user measurement yet (M4, human-gated) | 10- and 50-user runs with p50/p95/p99, error rate and peak CPU/memory | no `evals/load/` in the tree; `docs/audit/INTERVIEW_NOTES.md:130-131` |
+| Load test | **Driver and sampler built 2026-09-17, no run yet.** `evals/load/run_load.py` (43 offline tests) and `docs/audit/scripts/droplet-stats.sh` exist; no 10- or 50-user measurement yet; the runs are M4, human-gated | 10- and 50-user runs with p50/p95/p99, error rate and peak CPU/memory | `evals/load/run_load.py` (results schema in the module docstring); `evals/load/test_run_load.py` (43 tests, `pytest --collect-only -q`); `docs/audit/scripts/droplet-stats.sh`; `docs/audit/INTERVIEW_NOTES.md:130-131` (the audit's "not measured" note) |
 | Verification pass/fail panel | **Counter and scores since 2026-09-17, panels not built.** `/metrics` exposes `copilot_verification_total{outcome}` and every `copilot.turn` trace carries the `verification_passed` and `turn_error` scores; the dashboard's nine panels still have neither verification outcome nor error rate | The two panels over the scores in the Langfuse UI (owner action) | `agent/app/turn_outcome.py`; `agent/app/telemetry.py` (`finish_turn_trace`); `docs/operations/langfuse-dashboard.md` |
 | Cost gate | **Configured 2026-09-17.** PASS at or under $0.0223 per model-backed turn, PASS (warn) to $0.0446 with risk acceptance, FAIL above; $0.0127 measured at `a4a5856` | A cost alert on daily spend ($14 warn, $42 page) is still manual from `/metrics` | `evals/run.py:146`, `:593`; `AI_COST_ANALYSIS.md` Part B |
 | Agent-level denials | Counted in `/metrics` (`copilot_denials_total{reason}`) and in the agent's logs only. They never reach the gateway, so **they leave no OpenEMR audit row**; gateway-level denials do | An audit path for denials rejected at the agent API | `ARCHITECTURE.md` "Open Items" item 9; `agent/app/api.py:49`, `:57` |
@@ -334,7 +336,8 @@ through 2026-09-17.
   `asyncio.Semaphore` created per turn in the retrieve node; there is no
   process-wide turn semaphore, so the bound does not apply across concurrent
   turns. One model call per node. Load tests at 10 and 50 concurrent users
-  are a final-submission item and have not been run.
+  have not been run: the driver and sampler were built 2026-09-17 and the
+  runs are M4, human-gated.
 - **Cost constraints.** 20K tokens per turn, 60K per conversation, and a daily
   token halt that routes to the deterministic fallback (`agent/app/budget.py`,
   ADR-0004). Measured $0.012 to $0.014 per model-backed turn at list price
@@ -374,8 +377,9 @@ through 2026-09-17.
   (`USERS.md`) and checked against OpenEMR's real data shapes in a two-day
   audit (`AUDIT.md`) before any agent code; the clinician interview is still
   open (`USERS.md` "Validation Work").
-- **Eval and testing.** Comfortable enough to write the suite ourselves: 45
-  YAML cases (14 of them a golden tier, 4 a holdout tier), a runner that
+- **Eval and testing.** Comfortable enough to write the suite ourselves: 46
+  YAML cases (14 of them a golden tier, 4 a holdout tier; 45 in the latest
+  recorded run), a runner that
   drives the real login and chart handshake, pytest for the offline
   invariants. No eval framework (see §9).
 
@@ -447,13 +451,16 @@ through 2026-09-17.
   calls, tool failures, repair count (via generations by name) and an
   ERROR-level observation count
   (`docs/operations/langfuse-dashboard.md:18-33`). Two PRD dashboard minimums
-  are **not** on it: verification pass/fail rate and turn error *rate*. The
-  error panel counts ERROR-level observations; nothing divides that count by
-  turns, so the dashboard shows error volume and not an error rate.
-  `Verification.outcome` is computed per turn and discarded
-  (`agent/app/api.py:110-115`), and `/metrics` exposes
-  `copilot_verifier_rejections_total` but no pass/fail counter
-  (`agent/app/metrics.py:68-70`).
+  are **not** on it as panels: verification pass/fail rate and turn error
+  *rate*. The error panel counts ERROR-level observations; nothing divides
+  that count by turns, so the dashboard shows error volume and not an error
+  rate. Since 2026-09-17 the inputs exist: every `copilot.turn` trace carries
+  the `verification_passed` and `turn_error` scores
+  (`agent/app/telemetry.py` `finish_turn_trace`) and `/metrics` exposes
+  `copilot_verification_total{outcome}` beside
+  `copilot_verifier_rejections_total` (`agent/app/metrics.py:109-114`); the
+  two panels over the scores are an owner action in the Langfuse UI (M3),
+  not built.
 - **Real-time monitoring.** Prometheus-style `/metrics` on the agent, and
   `agent/app/alerts.py`, which evaluates the three PRD alerts against the
   thresholds in `KEY_METRICS.md` over two samples. On the live host it is
@@ -513,12 +520,13 @@ through 2026-09-17.
 
 - **Tool failure.** Section marked unavailable, no absence claimed, brief
   renders from the other sections. Six of the ten rows of the failure matrix
-  (`ARCHITECTURE.md` "Failure and Degradation Matrix") have a case: denial,
-  patient switch, one tool
-  unavailable, model failure, verifier rejection, token budget. Four do not —
-  gateway unreachable, tracer unavailable, rate limit, and OpenEMR or database
-  down — and there is no pytest case for them either; they are reasoned
-  through, not exercised.
+  (`ARCHITECTURE.md` "Failure and Degradation Matrix") have an eval case:
+  denial, patient switch, one tool unavailable, model failure, verifier
+  rejection, token budget. Three have a pytest case only, since 2026-09-17 —
+  gateway unreachable (the `/ready` half; the turn half is not exercised),
+  tracer unavailable, and rate limit (`agent/tests/test_health.py`,
+  `test_telemetry.py`, `test_api.py`). One, OpenEMR or database down, has
+  neither and is reasoned through, not exercised.
 - **Ambiguous queries.** The classifier routes anything that is not a
   first-turn UC-01 question to planning, whose tool choices are constrained to
   a bounded allowlist of the seven tools (`agent/app/graph/nodes.py:178`) and
@@ -569,8 +577,10 @@ through 2026-09-17.
 ### 13. Testing strategy
 
 - **Unit tests.** Verifier rules, summary gate, suggestion filter, budget,
-  alerts, contracts (69 pytest cases collected in `agent/tests/`, counted
-  2026-09-17); PHP lint and a recorded-response contract test for the tools.
+  alerts, contracts, and since 2026-09-17 the circuit breaker, checkpoint
+  content and telemetry re-raise controls (91 pytest cases collected in
+  `agent/tests/`, counted 2026-09-17 at `0fba313`); PHP lint and a
+  recorded-response contract test for the tools.
 - **Integration.** The turn graph with recorded gateway fixtures and a
   scripted model; the live eval suite drives login, chart open, session,
   ticket, and turn against the deployment as different users; the Bruno
@@ -622,15 +632,22 @@ through 2026-09-17.
   (`GET /api/public/projects` on the Langfuse host with basic auth and a 5 s
   timeout, `agent/app/readiness.py:81-100`; verified offline until the M3
   deploy). The panel itself probes `/health`,
-  not `/ready` (`copilot.js:485`). Alerts have page and warn thresholds and
-  are run on demand, not on a schedule.
+  not `/ready` (`copilot.js:485`). Alerts have page and warn thresholds; on
+  the live host today they are run on demand, not on a schedule; in the tree
+  the `alerts` compose service (`infra/digitalocean/runtime/compose.yaml`,
+  `--interval 300`, since 2026-09-17) schedules them every 300 s from the M3
+  deploy.
 - **Rollback.** Images are built from the repository at a commit; rolling
   back is redeploying the previous commit with the same script. The database
   is untouched by the co-pilot (read-only), so rollback has no data migration
-  step. **This has never been rehearsed** — it is a written procedure, listed
-  under "documented, not changed here" in the runbook
-  (`docs/deployment/digitalocean.md:388-392`) — and there are no backups
-  (`:226`, `:316`).
+  step. **This has never been rehearsed** — the procedure is written
+  (`docs/deployment/digitalocean.md` `## Failure and Recovery`; "tested
+  backup/restore and rollback" is still listed under "Documented, not changed
+  here" in `## Before the Evaluator Deployment`), and the rehearsal runbook
+  (`## Rehearsal Runbook`, throwaway Droplet, live host never touched) has an
+  empty timing table until it runs (M4) — and there are no backups: none has
+  been taken; `backup.sh` and `restore.sh` exist since 2026-09-17 and neither
+  has been run against a host (`## Backup and Restore`).
 
 ### 16. Iteration planning
 

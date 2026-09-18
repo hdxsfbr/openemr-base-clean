@@ -1,8 +1,8 @@
 # Week 2 Handoff (one-page stub, 2026-09-17)
 
 The long form is Week 2 work (plan cut rule 4). Every claim was checked on 2026-09-17 against
-the working tree (HEAD `66a6711` plus the M2 streams' uncommitted edits); a `file:line` is the
-proof. No number below is one that does not exist yet.
+the working tree (HEAD `0fba313`; M2 round 1 committed in `16a5d34..7197ed6`, re-checked in
+round 2); a `file:line` is the proof. No number below is one that does not exist yet.
 
 ## Read first, in this order
 
@@ -16,9 +16,9 @@ proof. No number below is one that does not exist yet.
 
 | Seam | Prose says | Code is | Evidence |
 | --- | --- | --- | --- |
-| `SourceRef.id` | `SourceId` is a URI open to `document:` and `guideline:` schemes | `id: int = Field(ge=0)`, `table: str`, `uuid: str \| None`; the URI is a separate `source_id` field. A page- or chunk-addressed source needs a new shape | `agent/app/contracts/common.py:57-64`; `ARCHITECTURE.md:444-446` |
-| Reserved claim types | Week 2 adds `document_extract`, `guideline_reference` with fact types and verifier rules | A comment; no validator, no verifier rule | `agent/app/contracts/turns.py:26`; `common.py:15-16`; `ARCHITECTURE.md:441-443` |
-| Source registry | "A registry keyed by URI prefix is the Week 2 extension point" | None. `grep -rn -i registry agent/app/` returns nothing; resolution is the flat `EvidencePack.records` dict | `agent/app/evidence.py:60`; `ARCHITECTURE.md:449-450, 515-516` |
+| `SourceRef.id` | `SourceId` is a URI open to `document:` and `guideline:` schemes | `id: int = Field(ge=0)`, `table: str`, `uuid: str \| None`; the URI is a separate `source_id` field. A page- or chunk-addressed source needs a new shape | `agent/app/contracts/common.py:13-20` (the reserved `document:`/`guideline:` URI schemes and the `SourceId` pattern), `:57-64` (`SourceRef`); `ARCHITECTURE.md:446-448` |
+| Reserved claim types | Week 2 adds `document_extract`, `guideline_reference` with fact types and verifier rules | A comment; no validator, no verifier rule | `agent/app/contracts/turns.py:26` (the only reserved-claim-type comment in `agent/`: `grep -rn document_extract agent/` returns that line alone); `ARCHITECTURE.md:443-445` |
+| Source registry | "A registry keyed by URI prefix is the Week 2 extension point" | None. `grep -rn -i registry agent/app/` returns nothing; resolution is the flat `EvidencePack.records` dict | `agent/app/evidence.py:60`; `ARCHITECTURE.md:449-452, 531-533` |
 | `actions/` | "a reserved, empty `actions/` class for writes" | No such directory in `agent/` or the module (`find ... -iname 'actions*'` is empty); `AGENTS.md` requires an ADR before any write | `ARCHITECTURE.md:299-303`; `ls module/src/Gateway/` shows six classes and one subdirectory, `Tools/`, no `actions/` |
 
 ## Eval baseline for `evals/compare.py`
@@ -44,17 +44,24 @@ The M5 release run (`--repeat 3`) supersedes it once it exists; its file name is
   counted; the 2,000,000 limit (`settings.py:43`) is process-local (`agent/app/budget.py:38`).
 - **`langchain` is present only for the Langfuse callback.** The single import is
   `from langfuse.langchain import CallbackHandler` (`agent/app/telemetry.py:74`); `langchain>=1.0`
-  (`agent/pyproject.toml:19`). `agent/requirements.lock` (WS-AGENT A6, untracked at `66a6711`) pins
+  (`agent/pyproject.toml:19`). `agent/requirements.lock` (WS-AGENT A6, committed in `16a5d34`) pins
   `langchain==1.4.1` and `langfuse==4.15.4`, one patch ahead of the `agent/.venv` install (1.4.0, 4.15.3).
-- **Langfuse 2026-11-16 removal: a watch item, not a migration.** `langfuse` 4.15.3 in `agent/.venv`
+- **Langfuse 2026-11-16 removal: a migration item, not a watch item.** `langfuse` 4.15.3 in `agent/.venv`
   (`site-packages/` paths below) marks two families "removed on November 16, 2026" on Langfuse Cloud:
   v3 ingestion, replaced by OTel `POST /api/public/otel/v1/traces` (`langfuse/api/ingestion/client.py:32`),
   and the legacy `observations_v1`/`metrics_v1` reads (`langfuse/api/legacy/observations_v1/client.py:31`,
   `langfuse/api/legacy/metrics_v1/client.py:28`), replaced by `/api/public/v2/...`
-  (`langfuse/_client/client.py:468-474`, which carries no date). This project is on neither: the SDK
-  exports spans to the OTel endpoint (`langfuse/_client/span_processor.py:123`) and
-  `grep -rn 'ingestion\|observations_v1\|metrics_v1' agent/app/` is empty. Bump the SDK once before
-  that date and re-run the A1 tracer probe.
+  (`langfuse/_client/client.py:468-474`, which carries no date). Spans go over OTel
+  (`langfuse/_client/span_processor.py:123`); the A3 trace scores do not. `finish_turn_trace` calls
+  `score_trace` on every turn (`agent/app/telemetry.py:164,191-192`) and the SDK routes it
+  `LangfuseSpan.score_trace` -> `create_score` (`_client/span.py:468`) -> `add_score_task`
+  (`_client/client.py:2051`, queued at `_client/resource_manager.py:527`) -> `ScoreIngestionConsumer`
+  `batch_post` (`_task_manager/score_ingestion_consumer.py:183`) -> `POST /api/public/ingestion`
+  (`_utils/request.py:59`), the family being removed; `grep -rn ingestion agent/app/` is empty only
+  because the call lives in the SDK. Before that date: bump `langfuse` (`agent/pyproject.toml`,
+  `agent/requirements.lock`) to a release whose score path no longer posts there (re-check
+  `_utils/request.py` after the bump), confirm in the Langfuse UI that `verification_passed` and
+  `turn_error` still land on a `copilot.turn` trace, and re-run the A1 tracer probe.
 
 ## Deferred experiments (never without the protocol)
 
@@ -87,4 +94,4 @@ Blocking gates stay PASS; `--include-holdout` only for the final check; about $0
 - GitLab project: masked CI variable `DEMO_PASSWORD`; `COPILOT_EVAL_BASE_URL`
   (`.gitlab-ci.yml:80-84`); runner #222.
 - Rotation after grading: the dated checklist in `docs/deployment/digitalocean.md`
-  (a `docs/_pending/WS-CONTENT.md` delta until the M2 doc-apply pass lands it).
+  ("After grading: credential rotation (dated checklist)" under `## Failure and Recovery`, landed in `58f4098`).

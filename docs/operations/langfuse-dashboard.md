@@ -57,15 +57,24 @@ types; the Latency dashboard adds p95 by trace name and by model.
 
 - Langfuse shows an "Action required" notice for the v4 API migration due
   2026-11-16. The SDK in use (langfuse 4.15, OpenTelemetry-based) is
-  reported as v4-compatible. Agent tracing itself goes through the SDK only,
-  and no eval script needs migrating: `grep -rn "api/public" evals/` returns
-  nothing. **Two documented uses of the v2 public API do remain and are real
-  migration targets before 2026-11-16:** the runnable trace-lookup curl in
-  `docs/operations/correlation-id-walkthrough.md:50`
-  (`GET /api/public/traces?limit=50`) and the one-off export that produced the
-  committed trace evidence,
+  reported as v4-compatible for spans: they are exported to
+  `POST /api/public/otel/v1/traces` (`langfuse/_client/span_processor.py:123`).
+  No eval script needs migrating: `grep -rn "api/public" evals/` returns
+  nothing. **Three migration targets remain before 2026-11-16.** (1) Added
+  2026-09-17 with the `verification_passed` and `turn_error` trace scores:
+  `finish_turn_trace` calls `score_trace` on every turn
+  (`agent/app/telemetry.py:164,191-192`), and langfuse 4.15.3 posts scores
+  through `LangfuseSpan.score_trace` -> `create_score` -> `add_score_task`
+  -> `ScoreIngestionConsumer` -> `POST /api/public/ingestion`
+  (`langfuse/_utils/request.py:59`), the v3 ingestion endpoint the SDK itself
+  marks "removed on November 16, 2026" (`langfuse/api/ingestion/client.py:32`);
+  bump the SDK to a release whose score path no longer posts there and confirm
+  the two scores still arrive on a `copilot.turn` trace. (2) The runnable
+  trace-lookup curl in `docs/operations/correlation-id-walkthrough.md:50`
+  (`GET /api/public/traces?limit=50`) and (3) the one-off export that produced
+  the committed trace evidence,
   `docs/audit/evidence/observability/langfuse-trace-921f44e1-copilot-turn.md:3`
-  (`GET /api/public/traces/<id>`). Re-check both against the v4 API and update
+  (`GET /api/public/traces/<id>`): re-check both against the v4 API and update
   the walkthrough; the exported evidence file is a historical artifact and only
   its cited endpoint needs a note.
 - Six root-level traces named `plan`, `narrate`, and `repair` exist from
