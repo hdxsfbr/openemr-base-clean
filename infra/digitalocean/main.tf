@@ -27,6 +27,19 @@ resource "digitalocean_droplet" "app" {
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     ssh_public_key = local.ssh_public_key
   })
+
+  # user_data only runs at first boot and DigitalOcean's provider treats any
+  # change to it as ForceNew: editing cloud-init.yaml.tftpl for a *future*
+  # droplet (the M4 rehearsal, a disaster recovery recreate) would otherwise
+  # make the next `tf.sh apply` silently plan to destroy and recreate this
+  # already-running, already-seeded Droplet. Found 2026-09-18 when a routine
+  # firewall-only apply planned "1 to destroy" because an unrelated cloud-init
+  # edit (2eb4573, adding curl) had already landed. Recreating this Droplet on
+  # purpose is a deliberate act (`terraform apply -replace`), never a side
+  # effect of an unrelated config change.
+  lifecycle {
+    ignore_changes = [user_data]
+  }
 }
 
 resource "digitalocean_firewall" "app" {
