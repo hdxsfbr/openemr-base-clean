@@ -278,10 +278,11 @@ class AnthropicModel:
             "Call the tools needed to answer from the chart (no patient identifier exists; the chart is fixed). "
             "If the pack already answers the question, call no tool."
         )
-        with generation("plan", settings.model_id, correlation_id) as gen:
+        plan_model = settings.plan_model_id or settings.model_id
+        with generation("plan", plan_model, correlation_id) as gen:
             response = await self._guarded(
                 lambda: self.client.messages.create(
-                    model=settings.model_id,
+                    model=plan_model,
                     max_tokens=1500,
                     system=self._system(),
                     messages=[{"role": "user", "content": user}],

@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     # Model (ADR-0004).
     model_id: str = "claude-sonnet-5"  # owner decision 2026-09-15 on measured latency (ADR-0004)
+    # Optional override for the `plan` call only (tool selection -- a bounded, structured
+    # decision, unlike narrate/repair's open-ended clinical synthesis). None falls back to
+    # model_id, so leaving this unset is a no-op (2026-09-18 experiment, not yet adopted).
+    plan_model_id: str | None = None
     effort_first_turn: str = "low"
     effort_followup: str = "medium"
     model_timeout_seconds: float = 30.0

@@ -152,6 +152,9 @@ services:
       COPILOT_STATE_DIR: /var/lib/copilot
       # Model for narration and planning (ADR-0004: claude-sonnet-5, accepted 2026-09-15 on measured latency).
       COPILOT_MODEL_ID: ${COPILOT_MODEL_ID:-claude-sonnet-5}
+      # Optional override for the plan call only; empty falls back to COPILOT_MODEL_ID
+      # (2026-09-18 per-node model experiment, not yet adopted -- see AI_COST_ANALYSIS.md).
+      COPILOT_PLAN_MODEL_ID: ${COPILOT_PLAN_MODEL_ID:-}
       # Demo deployment only: honors X-Copilot-Fault for the collection's failure examples.
       COPILOT_FAULT_INJECTION: ${COPILOT_FAULT_INJECTION:-1}
     # The agent runs as uid 10001; start.sh makes these four host files 0644
