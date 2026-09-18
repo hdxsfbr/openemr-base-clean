@@ -22,6 +22,28 @@ class ToolStatus(StrEnum):
     unavailable = "unavailable"
 
 
+# The closed set of `ToolResponse.reason` values: what the gateway writes into an
+# envelope (`public/gateway/tools.php`: forbidden, audit_unavailable;
+# `Gateway/Tools/AbstractTool.php`: service_error; `LabResultsTool.php`:
+# orphan_rows_omitted) and what the agent's own client and nodes write
+# (`gateway_client.py`: timeout, transport_error, contract_violation, and
+# `http_<code>`, which metrics collapse to `http_Nxx`; `graph/nodes.py`:
+# fault_injected, invalid_params). `reason` stays a free string on the wire so
+# the exported schema is unchanged; metrics map anything outside this set to
+# `other`, keeping the label bounded.
+TOOL_REASONS = (
+    "audit_unavailable",
+    "contract_violation",
+    "fault_injected",
+    "forbidden",
+    "invalid_params",
+    "orphan_rows_omitted",
+    "service_error",
+    "timeout",
+    "transport_error",
+)
+
+
 class AbsenceState(StrEnum):
     documented = "documented"
     reviewed_none = "reviewed_none"

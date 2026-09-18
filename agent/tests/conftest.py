@@ -44,14 +44,14 @@ class FakeModel:
         self.narrate_calls = 0
         self.plan_rounds = 0
 
-    async def narrate(self, question: str, pack_text: str, effort: str, rejections=None) -> NarrateResult:
+    async def narrate(self, question: str, pack_text: str, effort: str, rejections=None, correlation_id: str | None = None) -> NarrateResult:
         self.narrate_calls += 1
         repairing = bool(rejections) and self.repair_claims is not None
         claims = self.repair_claims if repairing else self.claims
         summary = self.repair_summary if (repairing and self.repair_summary is not None) else self.summary
         return NarrateResult(TurnClaims(claims=[Claim.model_validate(c) for c in claims], summary=summary, suggestions=self.suggestions), Usage(input_tokens=1200, output_tokens=200, model_calls=1))
 
-    async def plan(self, question: str, pack_text: str, prior_calls) -> PlanResult:
+    async def plan(self, question: str, pack_text: str, prior_calls, correlation_id: str | None = None) -> PlanResult:
         self.plan_rounds += 1
         calls = self.plan_calls if self.plan_rounds == 1 else []
         return PlanResult(calls, Usage(input_tokens=800, output_tokens=50, model_calls=1))

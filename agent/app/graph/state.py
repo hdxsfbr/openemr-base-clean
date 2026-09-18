@@ -1,6 +1,8 @@
 """Graph state. Per-turn keys are reset by the API on every invocation; the
 conversation keys (history, conversation_tokens) persist in the checkpoint.
-Raw tool records never enter this state (ADR-0005)."""
+Raw tool records and the delegation token never enter this state (ADR-0005):
+the checkpointer writes every channel after every step, so both live in the
+per-turn caches of `state_store` keyed by `turn_id` instead."""
 
 from __future__ import annotations
 
@@ -12,7 +14,6 @@ class TurnState(TypedDict, total=False):
     conversation_id: str
     turn_id: str
     correlation_id: str
-    token: str
     question: str
     turn_type: str
     fault: str | None

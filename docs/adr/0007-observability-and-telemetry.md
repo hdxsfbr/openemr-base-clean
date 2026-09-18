@@ -104,7 +104,18 @@ cohort saw tracer rate limits stall requests.
   with session id = conversation id, a `generation` observation per model
   call (`plan`, `narrate`, `repair`) carrying usage and cost, and since
   commit `74a1bf6` one `tool`-type observation per gateway call carrying
-  status, reason, record count, truncation flag, and gateway latency.
+  status, reason, record count, truncation flag, and gateway latency. Since
+  2026-09-17 every turn trace also carries the scores `verification_passed`
+  (1.0 for `passed`, 0.0 for `partial` or `failed_closed`, absent when the
+  verifier did not run) and `turn_error` (1.0 for a failed or timed-out
+  turn) plus the `verification` outcome in its metadata (`finish_turn_trace`
+  in `agent/app/telemetry.py`, computed once in `agent/app/turn_outcome.py`
+  and shared with the response and `copilot_verification_total{outcome}`);
+  the generation and tool observations take the turn's correlation id and
+  every telemetry warning logs it. The observation context managers also
+  re-raise the body's own exception unchanged; before that day they turned
+  it into `RuntimeError`, which bypassed the graph's `except ModelError`
+  fallback for real provider failures.
   The `mask` function is passed to the Langfuse client at construction;
   the startup guard that exists is the refusal to run when any LangSmith
   tracing variable is set (`FORBIDDEN_ENV`). Dashboard panels:
@@ -113,13 +124,17 @@ cohort saw tracer rate limits stall requests.
   functions in `agent/app/alerts.py` with the `KEY_METRICS.md` thresholds,
   run by `python -m app.alerts` (`agent/app/alerts_cli.py`; optional
   `--webhook`, `--ready-url`, `--interval`), and covered by
-  `agent/tests/test_alerts.py`. The cron line is documented in
-  `docs/operations/alerts.md`; whether it is installed on the Droplet is
-  not recorded in the repository.
-- `/ready` reports the tracer dependency as `configured` or
-  `not_configured` from the presence of the key files
-  (`agent/app/readiness.py`), not the exporter's last-success age as
-  decision 6 planned.
+  `agent/tests/test_alerts.py`. Since 2026-09-17 it is scheduled by the
+  `alerts` service in `infra/digitalocean/runtime/compose.yaml`
+  (`--interval 300`, agent image, state on the `agent_state` volume), on the
+  host from the M3 deploy; the runbook's cron line is superseded.
+- `/ready` reports the tracer dependency as `reachable` (both key files
+  present and `GET /api/public/projects` on the Langfuse host answering 200
+  under basic auth within 5 s), `http_<code>`, the httpx error class, or
+  `not_configured` (`agent/app/readiness.py`, since 2026-09-17). That is a
+  live reachability probe rather than the exporter's last-success age
+  decision 6 planned; the SDK does not expose that age, and the probe
+  answers the same question.
 - Of the Verification items below: the correlation eval exists
   (`OBS-CORRELATION-001`; walkthrough in
   `docs/operations/correlation-id-walkthrough.md`) and the alert evals
@@ -127,9 +142,14 @@ cohort saw tracer rate limits stall requests.
   exists yet; the PHI-free read-backs of 2026-09-15 and 2026-09-16 were
   manual (API and UI). No tracer-down eval exists: the `X-Copilot-Fault`
   value `tracer` is listed in `settings.py` but no graph node acts on it
-  (only `model`, `tool:<name>`, and `budget` change behavior), and the
-  handler's failure path is exercised only by the try/except in
-  `telemetry.py`.
+  (only `model`, `tool:<name>`, and `budget` change behavior). The tracer's
+  failure path is exercised by
+  `agent/tests/test_telemetry.py::test_observation_failure_logs_the_correlation_id`
+  (client construction failing: the observation degrades to a no-op and the
+  warning carries the correlation id) and by
+  `agent/tests/test_health.py::test_ready_is_503_when_tracer_unreachable`; no
+  eval blocks the exporter endpoint during a live turn, so the Verification
+  item below is still open.
 
 ## Verification
 

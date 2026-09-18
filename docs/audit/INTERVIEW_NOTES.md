@@ -129,12 +129,15 @@ edge that forwarded every path."
 - Apache prefork, 60 s PHP limit: model calls cannot run inside PHP.
 - Not measured: authenticated latency on the Droplet, 10/50-user load, p99,
   model latency, real tokenizer counts. Scheduled, not claimed.
-- Update 2026-09-16: model latency and per-turn tokens are now measured on
-  the deployment (Sonnet 5): p50 12.1 s, p95 27.6 s, p99 40.8 s over 120
-  model-backed turns; 608 in / 1,170 out / 5,106 cache-read tokens and about
-  $0.013 per turn (`evals/results/2026-09-16T073141Z-1ddf824.md`). The 30 s
-  p95 is provisional (ADR-0004); the 8 s goal is tracked, not met. Still not
-  measured: load at 10/50 users, authenticated dashboard latency.
+- Update 2026-09-17: model latency and per-turn tokens are measured on the
+  deployment (Sonnet 5). Latest full run
+  (`evals/results/2026-09-17T024919Z-a4a5856.md`, 40 model-backed turns):
+  p50 12.5 s, p95 24.1 s, p99 30.7 s; 628 in / 1,172 out / 4,759 cache-read
+  tokens and $0.0127 per model-backed turn. The `--repeat 3` history at
+  `1ddf824` (120 model-backed turns) was p50 12.1 s, p95 27.6 s, p99 40.8 s
+  at about $0.013 per turn. The 30 s p95 is provisional (ADR-0004); the 8 s
+  goal is tracked, not met. Still not measured: load at 10/50 users,
+  authenticated dashboard latency, time to first useful evidence.
 
 ## Key decisions and why
 
@@ -280,8 +283,9 @@ edge that forwarded every path."
 | 8 / 6 | fixable Critical CVEs, OpenEMR and Caddy images |
 | 26 | synthetic patients in `af-cohort-v1` |
 | 60 s | PHP execution limit under Apache prefork |
-| 45 / 44 | eval cases on disk (2026-09-16) / cases in the last recorded full runs |
-| 27.6 s / $0.013 | p95 complete verified response / list-price cost per model-backed turn (run `1ddf824`, n=120) |
+| 45 / 45 | eval cases on disk / cases in the latest full run (`a4a5856`, 44 passed) |
+| 24.1 s / $0.0127 | p95 complete verified response / list-price cost per model-backed turn (run `a4a5856`, n=40; the `1ddf824` repeat-3 history was 27.6 s at n=120) |
+| 2 | recall checks that flip run to run: `MISS-AUTHOR-J-001` and `CONF-NOTE-VS-LIST-N-001`, both non-blocking |
 
 ## Things not to say
 

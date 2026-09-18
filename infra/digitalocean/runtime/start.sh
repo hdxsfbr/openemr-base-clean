@@ -44,8 +44,9 @@ for secret_name in anthropic_api_key anthropic_workspace_id langfuse_public_key 
     fi
 done
 
+today="$(date +%F)"
 printf 'PUBLIC_HOSTNAME=%s\nTLS_EMAIL=%s\nOPENEMR_IMAGE=%s\nDEMO_ANCHOR=%s\n' \
-    "${public_hostname}" "${tls_email}" "${openemr_image}" "$(date +%F)" > .env
+    "${public_hostname}" "${tls_email}" "${openemr_image}" "${today}" > .env
 chmod 600 .env secrets/*
 # Compose file secrets are bind mounts that keep the host mode (the `mode`
 # attribute applies to swarm only). The agent runs as uid 10001 and must read
@@ -62,15 +63,57 @@ docker compose pull database caddy
 docker compose build --pull openemr agent
 docker compose up --detach --wait --wait-timeout 600
 
+# Caddy can stay in Created when its depends_on on openemr resolves after the
+# --wait window has returned (seen 2026-09-15 on a redeploy that rebuilt from
+# scratch); an explicit second up starts it. Harmless when it is already up.
+docker compose up --detach --wait --wait-timeout 120 caddy
+
+# Fail loudly if any long-running service is not running. The one-shot jobs
+# (copilot-setup, demo-seed) are behind profiles and are not expected here.
+required_services=(database openemr agent caddy alerts)
+running_services="$(docker compose ps --services --status running)"
+missing_services=()
+for service_name in "${required_services[@]}"; do
+    if ! grep -qx "${service_name}" <<< "${running_services}"; then
+        missing_services+=("${service_name}")
+    fi
+done
+if [[ "${#missing_services[@]}" -gt 0 ]]; then
+    printf 'Not running after start: %s\n' "${missing_services[*]}" >&2
+    docker compose ps >&2
+    exit 1
+fi
+
+# The public edge must answer before this script reports success. Six attempts
+# ten seconds apart cover a Caddy restart; a first certificate issuance on a
+# brand-new hostname can take longer, in which case rerun deploy.sh (idempotent).
+# This gate needs curl on the host: cloud-init.yaml.tftpl installs it alongside Docker.
+livez_url="https://${public_hostname}/meta/health/livez"
+for attempt in $(seq 1 6); do
+    if curl --fail --silent --show-error --location --max-time 20 "${livez_url}" >/dev/null; then
+        break
+    fi
+    if [[ "${attempt}" -eq 6 ]]; then
+        printf 'Public liveness probe failed after %s attempts: %s\n' "${attempt}" "${livez_url}" >&2
+        docker compose ps >&2
+        docker compose logs --tail 20 caddy >&2
+        exit 1
+    fi
+    sleep 10
+done
+
 # Register and enable the co-pilot module (idempotent).
-docker compose --profile setup run --rm copilot-setup | tee "logs/copilot-setup-$(date +%F).log"
+docker compose --profile setup run --rm copilot-setup | tee "logs/copilot-setup-${today}.log"
 
 printf '\nDeployment started at https://%s\n' "${public_hostname}"
 printf 'Agent health: https://%s/copilot-api/health\n' "${public_hostname}"
+printf 'Alert evaluator (one heartbeat or alert line per 300 s): docker compose logs --tail 5 alerts\n'
 printf 'OpenEMR username: challenge-admin\n'
 printf 'Read the generated password over SSH with:\n'
 printf '  ssh deployer@<droplet-ip> cat /opt/agentforge/secrets/openemr_admin_password\n'
 printf 'Seed the demo users and synthetic cohort (demo data only) with:\n'
+# A literal command for the operator; the $(date) is meant to expand on their shell.
+# shellcheck disable=SC2016
 printf '  cd /opt/agentforge && docker compose --profile demo run --rm demo-seed | tee logs/demo-seed-$(date +%%F).json\n'
 printf 'Demo clinician password (physician, audit-physician, audit-nurse, audit-frontdesk):\n'
 printf '  ssh deployer@<droplet-ip> cat /opt/agentforge/secrets/demo_user_password\n'

@@ -127,12 +127,18 @@ debugging. It remains billable until `./destroy.sh --yes` succeeds.
 ## Current Deployment (2026-09-16)
 
 The deployment is live at `https://openemr-137-184-4-22.sslip.io` (Droplet
-`137.184.4.22`). Tag `v0.2.0-slice` (2026-09-15, superseding
-`v0.1.0-skeleton`) was the last tagged deploy; later commits were pushed to
-the same host with `deploy.sh` without a new tag. The model and tracer keys
+`137.184.4.22`). The deployed tag since 2026-09-16 is `week1` at commit
+`e1dd331`, which is what the early submission was made from; `v0.2.0-slice`
+(2026-09-15, superseding `v0.1.0-skeleton`) was the tag before it. Commits
+after `e1dd331` up to `66a6711` touched only documentation; the M2 work on
+branch `week1-final-push` (2026-09-17) changes `agent/` and
+`infra/digitalocean/runtime/` (the `alerts` service, the `start.sh` gates,
+log rotation), so the host keeps running the `week1` tree until the M3
+deploy. No deployed image digest has been recorded yet; the final deploy
+records one. The model and tracer keys
 were pushed with `push-secrets.sh` on 2026-09-15, so turns run with
-`claude-sonnet-5` and trace to Langfuse; the nine eval reports in
-`evals/results/` (2026-09-16) and the manual CI job `test:evals-live`
+`claude-sonnet-5` and trace to Langfuse; the eleven eval reports in
+`evals/results/` (2026-09-16 and 2026-09-17) and the manual CI job `test:evals-live`
 (below) target this hostname, and the Bruno collection passes 21/21 against
 it as `audit-physician` (`docs/SUBMISSION_CHECKLIST.md`). Without the model
 key the narrative falls back to the deterministic source-cited brief
@@ -165,9 +171,16 @@ PUBLIC_HOSTNAME="$(./tf.sh output -raw smoke_hostname)"
 `deploy.sh` copies the runtime files, then the build contexts (the module
 under `build/openemr/`, the agent under `build/agent/`) and the synthetic
 cohort under `demo/cohort/` (a read-only bind mount, never in an image).
-`start.sh` builds the two project images on the host, starts the stack, and
-runs the one-shot `copilot-setup` job that registers and enables the module.
-Re-running `deploy.sh` is idempotent.
+`start.sh` builds the two project images on the host, starts the stack,
+starts `caddy` a second time explicitly (it could stay in `Created`, see
+"Known Gotchas"), exits non-zero unless `database`, `openemr`, `agent`,
+`caddy` and `alerts` are all running, probes
+`https://<hostname>/meta/health/livez` up to six times ten seconds apart, and
+only then runs the one-shot `copilot-setup` job that registers and enables
+the module. Re-running `deploy.sh` is idempotent; when a gate fails, read
+the `docker compose ps` it prints and rerun. The gates and the `alerts`
+service are in the tree since 2026-09-17 and first run on a host at the M3
+deploy.
 
 Seed the demo users (`physician`, `audit-physician`, `audit-nurse`,
 `audit-frontdesk`) and the synthetic cohort in one job, and keep its manifest
@@ -232,6 +245,14 @@ Droplet billing.
   service image, both built on the Droplet from contexts `deploy.sh` copies.
 - Two one-shot jobs behind Compose profiles: `copilot-setup` (module
   registration) and `demo-seed` (demo users and synthetic cohort).
+- The `alerts` service (the agent image, no build of its own) running
+  `python -m app.alerts --url http://agent:8080/metrics --ready-url
+  http://agent:8080/ready --state /var/lib/copilot/alerts-state.json
+  --interval 300`: the three PRD alert rules every 300 s, one JSON line per
+  evaluation in `docker compose logs alerts`, state on the agent volume, its
+  inherited health check disabled so it never blocks `up --wait`.
+- Log rotation on every container (`x-logging` in `compose.yaml`: json-file,
+  10 MiB, three files), so a long-lived host no longer grows unbounded logs.
 - Droplet-local named volumes (database, sites, logs, TLS, agent state, Caddy)
   and randomly generated demo credentials.
 
@@ -312,8 +333,319 @@ $0.50 and 12 minutes per run).
 - If the fast cycle reports that automatic destruction failed, run
   `./destroy.sh --yes` immediately and verify the Droplet is absent in the
   control panel.
-- Destroying this smoke host destroys its database and generated credentials.
-  There is intentionally no backup for the disposable cycle.
+- `start.sh` now fails loudly: a service not running after `up --wait`, or
+  the public `livez` probe failing six times, exits non-zero with `docker
+  compose ps` (and the last Caddy log lines) on stderr. Rerun `deploy.sh`
+  after reading them; it is idempotent.
+- Destroying a host destroys its database and generated credentials. The
+  disposable smoke cycle takes no backup; for a host worth keeping, run
+  `backup.sh` first (next section).
+
+### After grading: credential rotation (dated checklist)
+
+Run after the Week 1 grade is posted and the final video is up; not before.
+Rotate in this order (externally usable keys first, then what the host
+holds, then the host, then provider and repository tokens, then keys). Date
+each line as it is done, by file name only; never write a value anywhere.
+
+1. `[ ] <date>` Model key, `~/.config/agentforge/anthropic_api_key` (and
+   `anthropic_workspace_id` if the key is organization-level): create the new
+   key in the Anthropic Console, then revoke the old one there. Write it
+   without shell history:
+   `(umask 077; read -rsp 'new value: ' v; printf '%s' "$v" > ~/.config/agentforge/anthropic_api_key; unset v)`.
+   If the Droplet is still up: `./push-secrets.sh 137.184.4.22`.
+2. `[ ] <date>` Tracer keys, `~/.config/agentforge/langfuse_public_key` and
+   `langfuse_secret_key`: Langfuse project settings, API keys, create the new
+   pair, delete the old one; write both files as in step 1; `./push-secrets.sh`
+   if the Droplet is still up.
+3. `[ ] <date>` Host-generated secrets in `/opt/agentforge/secrets/`
+   (`mysql_root_password`, `mysql_password`, `openemr_admin_password`,
+   `copilot_delegation_secret`, `demo_user_password`, written by
+   `runtime/start.sh` only when absent): rotated by ending the host.
+   `cd infra/digitalocean && set -a; . ~/.config/agentforge/do.env; set +a && ./destroy.sh --yes`,
+   then the "Configure" section's resource-count loop must print `droplets: 0`.
+   An in-place rotation of `copilot_delegation_secret` is untested and is not
+   described here. Delete the M4 snapshot too, since it carries these files:
+   `doctl compute snapshot list` then `doctl compute snapshot delete <id>` for
+   `week1-final-2026-09-19`.
+4. `[ ] <date>` CI variable `DEMO_PASSWORD` (GitLab, Settings, CI/CD,
+   Variables): delete it; it named the destroyed host's `demo_user_password`.
+5. `[ ] <date>` DigitalOcean API token, `~/.config/agentforge/do.env`:
+   `unset DIGITALOCEAN_TOKEN`; in the control panel (API, Tokens) generate a
+   new token and revoke the old; rewrite `do.env` at mode 600 with
+   `(umask 077; read -rsp 'token: ' v; printf 'DIGITALOCEAN_TOKEN=%s\n' "$v" > ~/.config/agentforge/do.env; unset v)`.
+6. `[ ] <date>` CI runner token, `~/.config/agentforge/gitlab_runner_token`:
+   either retire the runner, `./tf.sh -chdir=runner destroy -var-file=../terraform.tfvars`
+   then delete runner #222 on GitLab, or reset the token on the runner's page,
+   write the file as in step 1, and re-run
+   `./runner/register.sh "$(./tf.sh -chdir=runner output -raw runner_ip)" ~/.config/agentforge/gitlab_runner_token`.
+7. `[ ] <date>` GitLab personal access token, `~/.config/agentforge/gitlab_pat`
+   and `~/.config/agentforge/git-credentials`, and the write token embedded in
+   the `gitlab` remote URL: revoke every token under GitLab User settings,
+   Access tokens; then
+   `git remote set-url gitlab https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean.git`
+   and `shred -u ~/.config/agentforge/git-credentials ~/.config/agentforge/gitlab_pat`.
+   Never run `git remote -v` before the URL is replaced.
+8. `[ ] <date>` Deploy SSH key, `~/.ssh/id_ed25519` (or the override in
+   `terraform.tfvars`): `ssh-keygen -t ed25519 -a 64 -f ~/.ssh/id_ed25519_agentforge`,
+   point `terraform.tfvars` at the new public key, remove the old key under
+   DigitalOcean Settings, Security. No `tf.sh apply` is needed once step 3 ran.
+9. `[ ] <date>` Backups and state copies: `~/.config/agentforge/backups/`
+   holds `<host>-<stamp>.tar.age` (or `.gpg`) archives from `backup.sh`
+   whose `config.tar` carries `/opt/agentforge/secrets` and `.env`;
+   keep one only while its passphrase is kept, otherwise `shred -u` it.
+   `~/.config/agentforge/tfstate/<date>/` holds no secret by design and stays
+   at mode 600.
+10. `[ ] <date>` Langfuse traces are synthetic and PHI-free; deleting the
+    project is optional and is not a rotation step.
+
+## Backup and Restore
+
+`infra/digitalocean/backup.sh` and `restore.sh` run on the operator's machine
+and work over SSH (written 2026-09-17; **neither has been run against a host
+yet** — that is the M4 rehearsal below). Neither has a default host: `--host`
+is mandatory, and `--dry-run` prints every command without contacting
+anything.
+
+```bash
+cd infra/digitalocean
+./backup.sh --host "$DROPLET_IP"                 # passphrase prompt; prints the archive path
+./backup.sh --host "$DROPLET_IP" --dry-run       # print the commands, contact nothing
+./restore.sh --host "$DROPLET_IP" --archive ~/.config/agentforge/backups/<host>-<stamp>.tar.age
+```
+
+`backup.sh` writes one archive under `~/.config/agentforge/backups/` (mode
+600, never in the repository), encrypted with `age` when it is installed and
+with `gpg --symmetric` (AES256) otherwise, holding:
+
+- `openemr.sql.gz`: `mariadb-dump --single-transaction` of the `openemr`
+  database, run inside the `database` container. The root password is read
+  there from the container's own `MARIADB_ROOT_PASSWORD_FILE` into
+  `MYSQL_PWD`; it is never printed and never passed as an argument.
+- `openemr_sites.tar` and `agent_state.tar`: the `openemr_sites` and
+  `agent_state` volumes. The compose project name `agentforge-openemr`
+  prefixes them on the host (`agentforge-openemr_openemr_sites`,
+  `agentforge-openemr_agent_state`); the scripts resolve the names through
+  the Compose volume labels rather than hard-coding them.
+- `config.tar`: `/opt/agentforge/secrets` and `/opt/agentforge/.env`.
+- `manifest.txt` (host, time, image ids, container status) and `SHA256SUMS`,
+  which `restore.sh` checks before it touches a host.
+
+Not captured: `openemr_logs`, `openemr_ssl`, `caddy_data`, `caddy_config`
+(they regenerate) and the raw `database_data` files (the dump replaces
+them). The agent state is copied hot, so a checkpoint mid-write may be
+inconsistent; conversations are ephemeral demo state.
+
+**Why the secrets are in the backup, and why losing them is fatal.** Every
+password in the stack is generated on the host by `start.sh` the first time
+it runs (`openssl rand`): the MariaDB root and `openemr` users, the OpenEMR
+admin, the delegation secret, and the shared demo clinician password
+(`DEMO_PASSWORD`, whose hashes sit in the database). If
+`/opt/agentforge/secrets` is lost, the database volume is orphaned (no
+credential can open MariaDB or OpenEMR any more) and the next `start.sh`
+generates a new `DEMO_PASSWORD` that matches no seeded user, so the eval
+harness, the Bruno collection and the CI variable all stop working. A
+Droplet snapshot does not help with a deleted directory; the encrypted
+archive does.
+
+`restore.sh` deletes the host's database volume, so back up first. In order:
+
+1. Decrypt into a 0700 temp directory on the operator's machine and verify
+   `SHA256SUMS`; nothing on the host is touched until the archive is intact.
+2. Stop `openemr`, `agent` and `alerts` (those present in the host's compose
+   file).
+3. Untar `secrets/` and `.env` into `/opt/agentforge`. `--skip-env` keeps the
+   host's own `.env`, for restoring one host's archive onto a host with a
+   different hostname.
+4. Remove the `database` container, delete `database_data`, and start
+   `database` again so MariaDB initialises from the restored secrets. MariaDB
+   reads `MARIADB_*_PASSWORD_FILE` only into an empty volume, so a volume
+   initialised under other secrets (a fresh Droplet, or a host whose secrets
+   directory was lost) can never accept the restored credentials; a re-init
+   always can.
+5. Load the dump through `mariadb` inside the container (same `MYSQL_PWD`
+   handling).
+6. Replace the contents of the `openemr_sites` and `agent_state` volumes.
+7. `docker compose up --detach --wait`, then print `docker compose ps`.
+
+After a restore the demo clinician password is the one from the archive. The
+host must have been deployed once (`deploy.sh`) so the project, images and
+volumes exist; `restore.sh` asks you to type the host before step 2 unless
+`--yes` is given.
+
+## Rehearsal Runbook: clean deploy, rollback, roll-forward, restore
+
+**The default Terraform workspace and the live Droplet `137.184.4.22` are
+never touched by this runbook.** Every Terraform command below runs in the
+`rehearsal` workspace with its own state and its own `project_name`, every
+`deploy.sh`, `backup.sh` and `restore.sh` call names the rehearsal IP
+explicitly, and the throwaway SSH key is registered under a different
+DigitalOcean name. **`smoke-cycle.sh` and a default-workspace `./tf.sh apply`
+both target the live Droplet**: `smoke-cycle.sh` runs `tf.sh apply` and then
+`destroy.sh --yes` in whatever workspace is selected, which is `default`
+unless you changed it. Never run either as part of a rehearsal. Execution is
+human-gated (`docs/FINAL_PUSH_PLAN.md`, M3 and M4); agents prepare and
+watch, and fill the timing table at the end.
+
+Cost: one `s-2vcpu-4gb` Droplet at $0.03571 per hour, so a rehearsal done in
+one sitting is under $0.20 of compute, plus about $0.15 of model spend for
+each `--golden-only` run: 7 of the 14 golden cases are model-backed (the other
+7 are `mode: offline`), 8 model turns in all at $0.0127 to $0.0223 each.
+Destroy the same day.
+
+Before starting: `git status --porcelain` is empty on the branch being
+rehearsed; the DigitalOcean token is loaded
+(`set -a; . ~/.config/agentforge/do.env; set +a`); `TLS_EMAIL` is set in the
+shell; and `./tf.sh workspace show` prints `default`, the live workspace you
+are about to leave.
+
+### 1. Throwaway SSH key
+
+DigitalOcean registers a public key once per account and `main.tf` creates a
+`digitalocean_ssh_key` resource, so a second stack with the same key fails on
+the duplicate fingerprint. The rehearsal uses its own key:
+
+```bash
+ssh-keygen -t ed25519 -a 64 -C agentforge-rehearsal -f ~/.ssh/agentforge_rehearsal
+ssh-add ~/.ssh/agentforge_rehearsal     # deploy.sh, backup.sh and restore.sh use plain ssh
+```
+
+### 2. Rehearsal workspace and Droplet
+
+`terraform.tfvars` (the SSH allowlist) is auto-loaded in every workspace. The
+two `-var` flags override the defaults in `variables.tf` (`project_name`,
+default `agentforge-openemr-smoke`; `ssh_public_key_path`, default
+`~/.ssh/id_ed25519.pub`). Keep the `~` literal inside the quotes: `tf.sh` may
+run Terraform in a container whose HOME is `/tmp/terraform-home` with
+`~/.ssh` mounted read-only there, and Terraform expands it. The plan file is
+ignored by Git (`*.tfplan`), as is the workspace state under
+`terraform.tfstate.d/` (`*.tfstate`).
+
+```bash
+cd infra/digitalocean
+./tf.sh workspace new rehearsal          # or: ./tf.sh workspace select rehearsal
+./tf.sh workspace show                   # must print: rehearsal
+REHEARSAL_VARS=(-var project_name=agentforge-rehearsal -var 'ssh_public_key_path=~/.ssh/agentforge_rehearsal.pub')
+./tf.sh plan "${REHEARSAL_VARS[@]}" -out=rehearsal.tfplan
+./tf.sh apply rehearsal.tfplan
+REHEARSAL_IP="$(./tf.sh output -raw ipv4_address)"
+REHEARSAL_HOST="$(./tf.sh output -raw smoke_hostname)"
+[[ "$REHEARSAL_IP" != "137.184.4.22" ]] || { echo "wrong workspace, stop"; false; }
+```
+
+### 3. Clean deploy at HEAD (T1)
+
+```bash
+./deploy.sh "$REHEARSAL_IP" "$REHEARSAL_HOST" "$TLS_EMAIL"
+```
+
+`deploy.sh` pushes the operator's model and tracer keys from
+`~/.config/agentforge/` to whatever host it targets (`deploy.sh:60`); the
+golden run needs the model key. To rehearse without them, prefix
+`AGENTFORGE_SECRETS_DIR=/nonexistent` (then `/ready` stays 503 and the
+model-backed golden cases fail, as designed). On a brand-new `sslip.io`
+hostname, certificate issuance can outlast the six `livez` probes at the end
+of `start.sh`; rerun `deploy.sh`, it is idempotent. T1 is the wall-clock time
+from the `deploy.sh` call to its "Deployment started" line.
+
+### 4. Seed and verify (T2)
+
+```bash
+ssh "deployer@$REHEARSAL_IP" 'cd /opt/agentforge && docker compose --profile demo run --rm demo-seed | tee "logs/demo-seed-$(date +%F).log"'
+./smoke.sh "$REHEARSAL_HOST"
+curl -s "https://$REHEARSAL_HOST/copilot-api/ready"
+ssh "deployer@$REHEARSAL_IP" 'cd /opt/agentforge && docker compose ps && docker compose logs --tail 3 alerts'   # five services Up; a heartbeat line
+cd ../..
+DEMO_PASSWORD="$(ssh "deployer@$REHEARSAL_IP" cat /opt/agentforge/secrets/demo_user_password)" \
+  agent/.venv/bin/python evals/run.py --golden-only --base-url "https://$REHEARSAL_HOST" --label "rehearsal: HEAD clean deploy"
+cd infra/digitalocean
+```
+
+The report lands in `evals/results/` labelled as a rehearsal; keep or discard
+it deliberately, and never point the harness at the live host from this
+shell by mistake (`--base-url` is explicit above for that reason).
+
+### 5. Backup (T3)
+
+```bash
+./backup.sh --host "$REHEARSAL_IP"       # passphrase prompt; note the archive path it prints
+ssh "deployer@$REHEARSAL_IP" 'cd /opt/agentforge && sha256sum secrets/* | sha256sum'   # fingerprint of the secrets, compared after the restore
+```
+
+### 6. Rollback to tag `week1` (T4)
+
+```bash
+git worktree add /tmp/rb week1
+/tmp/rb/infra/digitalocean/deploy.sh "$REHEARSAL_IP" "$REHEARSAL_HOST" "$TLS_EMAIL"
+./smoke.sh "$REHEARSAL_HOST"
+curl -s "https://$REHEARSAL_HOST/copilot-api/health"
+```
+
+The `week1` tree has no `alerts` service and its `start.sh` has neither the
+Caddy recovery nor the gates: expect a Compose warning about the orphan
+`alerts` container (harmless, it keeps running the HEAD image) and keep
+`ssh "deployer@$REHEARSAL_IP" 'cd /opt/agentforge && docker compose up --detach --wait --wait-timeout 120 caddy'`
+at hand. Then the golden run again with `--label "rehearsal: week1 rollback"`
+(step 4, last three lines). T4 runs from the `deploy.sh` call to the first
+green `smoke.sh`.
+
+### 7. Roll forward to HEAD (T5)
+
+From the main checkout, at HEAD:
+
+```bash
+./deploy.sh "$REHEARSAL_IP" "$REHEARSAL_HOST" "$TLS_EMAIL"
+./smoke.sh "$REHEARSAL_HOST"
+curl -s "https://$REHEARSAL_HOST/copilot-api/health"
+ssh "deployer@$REHEARSAL_IP" 'cd /opt/agentforge && docker compose ps'   # alerts running again
+```
+
+### 8. Restore (T6)
+
+```bash
+./restore.sh --host "$REHEARSAL_IP" --archive ~/.config/agentforge/backups/<file from step 5>
+./smoke.sh "$REHEARSAL_HOST"
+curl -s "https://$REHEARSAL_HOST/copilot-api/ready"
+ssh "deployer@$REHEARSAL_IP" 'cd /opt/agentforge && sha256sum secrets/* | sha256sum'   # equals the step-5 fingerprint
+```
+
+Then the golden run once more with `--label "rehearsal: restore"`. To make
+the restore prove something, change state between steps 5 and 8 (one panel
+turn after the roll-forward creates a conversation in `agent_state`) and
+confirm it is gone afterwards. T6 runs from the `restore.sh` call to the
+first green `smoke.sh`.
+
+### 9. Destroy the same day (T7)
+
+```bash
+./tf.sh workspace show                   # must print: rehearsal
+./tf.sh destroy "${REHEARSAL_VARS[@]}"   # answer yes
+./tf.sh workspace select default
+./tf.sh workspace delete rehearsal
+ssh-add -d ~/.ssh/agentforge_rehearsal && rm ~/.ssh/agentforge_rehearsal ~/.ssh/agentforge_rehearsal.pub
+ssh-keygen -R "$REHEARSAL_IP"
+git worktree remove /tmp/rb
+unset DIGITALOCEAN_TOKEN
+```
+
+Confirm in the control panel, or with the resource-count loop under
+"Configure", that the count is back to what it was before step 2 (the live
+Droplet and the CI runner remain).
+
+### Timings
+
+Filled during the M4 rehearsal; an empty row means that step has not been
+rehearsed.
+
+| Step | Started (UTC) | Finished (UTC) | Wall-clock | Notes |
+| --- | --- | --- | --- | --- |
+| T1 clean deploy at HEAD | | | | |
+| T2 demo-seed and golden run | | | | |
+| T3 `backup.sh` | | | | |
+| T4 rollback to `week1` (to green `smoke.sh`) | | | | |
+| T5 roll forward to HEAD | | | | |
+| T6 `restore.sh` (to green `smoke.sh`) | | | | |
+| T7 destroy | | | | |
 
 ## Known Gotchas From the First Live Run (2026-09-14)
 
@@ -355,7 +687,10 @@ different image tag that needs to build/boot from scratch), leaving Caddy
 created but never started. Symptom: the public URL times out even though
 `docker compose ps` shows `openemr` and `database` healthy. Fix: `docker
 compose up --detach --wait --wait-timeout 120 caddy` to start it explicitly.
-Worth a `start.sh` follow-up to check for and recover from this automatically.
+Since 2026-09-17 `start.sh` does this itself (a second `up --wait` on
+`caddy`, then a running-services gate and a public liveness probe); the
+manual command stays useful on a host deployed from an older tree, such as
+the `week1` rollback target in the rehearsal runbook.
 
 ## Before the Evaluator Deployment
 
@@ -379,7 +714,8 @@ the co-pilot; it does not repair OpenEMR.
   inside it, so a seeding failure never blocks the application start.
 - [x] **Agent container** on the `frontend` network only with file secrets.
   [ ] Egress restriction to the model and tracer endpoints is not in place;
-  recorded as residual risk until done.
+  the risk acceptance with its compensating controls is `AUDIT.md` section 9
+  Residual Risk (SEC-MEDIUM-504), decided at plan M4 step 6.
 - [x] **REST/FHIR** stay disabled and are unrouted at the edge (`/apis/*`,
   `/oauth2/*` 404).
 - [x] **Readiness** from the agent's `/ready`; OpenEMR `readyz` is unrouted.
@@ -390,4 +726,5 @@ the co-pilot; it does not repair OpenEMR.
 deployment would need): patched images and a vulnerability-scan gate
 (SEC-HIGH-502); OpenEMR container hardening and removing `MYSQL_ROOT_PASS` from
 its environment (SEC-MEDIUM-503); tested backup/restore and rollback
-(COMP-MED-005).
+(COMP-MED-005) — `backup.sh`, `restore.sh` and the rehearsal runbook above
+exist since 2026-09-17, and none of them has run against a host yet.

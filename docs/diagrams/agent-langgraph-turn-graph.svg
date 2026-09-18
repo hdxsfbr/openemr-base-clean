@@ -1,0 +1,73 @@
+<svg width="680" height="870" viewBox="0 0 680 870" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Co-pilot agent LangGraph turn graph</title>
+<desc>Eight nodes: start goes to authorize, then classify, then either retrieve (what-changed brief) or plan (follow-up), which loop with each other, then narrate, verify, an optional one-time repair loop, render, end. Dashed edges short-circuit to render when the conversation is closed, the model fails, or the token budget is exhausted.</desc>
+<style>
+  text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
+  .th { font-size: 14px; font-weight: 500; }
+  .ts { font-size: 12px; font-weight: 400; }
+  .lb { font-size: 12px; font-weight: 400; fill: #5F5E5A; }
+  .ls { text-anchor: start; }
+  .le { text-anchor: end; }
+  .arr { fill: none; stroke: #888780; stroke-width: 1; }
+  .dash { stroke-dasharray: 5 4; }
+  .gray rect { fill: #F1EFE8; stroke: #5F5E5A; } .gray .th { fill: #444441; } .gray .ts { fill: #5F5E5A; }
+  .teal rect { fill: #E1F5EE; stroke: #0F6E56; } .teal .th { fill: #085041; } .teal .ts { fill: #0F6E56; }
+  .purple rect { fill: #EEEDFE; stroke: #534AB7; } .purple .th { fill: #3C3489; } .purple .ts { fill: #534AB7; }
+  g rect { stroke-width: 0.5; }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="680" height="870" fill="#FFFFFF"/>
+
+<g class="gray"><rect x="300" y="40" width="80" height="28" rx="14"/><text class="th" x="340" y="54">start</text></g>
+<line x1="340" y1="68" x2="340" y2="96" class="arr" marker-end="url(#arrow)"/>
+
+<g class="teal"><rect x="240" y="100" width="200" height="56" rx="8"/><text class="th" x="340" y="118">authorize</text><text class="ts" x="340" y="138">closed? budget left?</text></g>
+<line x1="340" y1="156" x2="340" y2="186" class="arr" marker-end="url(#arrow)"/>
+<path d="M240 128 L50 128 L50 718 L236 718" class="arr dash" marker-end="url(#arrow)"/>
+<text class="lb" x="145" y="116">closed conversation</text>
+
+<g class="teal"><rect x="240" y="190" width="200" height="56" rx="8"/><text class="th" x="340" y="208">classify</text><text class="ts" x="340" y="228">what-changed regex</text></g>
+<path d="M300 246 L300 266 L200 266 L200 296" class="arr" marker-end="url(#arrow)"/>
+<path d="M380 246 L380 266 L480 266 L480 296" class="arr" marker-end="url(#arrow)"/>
+<text class="lb le" x="190" y="282">what-changed brief</text>
+<text class="lb ls" x="490" y="282">follow-up</text>
+
+<g class="teal"><rect x="110" y="300" width="180" height="56" rx="8"/><text class="th" x="200" y="318">retrieve</text><text class="ts" x="200" y="338">OpenEMR gateway tools</text></g>
+<g class="purple"><rect x="390" y="300" width="180" height="56" rx="8"/><text class="th" x="480" y="318">plan</text><text class="ts" x="480" y="338">LLM picks tools</text></g>
+<text class="lb" x="340" y="308">tool calls</text>
+<line x1="390" y1="320" x2="294" y2="320" class="arr" marker-end="url(#arrow)"/>
+<line x1="290" y1="340" x2="386" y2="340" class="arr" marker-end="url(#arrow)"/>
+<text class="lb" x="340" y="352">round &lt; 3</text>
+
+<path d="M200 356 L200 380 L300 380 L300 406" class="arr" marker-end="url(#arrow)"/>
+<path d="M480 356 L480 380 L380 380 L380 406" class="arr" marker-end="url(#arrow)"/>
+<text class="lb le" x="190" y="368">brief or done</text>
+<text class="lb ls" x="490" y="368">no tool calls</text>
+
+<g class="purple"><rect x="240" y="410" width="200" height="56" rx="8"/><text class="th" x="340" y="428">narrate</text><text class="ts" x="340" y="448">LLM drafts cited claims</text></g>
+<path d="M240 438 L50 438" class="arr dash"/>
+<text class="lb" x="145" y="426">model error / budget</text>
+<line x1="340" y1="466" x2="340" y2="496" class="arr" marker-end="url(#arrow)"/>
+
+<g class="teal"><rect x="240" y="500" width="200" height="56" rx="8"/><text class="th" x="340" y="518">verify</text><text class="ts" x="340" y="538">claims vs evidence pack</text></g>
+<path d="M440 528 L540 528 L540 586" class="arr" marker-end="url(#arrow)"/>
+<text class="lb ls" x="452" y="516">rejected, once</text>
+<line x1="300" y1="556" x2="300" y2="686" class="arr" marker-end="url(#arrow)"/>
+<text class="lb le" x="290" y="620">verified or no time</text>
+
+<g class="purple"><rect x="460" y="590" width="160" height="56" rx="8"/><text class="th" x="540" y="608">repair</text><text class="ts" x="540" y="628">LLM retry, once</text></g>
+<path d="M460 618 L390 618 L390 560" class="arr" marker-end="url(#arrow)"/>
+<path d="M540 646 L540 718 L444 718" class="arr dash" marker-end="url(#arrow)"/>
+<text class="lb ls" x="550" y="682">failed</text>
+
+<g class="teal"><rect x="240" y="690" width="200" height="56" rx="8"/><text class="th" x="340" y="708">render</text><text class="ts" x="340" y="728">answer + limitations</text></g>
+<line x1="340" y1="746" x2="340" y2="774" class="arr" marker-end="url(#arrow)"/>
+<g class="gray"><rect x="300" y="778" width="80" height="28" rx="14"/><text class="th" x="340" y="792">end</text></g>
+
+<g class="purple"><rect x="40" y="828" width="16" height="16" rx="4"/></g>
+<text class="lb ls" x="64" y="836">LLM call</text>
+<g class="teal"><rect x="150" y="828" width="16" height="16" rx="4"/></g>
+<text class="lb ls" x="174" y="836">no model call</text>
+<line x1="300" y1="836" x2="332" y2="836" class="arr dash"/>
+<text class="lb ls" x="340" y="836">fallback to render</text>
+</svg>

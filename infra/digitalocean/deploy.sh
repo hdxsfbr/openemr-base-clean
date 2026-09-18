@@ -48,10 +48,10 @@ done
 ssh "${ssh_options[@]}" "${ssh_target}" 'mkdir -p /opt/agentforge/build/openemr /opt/agentforge/build/agent /opt/agentforge/demo && rm -rf /opt/agentforge/build/openemr/oe-module-copilot /opt/agentforge/build/agent/* /opt/agentforge/demo/cohort'
 scp "${ssh_options[@]}" -r "${script_dir}/runtime/." "${ssh_target}:/opt/agentforge/"
 scp "${ssh_options[@]}" "${repo_root}/infra/image/openemr.Dockerfile" "${ssh_target}:/opt/agentforge/build/openemr/Dockerfile"
-# Source trees stream as tar so local environments, caches, and tests never travel.
+# Source trees stream as tar so local environments, caches, build output, and tests never travel.
 tar -C "${repo_root}/interface/modules/custom_modules" -cf - --exclude='__pycache__' oe-module-copilot \
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/build/openemr -xf -'
-tar -C "${repo_root}/agent" -cf - --exclude='.venv' --exclude='__pycache__' --exclude='.pytest_cache' --exclude='*.egg-info' --exclude='tests' . \
+tar -C "${repo_root}/agent" -cf - --exclude='.venv' --exclude='__pycache__' --exclude='.pytest_cache' --exclude='*.egg-info' --exclude='build' --exclude='tests' . \
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/build/agent -xf -'
 tar -C "${repo_root}/evals/fixtures" -cf - cohort \
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/demo -xf -'

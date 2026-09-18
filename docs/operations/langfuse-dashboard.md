@@ -28,6 +28,8 @@ are committed for evaluators without project access under
 | Tool calls by name over time | Count of TOOL observations grouped by name (`encounters`, `problems`, `medications`, `allergies`, `lab_results`, `clinical_notes`, `patient_context`) | Tool calls |
 | Tool errors by name | TOOL observations with level ERROR grouped by name | Tool failures |
 | ERROR-level observations over time | Count of observations of any type with level ERROR, grouped by observation type | Errors (a model call that fails and a tool that returns `unavailable` both land here) |
+| Verification pass rate (**to build**) | Average of the trace score `verification_passed` over `copilot.turn` traces per time bucket (scores emitted since 2026-09-17 by `finish_turn_trace`; absent on turns where the verifier did not run) | Verification pass/fail rate — not yet on the dashboard |
+| Turn error rate (**to build**) | Average of the trace score `turn_error` over `copilot.turn` traces per time bucket (1.0 for a failed or timed-out turn) | Error rate — not yet on the dashboard; `/metrics` `copilot_requests_total{status="5xx"}` is the alert-job source |
 
 The Langfuse Agent Dashboard adds p95 latency per tool and observation
 types; the Latency dashboard adds p95 by trace name and by model.
@@ -55,9 +57,26 @@ types; the Latency dashboard adds p95 by trace name and by model.
 
 - Langfuse shows an "Action required" notice for the v4 API migration due
   2026-11-16. The SDK in use (langfuse 4.15, OpenTelemetry-based) is
-  reported as v4-compatible; the remaining item is the public API calls made
-  by the eval and verification scripts (`/api/public/traces`), which should
-  move to the v2 endpoints before that date.
+  reported as v4-compatible for spans: they are exported to
+  `POST /api/public/otel/v1/traces` (`langfuse/_client/span_processor.py:123`).
+  No eval script needs migrating: `grep -rn "api/public" evals/` returns
+  nothing. **Three migration targets remain before 2026-11-16.** (1) Added
+  2026-09-17 with the `verification_passed` and `turn_error` trace scores:
+  `finish_turn_trace` calls `score_trace` on every turn
+  (`agent/app/telemetry.py:164,191-192`), and langfuse 4.15.3 posts scores
+  through `LangfuseSpan.score_trace` -> `create_score` -> `add_score_task`
+  -> `ScoreIngestionConsumer` -> `POST /api/public/ingestion`
+  (`langfuse/_utils/request.py:59`), the v3 ingestion endpoint the SDK itself
+  marks "removed on November 16, 2026" (`langfuse/api/ingestion/client.py:32`);
+  bump the SDK to a release whose score path no longer posts there and confirm
+  the two scores still arrive on a `copilot.turn` trace. (2) The runnable
+  trace-lookup curl in `docs/operations/correlation-id-walkthrough.md:50`
+  (`GET /api/public/traces?limit=50`) and (3) the one-off export that produced
+  the committed trace evidence,
+  `docs/audit/evidence/observability/langfuse-trace-921f44e1-copilot-turn.md:3`
+  (`GET /api/public/traces/<id>`): re-check both against the v4 API and update
+  the walkthrough; the exported evidence file is a historical artifact and only
+  its cited endpoint needs a note.
 - Six root-level traces named `plan`, `narrate`, and `repair` exist from
   2026-09-15 23:14 to 23:15 (the first streamed turns after that deploy).
   Every later turn nests correctly; they are a one-off and can be ignored

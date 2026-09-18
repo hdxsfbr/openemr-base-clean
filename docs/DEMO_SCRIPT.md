@@ -1,34 +1,64 @@
-# Demo Script (3 to 5 minutes)
+# Demo Script (3 to 5 minutes), final recording
 
-Recorded by the owner. Every proof point in `docs/SUBMISSION_CHECKLIST.md`
-"Demo Proof Points" appears once, in this order. Times are targets.
+Recorded by the owner after the M5 release run (`docs/FINAL_PUSH_PLAN.md`,
+MILESTONE M5 step 3), Saturday evening. Every proof point in
+`docs/SUBMISSION_CHECKLIST.md` "Demo Proof Points" appears once, in this
+order. Times are targets.
 
 Early-submission recording (2026-09-16): <https://youtu.be/oxm9xqJpiY8>.
+
+**Placeholders.** `<pending M4>` is a number Saturday's load runs, baselines,
+alerts rehearsal, or rollback rehearsal produce (plan M4 steps 2 to 7).
+`<pending M5>` is a number the release run at the frozen commit produces
+(plan M5 steps 3 and 4). No placeholder is read aloud: if the number does not
+exist at recording time, say "not measured" on camera. Never guess. Numbers
+without a placeholder exist today and are cited to
+`evals/results/2026-09-17T024919Z-a4a5856.md`.
 
 Before recording: log in as `audit-physician` in one tab, open AF-DQ-A2
 (pid 900001), and have Langfuse open in a second tab with the project's
 trace list filtered to the last hour. Keep a terminal ready with
-`ssh deployer@137.184.4.22`.
+`ssh deployer@137.184.4.22`, and a second terminal in the frozen worktree
+(`/tmp/final`, plan M5 step 2) showing `git rev-parse HEAD`; that commit
+stays on screen for the whole opener and the whole close.
+
+**The tag.** `week1-final` is created on `main` after the merge (plan M5
+step 7.5), which is after this recording, and it points at the merge commit;
+the tag's own annotation message (`git tag -a ... -m`) names the frozen sha,
+the merge commit's message does not. So `git describe --tags --exact-match`
+fails in the frozen worktree and is not shown. On camera the commit is the
+identity; the tag is named only as "the submission tag `week1-final` on
+`main`, whose tag message names this commit". If the recording slips until
+after step 7.5, add a third terminal on the `main` checkout showing
+`git describe --tags --exact-match` = `week1-final` and keep it on screen too.
 
 | Time | On screen | Say | Proof point |
 | --- | --- | --- | --- |
-| 0:00 | AF-DQ-A2 dashboard, panel with three starter chips | "Physician, 90 seconds before a visit. The co-pilot lives in the chart, read-only. Nothing is retrieved until I ask." | context |
-| 0:20 | Click "What changed since the last visit?"; progress line animates | "It retrieves six sections through OpenEMR's own access checks, the model writes claims, and a deterministic verifier checks every one against the records before anything renders." | normal sourced workflow |
-| 0:45 | Answer: summary paragraph, claims table, "Verified" badge | "One paragraph answer, then the evidence. Every row cites a record." | per-claim citation |
-| 1:00 | Click a `[1]` link on the amlodipine conflict row; the medication opens in OpenEMR | "Citations open the original record. This one is a conflict: end date and activity flag disagree, and it says so instead of guessing." | click-through to source; conflict state |
-| 1:20 | Click a follow-up chip such as "Was the amlodipine status change documented in a note?" | "Follow-ups keep the window and chain more tools: this one planned a note search." | multi-turn, more than one tool |
-| 1:45 | Type "What is the patient's lisinopril dose and should it change?" | "Dosing and recommendations are refused as a limitation, never answered." | refusal / honest limits |
-| 2:05 | Switch to AF-DQ-I (pid 900012), ask the first question; point at "Allergies not documented" | "Missing data stays missing. This chart has no allergy review, so the answer says not documented, not 'no allergies'." | honest missing-data response |
-| 2:30 | Log in as `audit-frontdesk` in another window, open AF-DQ-A2, ask the first question | "Front Office sees demographics in the chart and nothing clinical. The gateway denies each section before any model call, and the audit log records it." | authorization denial before LLM |
-| 2:55 | Terminal: run the Bruno "Tool outage" request, or curl with `X-Copilot-Fault: tool:lab_results` | "Fault injection: the lab tool is down. The section is marked unavailable, nothing claims labs are absent, and the rest of the brief still renders." | visible partial behavior during a tool failure |
-| 3:20 | Copy the `ref` from the panel's meta line; paste into the Langfuse search | "One correlation id runs the whole path: panel, ticket, gateway audit rows, agent logs, and this trace with nested tool, narrate, verify, and repair spans, token counts, and cost. No PHI in the trace." | correlation id through observability |
-| 3:50 | `evals/results/<latest>.md` in the editor | "Forty-five eval cases in three tiers: a fourteen-case golden set that must always pass, behavioral coverage by category (authorization, citation, missing data, conflicts, labs, injection, tool and model failure, isolation, observability, regression), and a four-case holdout set kept for the release check. Every report opens with the release-gate table, then pass rate by category and a scorecard: latency p50 and p95, tokens, cost per turn." | eval results |
-| 4:10 | `AI_COST_ANALYSIS.md` per-turn table | "About two cents a turn at list price; projections at four tiers with the assumptions written down." | cost |
-| 4:25 | Back on the panel | "Read-only, cited, verified, audited, and honest about what the chart does not say." | close |
+| 0:00 | Terminal: `git rev-parse HEAD` = `<pending M5>` in `/tmp/final`; `README.md` challenge header | "Since the early submission on the sixteenth, same read-only co-pilot, more evidence. Commit `<pending M5>` is what is deployed and what you are seeing; the submission tag `week1-final` on `main` names it." Then the code lines: say only those whose stream landed per `docs/_status/week1-final-push.md` and whose change is in the frozen commit; strike the rest before recording: "The readiness probe now reaches the tracer instead of assuming it (A1). Queue depth, verification outcome, and tool-failure reasons are exported (A2, A3, A5). Dependencies are pinned (A6). An alerts service evaluates the metrics every five minutes (I1)." Then the evidence lines, gated on the M4 evidence itself, not on stream status: say "Backup and rollback were rehearsed on a throwaway host" only if the Timings table in `docs/deployment/digitalocean.md` "Rehearsal Runbook" has T4 and T6 filled in (plan M4 step 2); say "Load at ten and fifty users is measured" only if `docs/audit/evidence/performance/load-test-2026-09-19.md` exists with both levels (plan M4 steps 3 and 4). Otherwise strike the line; never say "rehearsed" or "measured" for a step that slipped. | context; commit and tag |
+| 0:30 | AF-DQ-A2 dashboard, panel with three starter chips; click "What changed since the last visit?"; progress line animates | "Physician, 90 seconds before a visit. Nothing is retrieved until I ask. It retrieves six sections through OpenEMR's own access checks, the model writes claims, and a deterministic verifier checks every one against the records before anything renders." | normal sourced workflow |
+| 0:55 | Answer: summary paragraph, claims table, "Verified" badge | "One paragraph answer, then the evidence. Every row cites a record." | per-claim citation |
+| 1:05 | Click a `[1]` link on the amlodipine conflict row; the medication opens in OpenEMR | "Citations open the original record. This one is a conflict: end date and activity flag disagree, and it says so instead of guessing." | click-through to source; conflict state |
+| 1:25 | Click a follow-up chip such as "Was the amlodipine status change documented in a note?" | "Follow-ups keep the window and chain more tools: this one planned a note search." | multi-turn, more than one tool |
+| 1:45 | Switch to AF-DQ-I (pid 900012), ask the first question; point at "Allergies not documented" | "Missing data stays missing. This chart has no allergy review, so the answer says not documented, not 'no allergies'." | honest missing-data response |
+| 2:05 | Log in as `audit-frontdesk` in another window, open AF-DQ-A2, ask the first question | "Front Office sees demographics in the chart and nothing clinical. The gateway denies each section before any model call, and the audit log records it." | authorization denial before LLM |
+| 2:30 | Terminal: run the Bruno "Tool outage" request, or curl with `X-Copilot-Fault: tool:lab_results` | "Fault injection: the lab tool is down. The section is marked unavailable, nothing claims labs are absent, and the rest of the brief still renders." | visible partial behavior during a tool failure |
+| 2:50 | Copy the `ref` from the panel's meta line; paste into the Langfuse search | "One correlation id runs the whole path: panel, ticket, gateway audit rows, agent logs, and this trace with nested tool, narrate, verify, and repair spans, token counts, and cost. No PHI in the trace." | correlation id through observability |
+| 3:15 | `evals/results/<pending M5: final release-run report>.md`, release-gate table at the top; beside it `evals/results/<final>-vs-a4a5856.md` from `evals/compare.py` | "Release run at the final commit, every live case three times: `<pending M5>` of `<pending M5>` attempts passed, golden set `<pending M5>` of 14, citations `<pending M5>` resolved, blocking gates `<pending M5>`. The baseline this push started from, a4a5856: 45 cases ran, 44 passed, golden 14 of 14, 177 of 177 citations resolved." (10 s) | eval results |
+| 3:25 | `docs/audit/evidence/performance/load-test-2026-09-19.md` and `baseline-2026-09-19.md` | "Ten users: p50 `<pending M4>` s, p95 `<pending M4>` s, p99 `<pending M4>` s, error rate `<pending M4>`. Fifty users: p50 `<pending M4>`, p95 `<pending M4>`, p99 `<pending M4>`, error rate `<pending M4>`, and the status share complete, partial, fallback `<pending M4>`, because latency alone is gamed by falling back early. Idle baseline on one s-2vcpu-4gb Droplet: peak CPU `<pending M4>` percent and peak memory `<pending M4>` MB per container. Single-user p95 today is 24.1 seconds." (15 s) | load, latency, baselines |
+| 3:40 | `docs/operations/alerts.md` "Alert 1: turn latency"; terminal: `ssh deployer@137.184.4.22 'cd /opt/agentforge && docker compose logs --tail 5 alerts'` (if I1 did not land, run `python -m app.alerts` once per that document's "Running the job" and show its output) | "Alert 1: p95 turn latency over a five-minute window warns above 30 seconds, pages above 45, or when p99 passes 60. The alerts service evaluates the agent's metrics every five minutes; this is its output, one heartbeat line when nothing fires, one JSON line per alert: `<pending M4: the line from docs/audit/evidence/observability/alerts-rehearsal-2026-09-19.log>`." (10 s) | alert rule and alerts service |
+| 3:50 | `docs/deployment/digitalocean.md` rehearsal section with the recorded timings | "On a throwaway Droplet we deployed clean, rolled back to tag `week1`, rolled forward, and restored from backup in `<pending M4>` minutes end to end, then destroyed it the same day." (5 s) | rollback rehearsal |
+| 3:55 | `AI_COST_ANALYSIS.md` per-turn table, then the release-run gate table's "Cost per verified turn" row | "1.27 cents per model-backed turn at list price in the eval mix, about 51 cents for the whole 45-case run. The release gate compares the final run against the basis written in the cost analysis; at the final commit it reads `<pending M5: threshold and state, PASS, warn with risk acceptance, or block, from the release-run gate table>`. The daily halt stops spend at 2,000,000 input-plus-output tokens; at a4a5856's 1,800 tokens per turn, that is about 1,100 turns." (10 s; the turn count is derived, not reported anywhere: 2,000,000 / (628 in + 1,172 out) = 1,111, from the a4a5856 "Tokens per turn" row, and the halt counts input plus output only, `agent/app/model.py` `Usage.total`) | cost with the gate's real state |
+| 4:05 | Back on the panel; terminal with the commit still visible (and the tag, only if it exists at recording time, see "The tag" above) | "Read-only, cited, verified, audited, and honest about what the chart does not say. Commit `<pending M5>`; submission tag `week1-final` on `main`." | close; commit and tag |
 
-Cuts if over time: drop the dosing refusal (1:45) and the cost slide (4:10).
+Cuts if over time: drop the follow-up chip (1:25), then the AF-DQ-I switch
+(1:45). Never cut the eval, load, alerts, rollback, or cost rows, and never
+take the commit off screen for the opener and the close.
 
-Evidence to keep alongside the video: the eval results file, the Langfuse
-trace URL for the demonstrated ref (private project; screenshot for
-evaluators without access), and the commit hash shown by `git rev-parse HEAD`
-at recording time.
+Evidence to keep alongside the video: the release-run results file and its
+`evals/compare.py` output against `2026-09-17T024919Z-a4a5856.json`, the
+load-driver JSON under `evals/load/results/` with both baseline reports, the
+alerts rehearsal log, the Langfuse trace URL for the demonstrated ref (private
+project; screenshot for evaluators without access), `git rev-parse HEAD` in
+`/tmp/final` at recording time, and, once plan M5 step 7.5 has run,
+`git rev-parse week1-final^{commit}` on `main` with the tag message that
+names the frozen sha.

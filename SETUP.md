@@ -235,8 +235,12 @@ The easy-development stack is not suitable for public deployment:
 - [x] Create a production-oriented Compose and Terraform configuration.
 - [x] Add secret management, real TLS, and restricted networks (file secrets,
       Let's Encrypt via Caddy, internal database network, agent on the
-      frontend network only). Backups and rollback instructions remain.
-- [ ] Add backups and rollback instructions.
+      frontend network only). Backups and rollback instructions are written
+      but untested (next item).
+- [x] Add backups and rollback instructions (`infra/digitalocean/backup.sh`,
+      `restore.sh`, and the rehearsal runbook in
+      `docs/deployment/digitalocean.md`, 2026-09-17). Untested until the M4
+      rehearsal; the checklist item stays open until then.
 - [ ] Fold the final concise setup path into the root `README.md`.
 
 ## Public Deployment Baseline
@@ -246,13 +250,16 @@ and known limitations are documented in
 [`docs/deployment/digitalocean.md`](docs/deployment/digitalocean.md). It was
 provisioned and externally verified on September 14, 2026 (public TLS smoke
 test, demo data loaded), re-provisioned the same evening for the audit's
-public probe, and destroyed after each of those runs to control cost. Since
-September 15, 2026 tag `v0.2.0-slice` has been live at
-`https://openemr-137-184-4-22.sslip.io` (health and readiness confirmed
-2026-09-16) with the project's own OpenEMR image carrying the co-pilot module
-and a deny-by-default Caddy path allowlist, which the audit required before an
-evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections "Current
-Deployment" and "Before the Evaluator Deployment"). Still open there: an owned
-hostname, backups and a rollback rehearsal, and restricting the agent's egress
-to the model and tracer endpoints. GitLab CI runs on a separate runner Droplet
-(`infra/digitalocean/runner/`, runbook section "CI Runner").
+public probe, and destroyed after each of those runs to control cost. What is
+live at `https://openemr-137-184-4-22.sslip.io` today is commit `e1dd331`, tag
+`week1`, deployed September 16, 2026 (health and readiness confirmed that day;
+no runtime directory changed between `831e1d8` and `e1dd331`). The older
+`v0.2.0-slice` tag served the deployment from September 15 and is no longer
+what is deployed; no image digest has been recorded for the current deploy.
+The deployment runs the project's own OpenEMR image carrying the co-pilot
+module, behind a deny-by-default Caddy path allowlist; the audit required both
+before an evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections
+"Current Deployment" and "Before the Evaluator Deployment"). Still open there:
+an owned hostname, backups and a rollback rehearsal, and restricting the
+agent's egress to the model and tracer endpoints. GitLab CI runs on a separate
+runner Droplet (`infra/digitalocean/runner/`, runbook section "CI Runner").

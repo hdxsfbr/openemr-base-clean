@@ -1,13 +1,36 @@
 """In-process operational metrics (PRD dashboard minimum) exposed as
 Prometheus text at /metrics on the internal network. No PHI, no unbounded
-labels."""
+labels: every label value is drawn from a closed set defined here or in the
+contracts (`TOOL_REASONS`, `VERIFICATION_OUTCOMES`)."""
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from collections import Counter, deque
 from typing import Any
+
+from .contracts.tools import TOOL_REASONS
+from .turn_outcome import VERIFICATION_OUTCOMES
+
+_HTTP_REASON_RE = re.compile(r"^http_(\d)\d\d$")
+REASON_NONE = "none"
+REASON_OTHER = "other"
+
+
+def bounded_reason(reason: str | None) -> str:
+    """Map a tool envelope's free-text `reason` onto the bounded label set: a
+    missing reason is `none`, an `http_<code>` collapses to its class
+    (`http_5xx`), anything outside `TOOL_REASONS` is `other`."""
+    if reason is None or reason == "":
+        return REASON_NONE
+    if reason in TOOL_REASONS:
+        return reason
+    match = _HTTP_REASON_RE.match(reason)
+    if match:
+        return f"http_{match.group(1)}xx"
+    return REASON_OTHER
 
 
 class Metrics:
@@ -19,8 +42,12 @@ class Metrics:
         self.tool_status = Counter()
         self.rejections = Counter()
         self.tokens = Counter()
+        self.verification = Counter()
         self.latencies: deque[tuple[float, float]] = deque(maxlen=5000)
+        # Every HTTP request, healthchecks and scrapes included (copilot_in_flight).
         self.in_flight = 0
+        # Turns inside the graph or the SSE generator only: the queue depth the PRD asks for.
+        self.turns_in_flight = 0
         self.started = time.time()
 
     def request(self, path_class: str, status: int) -> None:
@@ -31,16 +58,30 @@ class Metrics:
         with self.lock:
             self.denials[reason[:40]] += 1
 
-    def turn(self, status: str, latency_ms: float, usage: dict[str, Any], evidence: list[dict[str, Any]] | None = None, rejected: list[dict[str, str]] | None = None) -> None:
+    def turn_started(self) -> None:
+        with self.lock:
+            self.turns_in_flight += 1
+
+    def turn_finished(self) -> None:
+        with self.lock:
+            self.turns_in_flight -= 1
+
+    def tool_call(self, tool: str, status: str, reason: str | None) -> None:
+        """One gateway call, counted where it happens (the graph's `_call`) so
+        follow-up plan rounds and repeated tools count each time."""
+        with self.lock:
+            self.tool_status[(tool[:40], status[:16], bounded_reason(reason))] += 1
+
+    def turn(self, status: str, latency_ms: float, usage: dict[str, Any], rejected: list[dict[str, str]] | None = None, verification: str | None = None) -> None:
         with self.lock:
             self.turns[status] += 1
             self.latencies.append((time.time(), latency_ms))
             for k in ("input_tokens", "output_tokens", "cache_read_tokens", "model_calls"):
                 self.tokens[k] += int(usage.get(k, 0) or 0)
-            for e in evidence or []:
-                self.tool_status[(e.get("tool", "?"), e.get("status", "?"))] += 1
             for r in rejected or []:
                 self.rejections[str(r.get("rule", "?"))[:40]] += 1
+            if verification is not None:
+                self.verification[verification if verification in VERIFICATION_OUTCOMES else REASON_OTHER] += 1
 
     def window(self, seconds: float = 300.0) -> dict[str, float]:
         now = time.time()
@@ -63,15 +104,20 @@ class Metrics:
             for reason, n in self.denials.items():
                 lines.append(f'copilot_denials_total{{reason="{reason}"}} {n}')
             lines.append("# TYPE copilot_tool_calls_total counter")
-            for (tool, status), n in self.tool_status.items():
-                lines.append(f'copilot_tool_calls_total{{tool="{tool}",status="{status}"}} {n}')
+            for (tool, status, reason), n in self.tool_status.items():
+                lines.append(f'copilot_tool_calls_total{{tool="{tool}",status="{status}",reason="{reason}"}} {n}')
             lines.append("# TYPE copilot_verifier_rejections_total counter")
             for rule, n in self.rejections.items():
                 lines.append(f'copilot_verifier_rejections_total{{rule="{rule}"}} {n}')
+            lines.append("# TYPE copilot_verification_total counter")
+            for outcome, n in self.verification.items():
+                lines.append(f'copilot_verification_total{{outcome="{outcome}"}} {n}')
             lines.append("# TYPE copilot_tokens_total counter")
             for k, n in self.tokens.items():
                 lines.append(f'copilot_tokens_total{{kind="{k}"}} {n}')
             lines.append(f"copilot_in_flight {self.in_flight}")
+            lines.append("# TYPE copilot_turns_in_flight gauge")
+            lines.append(f"copilot_turns_in_flight {self.turns_in_flight}")
         w = self.window()
         lines.append("# TYPE copilot_turn_latency_ms gauge")
         for q in ("p50", "p95", "p99"):

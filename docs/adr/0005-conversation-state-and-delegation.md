@@ -17,8 +17,8 @@
   denied before any tool call (`AUTH-CLOSED-CONVERSATION-001`). Still open:
   same question across fresh conversations, two users on one patient, reused
   `jti`, ticket after logout, the 24 h TTL sweeper (no sweeper found in
-  `agent/app/` as of this note), and the checkpoint-content test
-  (`ARCHITECTURE.md` open item 6).
+  `agent/app/` as of this note). The checkpoint-content test
+  (`ARCHITECTURE.md` open item 6) was added 2026-09-17 (see Verification).
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (module and agent service)
 - **Related requirements:** PRD "multi-turn AI agent that can maintain
@@ -116,7 +116,9 @@ memory.
 
 - Every turn is re-authorized in the session; the agent holds no cookie.
 - Isolation is testable with the fixtures and cheap to reason about.
-- PHI at rest in the agent is limited to claim text with a 24 h TTL.
+- PHI at rest in the agent is limited to claim text. The 24 h TTL is a
+  design target, not an implemented control: no sweeper runs and
+  `ConversationRepository::sweep()` has no caller (see "Verification").
 
 ### Negative and residual risk
 
@@ -138,10 +140,31 @@ memory.
   on one patient never see each other's history; token for A cannot read B.
 - Ticket evals: expired, reused `jti`, tampered signature, ticket after
   `end`, ticket after logout: all 403 with a denial event and no tool call.
-- TTL sweeper test: checkpoints older than 24 h are gone; binding rows are
-  closed and later deleted.
-- Checkpoint content test: no tool record fields (values, note text) appear
-  in any stored checkpoint after a full turn on `AF-HEAVY`.
+- TTL sweeper test: **not written, and there is nothing to test yet.**
+  `ConversationRepository::sweep()`
+  (`src/Conversation/ConversationRepository.php:83`) implements the binding
+  delete but has no caller and no schedule, and no checkpoint sweeper exists.
+  Retention is a design target until one lands.
+- Checkpoint content test: added 2026-09-17,
+  `agent/tests/test_controls.py::test_checkpoint_holds_no_note_body_record_shape_or_token`.
+  After a UC-01 turn and a notes follow-up on the af-dq-a2 fixtures through
+  `AsyncSqliteSaver`, every table and column of the checkpoint is scanned: no
+  raw record key (derived from the record contracts minus the keys graph
+  state carries by design), no verbatim note body, and no delegation token.
+  Lab values and doses are not asserted absent because verified claims carry
+  them. The test found the token in graph state (`TurnState.token` at
+  `66a6711`); it now lives in the per-turn cache (`state_store.put_token`).
+  `AF-HEAVY` has no offline fixture, so the offline check runs on af-dq-a2.
+  Checkpoints written before 2026-09-17 (the deployed tag `week1`, commit
+  `e1dd331`, whose `TurnState` declared `token: str`) carry the delegation
+  token in the `token` channel of every checkpoint on the Droplet's
+  `agent_state` volume. The channel is no longer declared in `TurnState`, so
+  those checkpoints hold a channel the current schema does not know. The M3
+  deploy must either open a conversation checkpointed before the deploy and
+  confirm it still loads, or confirm that the `agent_state` volume is
+  recreated (which also removes the token bytes at rest). Each such token
+  expired 90 s after minting and carries no user or patient identifier
+  (Decision 2), so the residual is stale credential material, not PHI.
 
 ## Revisit Triggers
 

@@ -1,9 +1,297 @@
-# Interview Notes: Pre-Search Checklist Answers
+# Interview Notes: Answer Sheet and Pre-Search Checklist
 
-Answers to the PRD's Appendix "Pre-Search Checklist", one section per
-heading, as built and measured through 2026-09-16. Each answer names where
-the evidence lives. Numbers are from the eval results in `evals/results/`
-unless a source is named. Where something is deferred, it says so.
+Two sections. **The twelve questions** is the answer sheet for the technical
+interview (prepared 2026-09-17). **The pre-search checklist** below it answers
+the PRD's Appendix, one section per heading, as built and measured through
+2026-09-17. Each answer names where the evidence lives. Numbers come from the
+eval results in `evals/results/` unless a source is named. Where something is
+deferred, not measured, or not implemented, it says so.
+
+## The Twelve Questions
+
+The PRD's own wording for these twelve is not in this repository — no PRD file
+exists in the tree — so the questions below are reconstructed from the four
+themes the PRD's p.10 "Interview Preparation" section names (the audit, the
+architecture, the evaluation, production thinking), three each. The two
+phrasings that do survive in the repo, "What did you find when you ran it?"
+and "What did you find? What would you add next?", are used verbatim
+(`docs/FINAL_SUBMISSION_TODOS.md:122`, `:165`). Every answer ends with an
+`Evidence:` pointer that resolves to real content in this tree.
+
+### The audit
+
+**Q1. What did you find when you audited OpenEMR?**
+
+Five findings, and the first one determined the whole design: OpenEMR
+authorizes by role and by chart section, never by patient. `AclMain::aclCheckCore`
+takes no patient argument, only 4 of 310 classes under `src/Services/`
+reference it and none of those are clinical, and the one patient hook,
+`checkUserHasAccessToPatient()`, is a `return true` stub used during SMART
+launch binding. We proved it live rather than reading it: accounts in
+Physicians and Clinicians opened two unrelated charts and got HTTP 200 on all
+twelve clinical sections, while Front Office got 403 on the issue lists — so
+section ACL works and patient-level ACL does not exist. The other four
+findings were the data (the stock demo data cannot support the use case and
+contradicts itself), services that fail silently, an audit log the co-pilot
+would bypass, and a deployment edge that forwarded every path.
+
+Evidence: `AUDIT.md` security findings table, row SEC-HIGH-001; `docs/audit/evidence/security/live-cross-patient-test.md`.
+
+**Q2. Which finding changed the architecture, and what did you do about it?**
+
+The absence of patient-level authorization. We could not inherit "may this
+user see this patient" from the host, so ADR-0002 chose parity: the co-pilot
+shows exactly what the user could see by clicking, the conversation is bound
+server-side to (site, user, pid), the chart's own section ACLs and squad check
+are re-run on every tool call, the model never picks a patient, and the
+limitation — isolation equals OpenEMR's — is written down rather than papered
+over. That decision is also why the gateway is in-process inside an OpenEMR
+module (ADR-0003): it is the only place where the session and the ACLs both
+exist. It paid for itself within a day. The first live role test caught
+`AclMain::aclCheckIssue()` failing open when the issue-type table is not
+loaded at page scope — true in the gateway's session-less request — so Front
+Office briefly received problems and allergies through the co-pilot; it was
+closed the same day by reading `issue_types.aco_spec` directly and failing
+closed.
+
+Evidence: `AUDIT.md` §8, the `aclCheckIssue()` fail-open paragraph; `docs/adr/0002-patient-scope-authorization.md`.
+
+**Q3. What did the audit leave unresolved — what would you add next?**
+
+Three things, and I will not claim any of them as done. Agent-level denials (a
+missing, tampered, or mismatched delegation token rejected at the agent API)
+are counted in `/metrics` and written to the agent's logs, but they never
+reach the gateway, so they leave no OpenEMR audit row; gateway-level denials
+do. `ViewEvent` dispatch — the hook ADR-0002 describes as the way the co-pilot
+would inherit any future upstream patient filter — is designed and not
+implemented; there is no reference to it in the module. And the agent's egress
+is still unrestricted: the Terraform firewall allows all outbound TCP, UDP and
+ICMP, so "egress limited to the LLM and tracing endpoints" is a plan, not a
+control.
+
+Evidence: `ARCHITECTURE.md` "Open Items" item 9; `AUDIT.md` remediation table, row SEC-MEDIUM-504; `infra/digitalocean/main.tf:54-70`.
+
+### The architecture
+
+**Q4. Why this architecture — one agent, LangGraph, this model?**
+
+One agent, one LangGraph turn graph with eight nodes: authorize, classify,
+plan, retrieve, narrate, verify, repair, render. LangGraph was chosen on day
+one (ADR-0004) so that Week 2's supervisor-and-workers shape extends the graph
+instead of replacing a hand-rolled loop, and so conversation state is a
+checkpoint rather than something I maintain by hand. Multi-agent is deferred
+until there is a second responsibility worth a worker; today there is not. The
+model is Claude Sonnet 5 through the Anthropic SDK, chosen on measured latency
+after Opus 5 was tried first, and structured output is JSON-as-text validated
+by a Pydantic contract because grammar-constrained decoding measured 45 s or
+more per call.
+
+Evidence: `agent/app/graph/build.py:11-32`; `docs/adr/0004-agent-runtime-contracts-and-model.md`.
+
+**Q5. Where is the trust boundary, and how does the agent get data?**
+
+The agent never touches the database and never issues SQL. It calls seven
+typed tools over one in-process gateway inside an OpenEMR custom module, each
+with a 2 s timeout and a status of ok, empty, partial, or unavailable. Every
+call re-checks the live session, the conversation binding, the chart's section
+ACLs and the squad restriction, and writes an OpenEMR audit row *before* any
+data leaves — if that insert fails, the tool returns `unavailable` instead of
+records. One thing I will not overstate: the gateway's parameter check is a
+hand-written allowlist plus format checks that mirror the exported JSON
+Schemas, not validation against the schema files. Schema-file validation is
+planned, and the docblock at `ToolRegistry.php:37` still claims otherwise.
+
+Evidence: `interface/modules/custom_modules/oe-module-copilot/public/gateway/tools.php:64-76`; `interface/modules/custom_modules/oe-module-copilot/src/Gateway/Tools/ToolRegistry.php:37-54`.
+
+**Q6. How do you stop the model from displaying something untrue?**
+
+A deterministic verifier runs between the model and the browser, and the model
+cannot grade, approve, or bypass it. Every displayed patient-specific
+statement is a typed claim — nine claim types plus `interpretation` — citing a
+record retrieved in the same turn through the same authorization as the chart;
+the verifier checks source existence, field-level fact match per claim type,
+window membership for changes, a forbidden-language lexicon (no advice, no
+causation), and permits an absence claim only after a successful retrieval of
+that section. A rejected claim is withheld, the turn's status becomes
+`partial`, one repair round runs with the specific rejection reasons, and the
+model's prose summary is replaced by a count-only summary whenever anything
+was withheld. The safety property therefore belongs to the verifier, not to
+the model: a weaker model raises the withheld and repair rates without making
+what is displayed less true.
+
+Evidence: `agent/app/verifier.py:98-120`; `docs/adr/0006-verification-strategy.md:26-81`.
+
+### The evaluation
+
+**Q7. How do you know it works — what does the suite actually assert?**
+
+46 YAML cases (45 in the latest recorded run, `a4a5856`; `ISO-FRESH-REPEAT-001` was added 2026-09-17 and has not run yet) run against the real deployment, driving the real login, chart
+open, session, ticket and turn handshake as different users; 14 are a golden
+smoke tier and 4 are a holdout tier excluded from filtered runs. The
+assertions are deterministic — HTTP status, authorization outcome, evidence
+status per tool, claim types and matchers for planted findings, citation
+resolution, limitations, verifier outcome, latency — and no model-graded score
+enters the pass rate. Thirteen release gates sit on top of the cases; the
+blocking ones are golden-set integrity, authorization leakage, unsupported
+displayed claim, explicit uncertainty recall, safe degradation, healthy-stack
+tool failures, citation resolution, latency p95 and error rate. Three gates
+deliberately refuse to pass by default: citation correctness and time to first
+useful evidence report NOT MEASURED, and cost per verified turn reports NOT
+CONFIGURED.
+
+Evidence: `evals/run.py:635-648`; `evals/results/2026-09-17T024919Z-a4a5856.md:8-23`.
+
+**Q8. What is your ground truth?**
+
+A deterministic synthetic cohort, `af-cohort-v1`: 26 fictional patients, one
+per catalogued OpenEMR data defect, seeded by a committed PHP script, so the
+required behaviour for each patient is known before the case is written. It
+exists because the stock demo data cannot support the use case — three
+patients, one 2014 encounter each, zero lab results, three placeholder notes,
+every onset date empty — and because Synthea output has no fixed seed and is
+not reproducible as a fixture. Recorded gateway responses from the same cohort
+double as pytest fixtures, so the offline tests and the live suite share one
+contract. No real patient data is used anywhere in this project.
+
+Evidence: `evals/fixtures/cohort/README.md`; `evals/fixtures/cohort/seed_cohort.php`.
+
+**Q9. What did you find when you ran it?**
+
+The latest full run (2026-09-17, commit `a4a5856`) executed all 45 cases and
+passed 44, with every blocking gate PASS: golden set 14 of 14, citations 177
+of 177 resolved, no unsupported displayed claim, zero 5xx, model-backed p95
+24.1 s against the 30 s warn line, $0.0127 per model-backed turn. The single
+failure is `CONF-NOTE-VS-LIST-N-001` under the non-blocking task-success gate
+at 95%: the model did not raise a planted note-versus-list medication
+conflict. Flakiness is confined to model recall — two cases have flipped run
+to run, `MISS-AUTHOR-J-001` and `CONF-NOTE-VS-LIST-N-001` — while every
+deterministic assertion has passed every time. The scorecard, not the pass
+count, is the signal I read: 32.5% of turns needed a repair round, 2.6% of
+statements were withheld, 3.75 claims and 2.33 model calls per turn.
+
+Evidence: `evals/results/2026-09-17T024919Z-a4a5856.md:3`, `:8-23`, `:26-53`, `:80-94`, `:123`.
+
+### Production thinking
+
+**Q10. What happens at 300 users?**
+
+300 physicians on the usage model in `AI_COST_ANALYSIS.md` (20 visits a day,
+one UC-01 turn plus one follow-up per visit, 22 working days) is 12,000 turns
+a day; spread flat across an 8-hour clinic at that document's 17 s per turn,
+that is about 7 concurrent turns — but appointments are slot-aligned, so an
+hour's worth compresses into the few minutes after the hour and the realistic
+peak is about 60 concurrent turns (1,500 turns x 17 s / ~420 s). Taking UC-01
+first turns as roughly a third of the peak mix, and each first turn issuing
+seven gateway calls (one `encounters` call, then six tools fanned out), that
+peak puts about 140 calls into the in-process module gateway at once, each
+with a 2 s timeout, against Apache prefork's 250 workers; the eval suite's
+55/45 first-to-follow-up mix would push the same burst nearer 210. Three
+process facts decide what happens next, and all three are in the code: the
+agent runs a single uvicorn worker with no `--workers` flag, the 6-wide
+`asyncio.Semaphore` is constructed *inside* the retrieve node per turn so it
+bounds fan-out within one turn and not across turns (there is no process-wide
+turn semaphore), and the LangGraph checkpointer is an `AsyncSqliteSaver` over
+a file in a local state directory. That SQLite file is exactly why the answer
+is never `--workers N` — a second worker in the same container would contend
+on it — so scaling is a second agent container behind the edge with a shared
+checkpointer, which is a Week 2 change rather than a flag. None of this is
+measured yet: the load driver (`evals/load/run_load.py`, 43 offline tests) and
+the Droplet sampler (`docs/audit/scripts/droplet-stats.sh`) were built
+2026-09-17 and have not been run; the 10- and 50-user runs are the M4 step,
+human-gated.
+
+Evidence: `agent/Dockerfile:25`; `agent/app/graph/nodes.py:138` with `agent/app/settings.py:19`; `agent/app/state_store.py:61-63` and `agent/app/main.py:43-48`; `AI_COST_ANALYSIS.md:141-171`; `evals/load/run_load.py`.
+
+**Q11. What is your worst failure mode?**
+
+Silent omission, and it is committed rather than argued about. The verifier is
+a false-positive control only: it can prove that everything shown is
+supported, and it cannot notice something the model never said. The concrete
+case is `CONF-NOTE-VS-LIST-N-001` — a note says atorvastatin was stopped while
+the medication list still calls it active — and the case file states plainly
+that no deterministic detector for a note contradicting the list exists, so
+raising that conflict is model recall. In the 2026-09-17 run the model did not
+raise it, and the turn still rendered as a clean, fully cited, complete answer
+with nothing flagged; the physician would have had no signal that a conflict
+existed. That is the worst thing this system does today, it sits under a
+non-blocking gate by design, and the fix is a deterministic note-versus-list
+detector, not a better prompt.
+
+Evidence: `evals/cases/CONF-NOTE-VS-LIST-N-001.yaml:5-7`; `evals/results/2026-09-17T024919Z-a4a5856.md:123`.
+
+**Q12. How would you operate this — monitoring, alerting, rollback, cost?**
+
+One correlation id runs through the panel, the gateway, the OpenEMR audit row,
+the agent logs, the metrics and the trace; traces go to Langfuse Cloud through
+a client-side mask that replaces every payload with a digest, and the agent's
+own logs are PHI-free JSON. `/metrics` is a Prometheus-style endpoint and
+`agent/app/alerts.py` evaluates the three PRD alerts over two samples of it —
+on the live host still run on demand; the `alerts` compose service
+(`--interval 300`, in the tree since 2026-09-17) reaches the host at the M3
+deploy. Rollback is redeploying
+the previous commit with the same script and needs no data migration because
+the co-pilot is read-only, but it has never been rehearsed, there are no
+backups, and the whole deployment is a single Droplet and therefore one
+failure domain. Cost is bounded by token caps (20K per turn, 60K per
+conversation) and a daily 2,000,000-token halt that routes every further turn
+to the deterministic fallback; the measured $0.0127 per model-backed turn sits
+below the $0.0223 projection basis, which has been the configured gate since
+2026-09-17 (`evals/run.py` `cost_gate()`: PASS at or under $0.0223, PASS
+(warn) to $0.0446 with risk acceptance in the report, FAIL and blocking
+above; NOT CONFIGURED only for a run with no model-backed turn).
+
+Evidence: `agent/app/alerts.py:1-24`; `docs/operations/alerts.md:203-233`; `evals/run.py:146`, `:593`; `AI_COST_ANALYSIS.md:63`.
+
+### Coding workflow
+
+The repository is the process. Every decision that constrains later work is an
+ADR (seven so far), and every agent session starts from `AGENTS.md`, which
+carries the hard gates: do not implement the AI layer until the audit is
+complete, trace every capability to a use case in `USERS.md`, and never
+describe a planned safeguard as implemented. The order was audit, then
+`USERS.md`, then the architecture and the ADRs, then the module gateway, then
+the agent, then the evals — the AI layer was gated on the audit being
+finished, not on a feeling that the codebase was understood. Work lands in
+small conventional commits (81 at `0fba313`), and every push runs the
+fast deterministic checks in `.gitlab-ci.yml`: whitespace, `php -l` over the
+module, `caddy validate`, `docker compose config`, the 91 pytest cases, the
+contract drift check and the offline eval subset; the live suite is a manual
+job so a push never spends model budget by itself. The standing rule is
+evals-before-tuning — no change to the prompt, the model id, the effort
+setting or the verifier lexicon without a baseline run, the change, a second
+run and an `evals/compare.py` diff — and a case is added for every discovered
+bug and every cohort defect. What the workflow does not yet include is the
+review step: one error-analysis journal of 20 traces is sampled and committed,
+and all 20 First-issue fields are still blank.
+
+Evidence: `AGENTS.md:28-36`; `.gitlab-ci.yml:8-66`; `evals/README.md:197-199`.
+
+## Deployed today versus planned (2026-09-17)
+
+What is actually running on the Droplet at the time of the interview, against
+what is written down but not built. "Planned" here means planned — nothing in
+the right-hand column is implemented.
+
+| Control | Deployed today (2026-09-17) | Planned / gap | Evidence |
+| --- | --- | --- | --- |
+| Edge path allowlist | Deployed. Caddy denies by default; only OpenEMR application paths, `/copilot-api/*` and `/meta/health/livez` are routed, and the module's `gateway/` and `bin/` paths return 404 from the edge | — | `infra/digitalocean/runtime/Caddyfile:22-40` |
+| Secrets | Deployed as Compose file secrets (nine), mounted only into the containers that need them; no key in an image or an environment dump | Docker Swarm / KMS-managed secrets | `infra/digitalocean/runtime/compose.yaml:237-256` |
+| `/ready` tracer check | A real probe since 2026-09-17: `GET /api/public/projects` on the Langfuse host with basic auth and a 5 s timeout; `reachable` on 200, `http_<code>` or the httpx error class otherwise, and either fails readiness; the three network checks run concurrently. Verified offline only until the M3 deploy | `tracer: reachable` observed on the Droplet | `agent/app/readiness.py:81-100`; `agent/tests/test_health.py::test_ready_is_503_when_tracer_unreachable` |
+| Alerts | On the live host today: run on demand by hand. In the tree since 2026-09-17: the `alerts` compose service (`python -m app.alerts ... --interval 300`, agent image, state on the `agent_state` volume, health check disabled), on the host from the M3 deploy | Webhook delivery to a pager; the service only logs | `infra/digitalocean/runtime/compose.yaml` (services: `database`, `openemr`, `copilot-setup`, `demo-seed`, `agent`, `alerts`, `caddy`) |
+| Rollback | Procedure only: redeploy tag `week1` from `git worktree add /tmp/rb week1` with the same `deploy.sh`, no data migration because the co-pilot is read-only | **Never rehearsed.** The rehearsal runbook (throwaway Droplet in a `rehearsal` Terraform workspace; the live Droplet excluded by construction) is written and is the M4 step, with an empty timing table until it runs | `docs/deployment/digitalocean.md`, "Rehearsal Runbook" |
+| Backups | **None taken.** Droplet backups are disabled; `infra/digitalocean/backup.sh` (encrypted archive of the database dump, two volumes, secrets and `.env`) and `restore.sh` exist since 2026-09-17 and have not been run against a host | First backup and a restore on the rehearsal Droplet (M4); the Droplet snapshot before the load tests | `infra/digitalocean/backup.sh`, `restore.sh`; `docs/deployment/digitalocean.md`, "Backup and Restore" |
+| Egress restriction | **None.** The firewall allows all outbound TCP, UDP and ICMP | Egress limited to the LLM and tracing endpoints, plus a blocked-egress test | `infra/digitalocean/main.tf:54-70`; `AUDIT.md` remediation table, row SEC-MEDIUM-504 |
+| Load test | **Driver and sampler built 2026-09-17, no run yet.** `evals/load/run_load.py` (43 offline tests) and `docs/audit/scripts/droplet-stats.sh` exist; no 10- or 50-user measurement yet; the runs are M4, human-gated | 10- and 50-user runs with p50/p95/p99, error rate and peak CPU/memory | `evals/load/run_load.py` (results schema in the module docstring); `evals/load/test_run_load.py` (43 tests, `pytest --collect-only -q`); `docs/audit/scripts/droplet-stats.sh`; `docs/audit/INTERVIEW_NOTES.md:130-131` (the audit's "not measured" note) |
+| Verification pass/fail panel | **Counter and scores since 2026-09-17, panels not built.** `/metrics` exposes `copilot_verification_total{outcome}` and every `copilot.turn` trace carries the `verification_passed` and `turn_error` scores; the dashboard's nine panels still have neither verification outcome nor error rate | The two panels over the scores in the Langfuse UI (owner action) | `agent/app/turn_outcome.py`; `agent/app/telemetry.py` (`finish_turn_trace`); `docs/operations/langfuse-dashboard.md` |
+| Cost gate | **Configured 2026-09-17.** PASS at or under $0.0223 per model-backed turn, PASS (warn) to $0.0446 with risk acceptance, FAIL above; $0.0127 measured at `a4a5856` | A cost alert on daily spend ($14 warn, $42 page) is still manual from `/metrics` | `evals/run.py:146`, `:593`; `AI_COST_ANALYSIS.md` Part B |
+| Agent-level denials | Counted in `/metrics` (`copilot_denials_total{reason}`) and in the agent's logs only. They never reach the gateway, so **they leave no OpenEMR audit row**; gateway-level denials do | An audit path for denials rejected at the agent API | `ARCHITECTURE.md` "Open Items" item 9; `agent/app/api.py:49`, `:57` |
+| `CONF-NOTE-VS-LIST-N-001` | **Missed** in the 2026-09-17 run: the model did not raise the planted note-versus-list conflict. Non-blocking task-success gate, 95%, PASS | A deterministic note-versus-list conflict detector | `evals/results/2026-09-17T024919Z-a4a5856.md:19`, `:123` |
+| Error-analysis journal | **Unreviewed.** 20 traces across 14 patients are sampled and committed; all 20 First-issue and Notes fields are blank | Fill all 20, run the report, commit the issue list | `evals/error_analysis/2026-09-16T190727Z-journal.md:23`; `evals/README.md:197-199` |
+
+## The Pre-Search Checklist
+
+The PRD Appendix checklist, one section per heading, as built and measured
+through 2026-09-17.
 
 ## Phase 1: Define Your Constraints
 
@@ -34,15 +322,22 @@ unless a source is named. Where something is deferred, it says so.
   10K, and 100K users on the measured token mix.
 - **Latency.** Complete verified response p95 under 30 s for the early
   submission, owner-accepted 2026-09-15 with an 8 s design goal
-  (`KEY_METRICS.md`). Measured on the deployment across the full eval runs
-  with a scorecard recorded on 2026-09-16 (`evals/results/`): model-backed
-  turns p50 11 to 13 s, p95 21.5 to 29.5 s; first turns p95 15 to 23 s,
-  follow-ups p95 25 to 31 s.
-  Evidence (deterministic retrieval) streams to the panel in about 1 s before
-  the narrative.
-- **Concurrency.** One 2 vCPU / 4 GB Droplet; tool fan-out is bounded by a
-  semaphore, one model call per node. Load tests at 10 and 50 concurrent users
-  are a final-submission item.
+  (`KEY_METRICS.md`). Measured on the deployment across the full eval runs,
+  latest scorecard 2026-09-17 (`evals/results/2026-09-17T024919Z-a4a5856.md`):
+  model-backed turns p50 12.5 s, p95 24.1 s, p99 30.7 s; first turns p95
+  16.0 s, follow-ups p95 29.7 s.
+  Time to first useful evidence is **not measured**: the eval runner uses
+  non-streaming turns, so the SSE path is never timed and the gate reports NOT
+  MEASURED. The streamed `evidence` event is emitted after the retrieve node,
+  and the retrieve node measures about 1 s in traces, but that is a node
+  timing, not a measured time to first paint.
+- **Concurrency.** One 2 vCPU / 4 GB Droplet; one uvicorn process, no
+  `--workers`. Tool fan-out inside a turn is bounded by a 6-wide
+  `asyncio.Semaphore` created per turn in the retrieve node; there is no
+  process-wide turn semaphore, so the bound does not apply across concurrent
+  turns. One model call per node. Load tests at 10 and 50 concurrent users
+  have not been run: the driver and sampler were built 2026-09-17 and the
+  runs are M4, human-gated.
 - **Cost constraints.** 20K tokens per turn, 60K per conversation, and a daily
   token halt that routes to the deterministic fallback (`agent/app/budget.py`,
   ADR-0004). Measured $0.012 to $0.014 per model-backed turn at list price
@@ -64,8 +359,14 @@ unless a source is named. Where something is deferred, it says so.
   so the human checks the source in one click. No autonomous actions exist.
 - **Audit and compliance.** Every gateway call writes an OpenEMR audit row
   before data leaves, carrying the correlation id; the agent logs are
-  PHI-free JSON; traces are masked to digests (ADR-0007). `AUDIT.md` §5 maps
-  observations to HIPAA provisions and assumes a BAA with the model provider.
+  PHI-free JSON; traces are masked to digests (ADR-0007). Denials rejected at
+  the agent API never reach the gateway and so leave no OpenEMR audit row —
+  they exist only in `/metrics` and the agent logs (`ARCHITECTURE.md` "Open
+  Items" item 9; `agent/app/api.py:49`, `:57`). `AUDIT.md` §5 maps
+  observations to HIPAA provisions, but no BAA has been executed with the
+  model provider and none has been reviewed — the executive summary says
+  "There are no executed BAAs" and §3 says "The BAA remains assumed, not
+  reviewed". No HIPAA compliance is claimed.
 
 ### 4. Team and skill constraints
 
@@ -76,8 +377,9 @@ unless a source is named. Where something is deferred, it says so.
   (`USERS.md`) and checked against OpenEMR's real data shapes in a two-day
   audit (`AUDIT.md`) before any agent code; the clinician interview is still
   open (`USERS.md` "Validation Work").
-- **Eval and testing.** Comfortable enough to write the suite ourselves: 45
-  YAML cases (14 of them a golden tier, 4 a holdout tier), a runner that
+- **Eval and testing.** Comfortable enough to write the suite ourselves: 46
+  YAML cases (14 of them a golden tier, 4 a holdout tier; 45 in the latest
+  recorded run), a runner that
   drives the real login and chart handshake, pytest for the offline
   invariants. No eval framework (see §9).
 
@@ -110,16 +412,24 @@ unless a source is named. Where something is deferred, it says so.
 - **Context window.** Evidence packs are capped in characters and per-tool
   record limits (labs 50, notes 20) with a `truncated` flag; a five-year
   synthetic chart (`AF-HEAVY`) is in every eval run to keep this honest.
-- **Cost per query.** $0.012 to $0.014 measured per model-backed turn;
-  acceptable against the projection in `AI_COST_ANALYSIS.md`.
+- **Cost per query.** $0.0127 measured per model-backed turn in the latest
+  run (`a4a5856`), against the $0.0223 projection basis in
+  `AI_COST_ANALYSIS.md` Part B, which has been the configured gate since
+  2026-09-17 (`evals/run.py` `COST_PER_TURN_PROJECTION_USD`, `cost_gate()`):
+  PASS at or under $0.0223, PASS (warn) to $0.0446 with risk acceptance in
+  the report, FAIL and blocking above; NOT CONFIGURED only for a run with no
+  model-backed turn. The run judges the cost as well as reporting it.
 
 ### 7. Tool design
 
 - **Tools.** encounters, problems, medications, allergies, lab_results,
   clinical_notes, patient_context (`ARCHITECTURE.md` "Tools"). Each
   normalizes OpenEMR's defects: clinical dates with precision and basis,
-  status conflicts flagged, absence states distinguished, text-valued labs
-  quoted, orphans omitted.
+  absence states distinguished, text-valued labs quoted, orphans omitted, and
+  a medication whose `lists` row and `prescriptions` row disagree carries a
+  `status_conflict` flag instead of a status (`MedicationsTool.php:62-76`).
+  That deterministic flag covers list-versus-prescription disagreement only;
+  a note contradicting the list is not detected deterministically (see §11).
 - **External APIs.** Only the model provider and the tracing backend. No
   third-party clinical APIs.
 - **Mock vs real data.** Real OpenEMR, with a deterministic synthetic cohort
@@ -136,13 +446,27 @@ unless a source is named. Where something is deferred, it says so.
 - **Choice.** Langfuse Cloud (ADR-0007): OpenTelemetry-based SDK, session
   and metadata support, a hobby tier that covers a clinic, and a client-side
   mask so nothing but digests leaves the box.
-- **Metrics that matter.** The PRD's request count, latency p50/p95, token
-  usage, cost, tool calls and failures, verifier rejections and repair count,
-  errors; all on the "Clinical Co-Pilot" dashboard
-  (`docs/operations/langfuse-dashboard.md`).
-- **Real-time monitoring.** Prometheus-style `/metrics` on the agent, an
-  alerts job that evaluates the three PRD alerts against the thresholds in
-  `KEY_METRICS.md` (`agent/app/alerts.py`, `docs/operations/alerts.md`).
+- **Metrics that matter.** Nine panels on the "Clinical Co-Pilot" dashboard
+  cover the PRD's request count, latency p50/p95, token usage, cost, tool
+  calls, tool failures, repair count (via generations by name) and an
+  ERROR-level observation count
+  (`docs/operations/langfuse-dashboard.md:18-33`). Two PRD dashboard minimums
+  are **not** on it as panels: verification pass/fail rate and turn error
+  *rate*. The error panel counts ERROR-level observations; nothing divides
+  that count by turns, so the dashboard shows error volume and not an error
+  rate. Since 2026-09-17 the inputs exist: every `copilot.turn` trace carries
+  the `verification_passed` and `turn_error` scores
+  (`agent/app/telemetry.py` `finish_turn_trace`) and `/metrics` exposes
+  `copilot_verification_total{outcome}` beside
+  `copilot_verifier_rejections_total` (`agent/app/metrics.py:109-114`); the
+  two panels over the scores are an owner action in the Langfuse UI (M3),
+  not built.
+- **Real-time monitoring.** Prometheus-style `/metrics` on the agent, and
+  `agent/app/alerts.py`, which evaluates the three PRD alerts against the
+  thresholds in `KEY_METRICS.md` over two samples. On the live host it is
+  **run on demand**; the `alerts` compose service (every 300 s,
+  `infra/digitalocean/runtime/compose.yaml`, in the tree since 2026-09-17)
+  reaches the host at the M3 deploy.
 - **Cost tracking.** Token usage and model cost per generation in every
   trace; per-turn usage in the API response; cost per turn in every eval
   scorecard.
@@ -176,7 +500,9 @@ unless a source is named. Where something is deferred, it says so.
   (`change_event`, `medication_status`, `problem_status`, `lab_result`,
   `lab_comparison`, `documented_reference`, `absence`, `conflict`,
   `undated`) plus `interpretation`, each with the facts its rule checks
-  (`ARCHITECTURE.md` "Verification Design").
+  (`ARCHITECTURE.md` "Verification Design"). The scope is every claim the
+  model *makes*: the verifier is a false-positive control and cannot detect a
+  finding the model omitted (see §11 and the worst-failure-mode answer above).
 - **Fact-checking sources.** The evidence pack retrieved in the same turn,
   through the same authorization as the chart. Nothing outside it counts.
 - **Confidence thresholds.** None: verification is binary per claim. A
@@ -193,10 +519,18 @@ unless a source is named. Where something is deferred, it says so.
 ### 11. Failure mode analysis
 
 - **Tool failure.** Section marked unavailable, no absence claimed, brief
-  renders from the other sections; every row of the failure matrix has an
-  eval (`ARCHITECTURE.md` "Failure and Degradation Matrix").
+  renders from the other sections. Six of the ten rows of the failure matrix
+  (`ARCHITECTURE.md` "Failure and Degradation Matrix") have an eval case:
+  denial, patient switch, one tool unavailable, model failure, verifier
+  rejection, token budget. Three have a pytest case only, since 2026-09-17 —
+  gateway unreachable (the `/ready` half; the turn half is not exercised),
+  tracer unavailable, and rate limit (`agent/tests/test_health.py`,
+  `test_telemetry.py`, `test_api.py`). One, OpenEMR or database down, has
+  neither and is reasoned through, not exercised.
 - **Ambiguous queries.** The classifier routes anything that is not a
-  first-turn UC-01 question to planning with strict tool schemas; out-of-scope
+  first-turn UC-01 question to planning, whose tool choices are constrained to
+  a bounded allowlist of the seven tools (`agent/app/graph/nodes.py:178`) and
+  whose parameters are re-checked at the gateway; out-of-scope
   requests (other patients, schedule, general medicine, dosing) are refused as
   a limitation, not answered. An `interpretation` claim type lets the model
   state a reading the physician can correct.
@@ -215,24 +549,38 @@ unless a source is named. Where something is deferred, it says so.
   verifier means an obeyed instruction still cannot produce a displayed claim
   without a record. Fixture `AF-DQ-O` carries an injection and script payload;
   `INJ-NOTE-O-001` checks it is neither obeyed nor rendered active. The panel
-  renders model and record text as text only under a CSP.
+  renders every string through `textContent` and DOM APIs and never assigns
+  `innerHTML` (`interface/modules/custom_modules/oe-module-copilot/public/assets/js/copilot.js:10`,
+  `:50`). A CSP on the module's assets is **planned** (SEC-MED-003); no CSP
+  header is set today.
 - **Data leakage.** Authorization is parity with the chart (ADR-0002): the
   gateway checks the same ACLs OpenEMR does before any tool returns data; a
-  patient switch closes the conversation at the ticket stage; forged patient
-  ids are rejected by schema. Traces carry digests only; logs are PHI-free.
+  patient switch closes the conversation at the ticket stage; a patient id in
+  tool params is rejected by the gateway's hand-written parameter allowlist,
+  which mirrors the exported JSON Schemas but does not validate against the
+  schema files (`ToolRegistry.php:37-54`; `AUTH-FORGED-PID-001`). Traces carry
+  digests only; logs are PHI-free.
 - **API key management.** Docker secrets on the host, files with mode 600 on
   the workstation, never in the repository, environment dumps, Terraform
   state, or shell history; the runner token follows the same pattern.
 - **Audit logging.** One OpenEMR audit row per gateway call with user,
-  patient, tool, and correlation id, written before data leaves; denials are
-  audited with their reason. Walkthrough in
+  patient, tool, and correlation id, written before data leaves; if the insert
+  fails the tool returns `unavailable` rather than records
+  (`public/gateway/tools.php:69-76`). Gateway-level denials are audited with
+  their reason. Denials rejected earlier, at the agent API (missing, bad,
+  expired, or conversation-mismatched delegation token), never reach the
+  gateway and therefore leave **no** OpenEMR audit row; they appear only in
+  `copilot_denials_total{reason}` and the agent's logs
+  (`ARCHITECTURE.md` "Open Items" item 9). Walkthrough in
   `docs/operations/correlation-id-walkthrough.md`.
 
 ### 13. Testing strategy
 
 - **Unit tests.** Verifier rules, summary gate, suggestion filter, budget,
-  alerts, contracts (60 pytest cases collected in `agent/tests/` on
-  2026-09-16); PHP lint and a recorded-response contract test for the tools.
+  alerts, contracts, and since 2026-09-17 the circuit breaker, checkpoint
+  content and telemetry re-raise controls (91 pytest cases collected in
+  `agent/tests/`, counted 2026-09-17 at `0fba313`); PHP lint and a
+  recorded-response contract test for the tools.
 - **Integration.** The turn graph with recorded gateway fixtures and a
   scripted model; the live eval suite drives login, chart open, session,
   ticket, and turn against the deployment as different users; the Bruno
@@ -244,8 +592,10 @@ unless a source is named. Where something is deferred, it says so.
   date conflict, DQ-HIGH-002; paraphrased advice slipping past the lexicon,
   `CIT-PARAPHRASE-ADVICE-001`) and one per cohort defect; results versioned
   per commit in `evals/results/` with a compare script and `--repeat` for
-  flakiness (one flaky model-recall case, `MISS-AUTHOR-J-001`, is known and
-  sits under the non-blocking task-success gate).
+  flakiness. Two model-recall cases flip run to run — `MISS-AUTHOR-J-001`
+  (runs `1ddf824`, `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (run `a4a5856`)
+  — and both sit under the non-blocking task-success gate; every
+  deterministic assertion has passed in every run.
 
 ### 14. Open source planning
 
@@ -266,18 +616,38 @@ unless a source is named. Where something is deferred, it says so.
 ### 15. Deployment and operations
 
 - **Hosting.** One DigitalOcean Droplet behind Caddy with automatic TLS,
-  Docker Compose, secrets as Docker secrets, Terraform for the host and
-  firewall (`docs/deployment/digitalocean.md`, ADR-0001). A second $6 Droplet
-  runs CI.
+  Docker Compose, secrets as Compose file secrets, Terraform for the host and
+  firewall (`docs/deployment/digitalocean.md`, ADR-0001). Caddy denies by
+  default: only OpenEMR application paths, `/copilot-api/*` and
+  `/meta/health/livez` are routed, and the module's `gateway/` and `bin/`
+  paths 404 from the edge (`Caddyfile:22-40`). Outbound traffic is **not**
+  restricted — the firewall allows all outbound TCP, UDP and ICMP
+  (`infra/digitalocean/main.tf:54-70`). A second $6 Droplet runs CI.
 - **CI/CD.** Lints, contract schema check, agent tests, and the offline evals
   on every push; deployment is a scripted step run by the owner after the
   live suite and the Bruno collection pass (`infra/digitalocean/deploy.sh`).
-- **Monitoring and alerting.** Langfuse dashboard, `/health` and dependency
-  `/ready`, `/metrics`, the alerts job with page and warn thresholds.
+- **Monitoring and alerting.** Langfuse dashboard (nine panels), `/health`,
+  `/metrics`, and `/ready`. `/ready` really probes the gateway (`ping.php`)
+  and the LLM (`models.retrieve`), and since 2026-09-17 the tracer too
+  (`GET /api/public/projects` on the Langfuse host with basic auth and a 5 s
+  timeout, `agent/app/readiness.py:81-100`; verified offline until the M3
+  deploy). The panel itself probes `/health`,
+  not `/ready` (`copilot.js:485`). Alerts have page and warn thresholds; on
+  the live host today they are run on demand, not on a schedule; in the tree
+  the `alerts` compose service (`infra/digitalocean/runtime/compose.yaml`,
+  `--interval 300`, since 2026-09-17) schedules them every 300 s from the M3
+  deploy.
 - **Rollback.** Images are built from the repository at a commit; rolling
   back is redeploying the previous commit with the same script. The database
   is untouched by the co-pilot (read-only), so rollback has no data migration
-  step.
+  step. **This has never been rehearsed** — the procedure is written
+  (`docs/deployment/digitalocean.md` `## Failure and Recovery`; "tested
+  backup/restore and rollback" is still listed under "Documented, not changed
+  here" in `## Before the Evaluator Deployment`), and the rehearsal runbook
+  (`## Rehearsal Runbook`, throwaway Droplet, live host never touched) has an
+  empty timing table until it runs (M4) — and there are no backups: none has
+  been taken; `backup.sh` and `restore.sh` exist since 2026-09-17 and neither
+  has been run against a host (`## Backup and Restore`).
 
 ### 16. Iteration planning
 
@@ -306,7 +676,9 @@ unless a source is named. Where something is deferred, it says so.
    Defense: the co-pilot can never show more than the chart shows, the rule
    is testable ("could this user open this in the chart?"), and the stricter
    policy is written down with its trigger. Evidence: nine authorization
-   cases, audit rows on every denial.
+   cases, and an OpenEMR audit row on every gateway-level denial (denials
+   rejected at the agent API are counted and logged but produce no OpenEMR
+   audit row).
 2. **Deterministic verifier before display** (ADR-0006). Defense: the
    safety property does not depend on the model; a weaker model degrades
    quality (withheld rate, count-only summaries) but not safety, which is

@@ -5,14 +5,17 @@ portal. All deadlines are Central Time.
 
 ## Early Submission — Wednesday, September 16 at 11:59 PM
 
-**Repository note (updated 2026-09-15):** GitLab
+**Repository note (updated 2026-09-17):** GitLab
 (`labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean`, branch
 `main`) is the system of record and the URL to submit; owner decision,
 pending instructor confirmation. `hdxsfbr/openemr-base-clean` on GitHub stays
 a genuine fork of `Gauntlet-HQ/openemr-base-clean` for the PRD's literal
-"forked from OpenEMR" requirement and is not kept in sync. The challenge
-README is `README_AGENT_FORGE.md` at the repository root so it does not
-conflict with OpenEMR's own `README.md`.
+"forked from OpenEMR" requirement. Both remotes are in sync: `gitlab/main`
+and `origin/main` are both at `e1dd331`, and the `week1` tag (tag object
+`c7253ed`) points at that commit. The challenge README is
+`README_AGENT_FORGE.md` at the repository root; `README.md` itself now opens
+with a 49-line challenge header above OpenEMR's own README (upstream content
+resumes at line 51).
 
 ### Hard gates and repository
 
@@ -32,8 +35,9 @@ conflict with OpenEMR's own `README.md`.
       ADR-0002..0007; owner-approved 2026-09-15, Stage 5 gate passed.)*
 - [x] `KEY_METRICS.md` defines and justifies product-success metrics.
       *(Definitions, targets, gaming defenses, and decision thresholds
-      approved 2026-09-15; latency and cost thresholds provisional until the
-      load baseline.)*
+      approved 2026-09-15; latency thresholds provisional until the load
+      baseline; the cost gate was configured 2026-09-17 at the $0.0223
+      projection, warn to $0.0446, block above.)*
 - [x] `docs/REQUIREMENTS_TRACEABILITY.md` links requirements to current evidence.
       *(Refreshed 2026-09-16 against the eval run and the live deployment.)*
 
@@ -61,17 +65,32 @@ conflict with OpenEMR's own `README.md`.
 - [x] Dashboard shows all PRD-required metrics. *(Langfuse dashboard
       "Clinical Co-Pilot": requests, p50/p95, errors, retries, tool calls,
       tool failures, tokens, cost; `docs/operations/langfuse-dashboard.md`,
-      2026-09-16. Screenshot for evaluators still to attach.)*
+      2026-09-16. Evaluator screenshots are attached:
+      `docs/audit/evidence/observability/` holds the nine panel renders, two
+      full-page dashboard captures, a trace-view capture, and one exported
+      trace with its correlation id. Verification pass/fail rate and error
+      rate are not on those nine panels; since 2026-09-17 every trace carries
+      the `verification_passed` and `turn_error` scores and `/metrics` has
+      `copilot_verification_total{outcome}`, and the two panels over the
+      scores are an owner action in the Langfuse UI before the final
+      capture.)*
 - [x] Eval suite includes boundary, invariant, and regression cases. *(Release
-      gate: same-commit `--repeat 3` report
+      gate: latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` at
+      a4a5856, all 45 cases, 44 passed, every blocking gate PASS, Golden set
+      integrity 14/14 for the first time, citations 177/177 resolved,
+      model-backed p95 24.1 s, $0.0127 per model-backed turn; the one miss,
+      CONF-NOTE-VS-LIST-N-001, is a model-recall check under the non-blocking
+      task-success gate, which still reported PASS at 95%. Two recall checks
+      flip run to run: MISS-AUTHOR-J-001 (missed at 1ddf824 attempts 1 and 3,
+      and at 69560f05) and CONF-NOTE-VS-LIST-N-001 (missed at a4a5856); the
+      deterministic lines passed every time. Kept as stability history: the
+      same-commit `--repeat 3` report
       `evals/results/2026-09-16T073141Z-1ddf824` at 1ddf824, 44 cases x 3
       attempts, 114/116, every blocking gate PASS on all attempts, citations
-      528/528 resolved, model-backed p95 27.6 s, $0.0127 per turn; the two
-      misses are one model-recall case (MISS-AUTHOR-J-001, the note citation)
-      counted under task success at 95%. Gates the runner cannot measure read
-      NOT MEASURED, not PASS. 45
+      528/528 resolved, model-backed p95 27.6 s. Gates the runner cannot
+      measure read NOT MEASURED, not PASS. 45
       cases on disk since 2026-09-16 (`CIT-PARAPHRASE-ADVICE-001` added with
-      the widened advice lexicon; the recorded runs cover the 44 before it),
+      the widened advice lexicon),
       one per cohort defect; a 14-case golden tier with a blocking "Golden
       set integrity" gate and a 4-case holdout tier (`evals/README.md`); a
       full run's exit code follows the release gates. Every results file
@@ -81,8 +100,13 @@ conflict with OpenEMR's own `README.md`.
       *(`agent/tests/test_health.py`: liveness echoes or mints the correlation
       id, `/ready` is 503 when a dependency fails and 200 when all pass; runs
       in CI `test:agent`; Bruno `4 Health` requests against the deployment.
-      OpenEMR's own `readyz` stays unrouted, so the traceability row is still
-      "In progress".)*
+      OpenEMR's own `readyz` stays unrouted by design. `/ready` probes the
+      tracer since 2026-09-17 (`GET /api/public/projects` on the Langfuse host
+      with basic auth, 5 s timeout; `test_ready_is_503_when_tracer_unreachable`),
+      and the three network checks run concurrently. The traceability row
+      stays "In progress" until the M3 deploy shows `tracer: reachable` on the
+      Droplet. The panel probes `/health`, not `/ready`
+      (`public/assets/js/copilot.js:485`).)*
 - [x] GitLab pipeline green on the submitted commit. *(Pipeline 23777 on
       3415bac, 2026-09-16: four lints, agent tests, offline evals green on the
       dedicated runner Droplet; the manual `test:evals-live` job (job 76210)
@@ -102,7 +126,11 @@ conflict with OpenEMR's own `README.md`.
 - [x] Live application URL tested from outside the development machine.
       *(Owner opened `https://openemr-137-184-4-22.sslip.io` from a phone on
       mobile data, 2026-09-16.)*
-- [x] Repository URL and exact commit recorded.
+- [x] Repository URL and exact commit recorded. *(Early submission: commit
+      `e1dd331`, tag `week1` — the tag object is `c7253ed`, which is not a
+      commit sha. The commit is dated 2026-09-16 19:52 PT and the tag was
+      written 2026-09-16 21:52 CT (`git cat-file -p week1`); `gitlab/main`
+      and `origin/main` are both at `e1dd331`.)*
 - [x] Dashboard access or sanitized evidence prepared for evaluators.
       *(`docs/audit/evidence/observability/`: the nine Clinical Co-Pilot
       dashboard panels rendered from the live page and one full trace export
@@ -116,23 +144,44 @@ conflict with OpenEMR's own `README.md`.
       pointers, 2026-09-16.)*
 - [x] Technical interview scheduled within the required window. *(2026-09-17,
       12:00 PT, with Byron.)*
-- [HAHAHA] Submission completed with several hours of buffer.
+- [x] Submission completed with buffer. *(The submitted tag `week1` was
+      written 2026-09-16 21:52 CT, about two hours before the 11:59 PM CT
+      deadline — buffer, though not "several hours". The owner's portal
+      confirmation time is not recorded in this repository.)*
 
 ## Final Submission — Sunday, September 20 at Noon
 
 - [ ] Early checklist rerun against the final commit and deployment.
 - [ ] Interview feedback addressed or documented as a tradeoff.
 - [x] Three required alert definitions and on-call responses are documented.
-      *(`docs/operations/alerts.md`, `agent/app/alerts.py`, 2026-09-16.)*
+      *(`docs/operations/alerts.md`, `agent/app/alerts.py`, 2026-09-16.
+      Scheduled on the host by the `alerts` service in
+      `infra/digitalocean/runtime/compose.yaml` every 300 s since 2026-09-17;
+      live from the M3 deploy.)*
 - [ ] CPU, memory, latency, and throughput baselines recorded.
 - [ ] Load tests run at 10 and 50 concurrent users with p50/p95/p99 and errors.
+      *(Driver `evals/load/run_load.py` and sampler `docs/audit/scripts/droplet-stats.sh`
+      built and tested offline 2026-09-17 (M2); the run is M4 and human-gated. Results
+      will land in `evals/load/results/`; none exist yet. Expected 50-user failure shapes
+      are written down in `evals/load/README.md` before the run.)*
 - [ ] Actual development cost and 100/1K/10K/100K-user projections complete in
       `AI_COST_ANALYSIS.md`.
 - [ ] Backup, restore, migration, rollback, and clean-deploy procedures tested.
+      *(Not yet. `infra/digitalocean/backup.sh` and `restore.sh` (encrypted archive of the
+      database dump, the `openemr_sites` and `agent_state` volumes, secrets and `.env`;
+      restore re-initialises the database volume from the restored secrets) and the
+      rehearsal runbook in `docs/deployment/digitalocean.md` exist since 2026-09-17; the
+      rehearsal on a throwaway Droplet — clean deploy, rollback to `week1`, roll forward,
+      restore, destroy — is M4 and human-gated. Migration is not applicable: the co-pilot
+      is read-only and owns no schema beyond the module's registration.)*
 - [ ] Residual risks and real-clinical-use limitations are explicit.
-- [ ] Final 3–5 minute demo recorded and uploaded.
+- [ ] Final 3–5 minute demo recorded and uploaded. *(Script: `docs/DEMO_SCRIPT.md`,
+      revised 2026-09-17 for the release-run numbers; every number that does not exist
+      yet is a visible `<pending M4>` or `<pending M5>` placeholder and is not read aloud.)*
 - [ ] Final live URL and repository commit tested.
-- [ ] Social post published and linked.
+- [ ] Social post published and linked. *(Draft: `docs/SOCIAL_POST.md`, LinkedIn and X
+      versions, 2026-09-17; links the public GitHub fork and a `<final video URL>`
+      placeholder, never the GitLab.)*
 - [ ] Final AI interview completed within its required window.
 - [ ] Final submission completed before the portal deadline.
 

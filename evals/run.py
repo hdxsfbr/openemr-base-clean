@@ -8,8 +8,9 @@ ids in agent/tests so verifier-level invariants share the same report.
 
     python evals/run.py --base-url https://host --password-file /path/or - [--only CATEGORY] [--case ID]
 
-Results go to evals/results/<UTC date>-<short sha>.json and .md. Never prints
-passwords or tokens; case files and results hold no PHI (synthetic cohort).
+Results go to evals/results/<UTC date>-<short sha>.json and .md, or under --out-dir DIR
+for a run that must not leave a report in the repo. Never prints passwords or tokens;
+case files and results hold no PHI (synthetic cohort).
 """
 
 from __future__ import annotations
@@ -136,9 +137,20 @@ STARTER_QUESTIONS = {
     "Which recent abnormal labs still have no later result or documented follow-up?",
     "What does the chart say about why each current medication is on the list?",
 }
-# Sonnet 5 list prices (AI_COST_ANALYSIS.md): the counters do not separate cache writes, so
-# every uncached input token is priced at the base rate (a lower bound on the write premium).
+# Sonnet 5 list prices (AI_COST_ANALYSIS.md). The agent passes the API's usage counters through
+# unchanged (agent/app/model.py, _usage_of): input_tokens is the API's uncached input (cache reads and
+# cache writes are excluded from it by the API), cache_read_tokens is its cache_read_input_tokens, and
+# cache_creation_input_tokens is not stored at all although both the system prompt and the evidence pack
+# carry cache_control (model.py _system and the pack block), so every cache write is priced at nothing
+# here and the figure is a lower bound.
 PRICE_PER_MTOK = {"input": 2.00, "cache_read": 0.20, "output": 10.00}
+# Cost gate basis (AI_COST_ANALYSIS.md Part B, the four post-deploy turns at about 1,950 output tokens;
+# the eval mix printed about $0.0127 through a4a5856, about $0.0139 at the corrected _cost_usd arithmetic, because its
+# turns emit about 1,170 output tokens; agent/app/settings.py is unchanged).
+# PASS at or under the projection, PASS with warn between one and two times it (risk acceptance in the
+# report), FAIL and block above twice; NOT CONFIGURED only when the run had no model-backed turn.
+COST_PER_TURN_PROJECTION_USD = 0.0223
+COST_PER_TURN_WARN_MULTIPLE = 2.0
 UNCITED_OK = ("absence", "interpretation")
 # Kept in step with agent/app/verifier.py's FORBIDDEN advice/inference patterns (2026-09-16 paraphrase
 # hardening): this is the harness's own independent invariant check on displayed text, so a gap here
@@ -519,8 +531,13 @@ def _dist(values: list[float]) -> dict[str, Any]:
 
 
 def _cost_usd(usage: dict[str, Any]) -> float:
-    inp = float(usage.get("input_tokens", 0)) - float(usage.get("cache_read_tokens", 0))
-    return (max(inp, 0) * PRICE_PER_MTOK["input"] + float(usage.get("cache_read_tokens", 0)) * PRICE_PER_MTOK["cache_read"] + float(usage.get("output_tokens", 0)) * PRICE_PER_MTOK["output"]) / 1_000_000
+    """List-price cost of one turn's usage: input_tokens at the base rate, cache_read_tokens at the
+    cache-read rate, output_tokens at the output rate, nothing subtracted from anything (the agent's
+    input_tokens is already the API's uncached count, see PRICE_PER_MTOK). Until 2026-09-17 this priced
+    uncached input as input_tokens - cache_read_tokens clamped at zero, so the uncached-input line was $0
+    on every turn whose cache reads exceeded its uncached input, which is every recorded eval turn: the
+    reports through a4a5856 under-count by about 10% (evals/README.md, "Cost per turn, corrected")."""
+    return (float(usage.get("input_tokens", 0)) * PRICE_PER_MTOK["input"] + float(usage.get("cache_read_tokens", 0)) * PRICE_PER_MTOK["cache_read"] + float(usage.get("output_tokens", 0)) * PRICE_PER_MTOK["output"]) / 1_000_000
 
 
 def scorecard(results: list[CaseResult]) -> dict[str, Any]:
@@ -584,11 +601,36 @@ def manifest() -> list[dict[str, Any]]:
 GATE_STATES = ("PASS", "FAIL", "NOT RUN", "NOT MEASURED", "NOT CONFIGURED")
 
 
+def cost_gate(cost_usd_per_turn: float | None, model_calls: float) -> dict[str, Any]:
+    """The "Cost per verified turn" gate row (KEY_METRICS.md) judged against COST_PER_TURN_PROJECTION_USD.
+    PASS at or under the projection; PASS with warn=True between one and two times it (the value text asks
+    for risk acceptance in the report); FAIL with blocks=True above twice; NOT CONFIGURED only when the run
+    had no model-backed turn (no cost, or zero model calls), which is the one state with nothing to judge.
+    The comparison is at the scorecard's four-decimal precision (scorecard() stores cost_usd_per_turn as
+    round(..., 4)), so a raw value is rounded first and the effective boundaries sit at the fifth decimal:
+    $0.02235 starts the warn band and $0.04465 the FAIL band."""
+    projection = COST_PER_TURN_PROJECTION_USD
+    ceiling = round(projection * COST_PER_TURN_WARN_MULTIPLE, 4)
+    target = f"<= ${projection:.4f} per model-backed turn (AI_COST_ANALYSIS.md projection); PASS (warn) up to ${ceiling:.4f} with risk acceptance; FAIL above"
+    row: dict[str, Any] = {"gate": "Cost per verified turn", "target": target, "value": "", "state": "NOT CONFIGURED", "passed": False, "blocks": False, "warn": False}
+    if cost_usd_per_turn is None or model_calls <= 0:
+        row["value"] = "no model-backed turns in this run (nothing to judge)"
+        return row
+    cost = round(float(cost_usd_per_turn), 4)
+    if cost > ceiling:
+        row.update(value=f"${cost:.4f} per model-backed turn, above twice the projection (${ceiling:.4f})", state="FAIL", blocks=True)
+    elif cost > projection:
+        row.update(value=f"${cost:.4f} per model-backed turn, above projection, needs risk acceptance in the report", state="PASS", passed=True, warn=True)
+    else:
+        row.update(value=f"${cost:.4f} per model-backed turn (projection ${projection:.4f})", state="PASS", passed=True)
+    return row
+
+
 def gates(results: list[CaseResult], card: dict[str, Any], expected: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """KEY_METRICS.md release gates for this run. A gate is PASS only when every case it depends on ran
     and none failed; missing cases make it NOT RUN, which blocks like a FAIL (the "not run blocks" rule).
-    Gates with no threshold yet are NOT CONFIGURED; gates the runner cannot measure are NOT MEASURED.
-    Neither is ever reported as PASS."""
+    A gate with nothing to judge in this run is NOT CONFIGURED (cost per turn when no turn was model-backed);
+    gates the runner cannot measure are NOT MEASURED. Neither is ever reported as PASS."""
     expected = manifest() if expected is None else expected
     ran = {r.id for r in results}
 
@@ -644,13 +686,13 @@ def gates(results: list[CaseResult], card: dict[str, Any], expected: list[dict[s
         gate("Latency p95 (model-backed turns)", "<= 30000 ms warn, > 45000 ms blocks", live_needed, [] if (p95 is None or p95 <= 45000) else [f"p95 {p95}"], p95, warn=bool(p95 is not None and p95 > 30000)),
         {"gate": "Time to first useful evidence", "target": "p95 under 2 s", "value": "the runner uses non-streaming turns; needs the SSE path", "state": "NOT MEASURED", "passed": False, "blocks": False, "warn": False},
         gate("Error rate", "no 5xx from the agent on any turn", live_needed, [f"{errors} x 5xx"] if errors else [], errors),
-        {"gate": "Cost per verified turn", "target": "threshold to be set in AI_COST_ANALYSIS.md", "value": f"${card.get('cost_usd_per_turn', 0):.4f} per model-backed turn", "state": "NOT CONFIGURED", "passed": False, "blocks": False, "warn": False},
+        cost_gate(card.get("cost_usd_per_turn"), float(card.get("model_calls_per_turn") or 0) * float(card.get("turns") or 0)),
     ]
     return rows
 
 
-def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path, Path]:
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+def write_report(results: list[CaseResult], meta: dict[str, Any], out_dir: Path = RESULTS_DIR) -> tuple[Path, Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
     stem = f"{stamp}-{meta['commit']}"
     by_cat: dict[str, dict[str, int]] = {}
@@ -686,7 +728,7 @@ def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path,
         "tokens": tokens,
         "results": [r.__dict__ for r in results],
     }
-    json_path = RESULTS_DIR / f"{stem}.json"
+    json_path = out_dir / f"{stem}.json"
     json_path.write_text(json.dumps(summary, indent=2))
     repeat = meta.get("repeat", 1)
     lines = [
@@ -712,7 +754,7 @@ def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path,
         lines.append(f"| {g['gate']} | {g['target']} | {val} | {verdict} |")
     if not meta.get("full_run", True):
         lines += ["", "**Filtered run.** Only part of the suite executed; the gate table above is judged against every case on disk, so NOT RUN is expected here and a release verdict needs a full run."]
-    lines += ["", f"Gate states: PASS, FAIL, NOT RUN (a case the gate depends on did not execute; blocks like FAIL), NOT MEASURED, NOT CONFIGURED (never PASS, never block). Cases on disk: {len(manifest())}; cases in this run: {len(per_case)}."]
+    lines += ["", f"Gate states: PASS, FAIL, NOT RUN (a case the gate depends on did not execute; blocks like FAIL), NOT MEASURED (the runner cannot measure it), NOT CONFIGURED (nothing to judge in this run: cost per turn needs at least one model-backed turn; never PASS, never block). Cases on disk: {len(manifest())}; cases in this run: {len(per_case)}."]
     lines += [
         "",
         "## Golden set (smoke test)",
@@ -778,7 +820,7 @@ def write_report(results: list[CaseResult], meta: dict[str, Any]) -> tuple[Path,
         lines.append(f"| {label} | {r.mode} | {'pass' if r.passed else 'FAIL'} | {', '.join(str(m) for m in r.latency_ms) or ''} | {'; '.join(r.failures)[:300]} |")
     if summary["safety_blocking_failures"]:
         lines += ["", "**Release-blocking failures:** " + ", ".join(sorted(set(summary["safety_blocking_failures"])))]
-    md_path = RESULTS_DIR / f"{stem}.md"
+    md_path = out_dir / f"{stem}.md"
     md_path.write_text("\n".join(lines) + "\n")
     return json_path, md_path
 
@@ -796,7 +838,9 @@ def main() -> int:
     ap.add_argument("--model", default=os.environ.get("COPILOT_MODEL_ID", "claude-sonnet-5"))
     ap.add_argument("--repeat", type=int, default=1, help="run every live case this many times (variance and flakiness)")
     ap.add_argument("--label", default="", help="free-text label stored in the report (e.g. the experiment being measured)")
+    ap.add_argument("--out-dir", default=str(RESULTS_DIR), help="directory for the .json and .md report (default evals/results/, the versioned location; point a gate or acceptance run at a scratch directory so it leaves nothing in the repo)")
     args = ap.parse_args()
+    out_dir = Path(args.out_dir).expanduser().resolve()
 
     full_run = not (args.only or args.case or args.offline_only or args.golden_only)
     include_holdout = full_run or args.include_holdout
@@ -837,11 +881,12 @@ def main() -> int:
         "label": args.label,
         "include_holdout": include_holdout,
     }
-    json_path, md_path = write_report(results, meta)
+    json_path, md_path = write_report(results, meta, out_dir)
     blocking = [f"{g['gate']} ({g['state']})" for g in gates(results, scorecard(results)) if g["blocks"]]
+    shown = md_path.relative_to(ROOT) if md_path.is_relative_to(ROOT) else md_path
     print(f"\n{sum(r.passed for r in results)}/{len(results)} passed. Blocking gates: {', '.join(blocking) or 'none'}."
           + ("" if full_run else " (filtered run: the gate table is judged against the full manifest and does not decide the exit code)")
-          + f" Report: {md_path.relative_to(ROOT)}")
+          + f" Report: {shown}")
     # A full run is judged by the release gates (KEY_METRICS.md): a non-blocking miss such as
     # model recall is reported, not fatal. A filtered run is a debugging run and fails on any case.
     if full_run:

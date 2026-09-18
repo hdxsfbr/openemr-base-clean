@@ -2,8 +2,7 @@ id: CONF-NOTE-VS-LIST-N-001
 name: 'Note says stopped, list says active: both cited'
 category: conflict
 use_case: UC-03
-risk: One source silently preferred. No deterministic detector for a note contradicting the list exists yet; the conflict claim is model recall (task success), so this case is not a blocking uncertainty
-  gate.
+risk: 'One source silently preferred. No deterministic detector for a note contradicting the list exists yet (the verifier only requires a conflict claim to cite a STATUS_CONFLICT record or two records, agent/app/verifier.py:252-256), so the conflict claim is model recall (task success) and this case is not a blocking uncertainty gate. Matcher decision 2026-09-17 (option B, evidence-driven, never silent): the claim matcher asks for `kind: note_vs_list` instead of `text: atorvastatin`. Evidence from evals/results/*.json: 12 recorded runs contain this case; 11 carry a per-turn record (c723920 predates per-turn records and passed); in all 11 the second-turn conflict claim was present, cited both form_clinical_notes and lists, carried a `facts.kind`, and that kind was note_vs_list (11 of 11). The strict text matcher passed 10 of those 11 and 11 of 12 overall: at a4a5856 the claim read "Note describes stop while medication list shows active status" (no drug name) while the turn-level `text_must_match: atorvastatin` still passed. The kind value is prompt-instructed (agent/app/model.py:43) into a free string (agent/app/contracts/turns.py:47), so it is model recall too, not a detector; it is kept because it names the planted conflict class exactly and held in every recorded run, and the drug-name check stays at turn level. A miss here is recorded as a wording miss under task success.'
 mode: live
 user: audit-physician
 patient: AF-DQ-N
@@ -26,7 +25,7 @@ steps:
       - atorvastatin
       claims_include:
       - type: conflict
-        text: atorvastatin
+        kind: note_vs_list
         tables_all:
         - form_clinical_notes
         - lists
