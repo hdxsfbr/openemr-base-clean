@@ -411,6 +411,43 @@ through 2026-09-17.
     outbound transfer per Droplet than the per-GB charges the other three
     apply past a small free tier. Same status as the DigitalOcean figures
     above: not implemented, not load-tested, no ADR.
+  - **Clinic-size back-of-envelope, modeled, not measured.** Translates the
+    FPM ceiling above into "how big a clinic" using Little's Law
+    (`L = λ × W`) plus a peak/busy-hour concentration factor — the same
+    reasoning Q10 already applies to the agent (appointments compress into
+    slot-aligned bursts), applied here to raw OpenEMR page requests. Three
+    different numbers answer three different questions: concurrent logged-in
+    staff (free), concurrent in-flight requests (capped by the FPM pool —
+    what fails today), and sustained throughput (capped by CPU — what
+    actually limits clinic size once the pool isn't the wall).
+    - **Today, unfixed.** A ~5-worker pool caps simultaneity at 5 in-flight
+      requests outright. Appointment-slot alignment clusters staff clicks
+      (check-in, rooming, chart-open) into the same few seconds, so it takes
+      very few logged-in staff before a burst exceeds 5. Estimated safe zone:
+      **roughly a 1-2 provider practice** — consistent with the
+      operator-observed failure between 5 and 10 concurrent users.
+    - **Same box, FPM tuned, no other change.** Assumptions: ~0.25 s blended
+      request time (between the audit's measured 127 ms and 360 ms pages,
+      `docs/audit/performance.md:230-234`); 2 vCPU derated ~50% for
+      MariaDB/Caddy/agent/alerts sharing the box → ~4 req/s realistic
+      ceiling; 70% utilization target (queueing-theory rule of thumb before
+      p95 latency climbs) → **~2.8 req/s working budget**; 25-50 requests
+      per patient encounter across all staff touching the chart; 2-3 visits
+      per provider per hour; a 3x-5x peak concentration factor. Result:
+      **roughly a 15-to-65-provider clinic**, using
+      `providers = 2.8 ÷ (req/encounter × visits/hr × peak-factor ÷ 3600)`
+      at each end of the assumption range. The gap between this and "breaks
+      at 10" is one unset config default, not the hardware.
+    - **Caveat, same as everywhere else in this section.** The two biggest
+      inputs (requests per encounter, peak concentration factor) are
+      assumptions, not observations. The rigorous fix is a load test with
+      realistic think-time and slot-aligned burst timing against the OpenEMR
+      web tier itself — the same idea as `evals/load/run_load.py`, which
+      exists for the agent side (Q10) but has no web-tier equivalent yet.
+      Scaling this to the horizontal design (≈3x CPU budget at the
+      "Balanced" tier) would roughly 3x the provider range too, but that
+      compounds this section's assumptions on top of its own and is not
+      separately modeled here.
 
 ### 3. Reliability requirements
 
