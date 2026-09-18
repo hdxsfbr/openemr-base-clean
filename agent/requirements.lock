@@ -4,7 +4,8 @@
 #     | grep -v '^agentforge-copilot-agent' > agent/requirements.lock
 # Container Python: 3.12.14 (python:3.12-slim). Regenerate from the container after any
 # dependency change; the Dockerfile and .gitlab-ci.yml install this file first, then the
-# package with --no-deps, so a rebuild cannot drift.
+# package with --no-deps, so no runtime dependency can drift on a rebuild (the setuptools build
+# backend is not listed here; pip freeze omits it and it is fetched at image build time).
 aiosqlite==0.22.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
