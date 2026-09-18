@@ -23,6 +23,14 @@ STOP gate and wait for me.
 The orchestrator should track every task with TaskCreate/TaskUpdate so
 progress is visible outside the run.
 
+**Working branch: `week1-final-push`.** All of M1 through M5 happens on
+this branch, not on `main`. It reaches `main` through one GitLab merge
+request at M5, before the tag and before the form is submitted. Check with
+`git branch --show-current` at the start of every session and switch if it
+says anything else; never commit this work to `main` directly. The branch
+name deliberately differs from the `week1-final` tag created at M5, because
+a branch and a tag sharing a name make every ref lookup ambiguous.
+
 ---
 
 ## 1. Hard invariants (never violate, no exceptions)
@@ -591,9 +599,28 @@ then the snapshot, then the load runs, then the egress decision by noon.
    append "unchanged as of 2026-09-20". Trim the `AUDIT.md` executive
    summary from 635 words toward 550 by moving status sentences into
    section 7, removing no finding.
-7. **Tag and push (owner).**
-   `git tag -a week1-final -m "Week 1 final submission; deployed tree = <frozen-sha>"`,
-   run the secret scan, `git push gitlab main --tags && git push origin main --tags`.
+7. **Merge to `main`, then tag and push (owner).** In this order, because
+   the submission form names GitLab `main` and the checklist calls it the
+   system of record:
+   1. Run the secret scan from checklist :95-98 while still on the branch.
+   2. `git push gitlab week1-final-push && git push origin week1-final-push`.
+      Push the branch as early as Friday, not at the freeze, so its pipeline
+      is green well before Sunday. **If the manual `test:evals-live` job
+      fails immediately with an empty `DEMO_PASSWORD`, that variable is
+      marked protected in GitLab and is exposed only to protected branches.
+      Either mark `week1-final-push` protected or unprotect the variable;
+      do not paste the password into the job.**
+   3. Open the merge request to `main` on
+      `labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean`,
+      title it "Week 1 final submission", and merge it yourself. The web UI
+      needs no token; the API route needs the renewed api-scope PAT.
+   4. `git checkout main && git pull` so local `main` carries the merge.
+   5. `git tag -a week1-final -m "Week 1 final submission; deployed tree = <frozen-sha>, differs only in docs and results"`
+      on `main`, then `git push gitlab main --tags && git push origin main --tags`.
+   6. Confirm with `git ls-remote --heads --tags gitlab` and the same for
+      `origin` that both carry the identical `main` and `week1-final`.
+   Do not submit the form until step 6 is clean; a reviewer opening `main`
+   must see the final work, not `e1dd331`.
 
 ### Owner-only, not delegable
 
@@ -604,7 +631,7 @@ then the snapshot, then the load runs, then the egress decision by noon.
 | Thu or Fri | Review the 20-trace error-analysis journal by hand (`evals/review_ui.py`); finding the issue is explicitly not delegable |
 | Sat evening | Record the final demo video, 3 to 5 minutes, after the release run |
 | Sat night or Sun 06:00 PT | Publish the social post with the 20 to 30 s clip |
-| Sun 06:30 PT | Rerun the checklist: `--golden-only`, the phone check, both remotes at the same commit and tag |
+| Sun 06:30 PT | Rerun the checklist: `--golden-only`, the phone check, and `git ls-remote --heads --tags` on both remotes showing the merge request landed and `main` carries the `week1-final` tag |
 | Sun 08:00 PT | Submit the form: live URL, repo URL, video, social post, `audit-physician` plus password |
 | Sun afternoon | Final AI video interview within 24 hours of submitting |
 
