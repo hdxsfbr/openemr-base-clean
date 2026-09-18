@@ -405,7 +405,7 @@ about $0.05) produces a valid results JSON; the sampler writes a CSV.
 
 **Acceptance:**
 ```bash
-cd infra/digitalocean/runtime && docker compose config --quiet
+cd infra/digitalocean/runtime && PUBLIC_HOSTNAME=x TLS_EMAIL=y docker compose --env-file /dev/null config --quiet   # the verbatim `config --quiet` exits 1: compose.yaml requires PUBLIC_HOSTNAME/TLS_EMAIL and the runtime .env is gitignored
 bash -n start.sh && bash -n ../backup.sh && bash -n ../restore.sh
 ```
 
@@ -458,7 +458,7 @@ and report any delta that conflicts with another or with the code.
 ```bash
 cd agent && .venv/bin/python -m pytest -q && .venv/bin/python -m app.contracts.export --check
 cd .. && agent/.venv/bin/python evals/run.py --offline-only
-cd infra/digitalocean/runtime && docker compose config --quiet
+cd infra/digitalocean/runtime && PUBLIC_HOSTNAME=x TLS_EMAIL=y docker compose --env-file /dev/null config --quiet   # the verbatim `config --quiet` exits 1: compose.yaml requires PUBLIC_HOSTNAME/TLS_EMAIL and the runtime .env is gitignored
 cd ../../.. && git status --short && git diff --stat
 ls docs/_pending/ 2>/dev/null   # must be empty or absent
 ```
