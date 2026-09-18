@@ -1,8 +1,17 @@
 name: agentforge-openemr
 
+# Container logs were unbounded on a host up since 2026-09-15; every service
+# below aliases this so the Docker daemon rotates them (30 MiB per container).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   database:
     image: mariadb:11.8.8@sha256:24e76fcec8c003a0362d0dd53f4806e7e79458d7fdeaf47437760e19496f5a9c
+    logging: *default-logging
     restart: unless-stopped
     command:
       - mariadbd
@@ -34,6 +43,7 @@ services:
   openemr:
     # Project image: pinned upstream release plus the co-pilot module (built on the host by start.sh).
     image: agentforge/openemr:local
+    logging: *default-logging
     build:
       context: ./build/openemr
       dockerfile: Dockerfile
@@ -85,6 +95,7 @@ services:
   # Runs after OpenEMR is healthy: docker compose --profile setup run --rm copilot-setup
   copilot-setup:
     image: agentforge/openemr:local
+    logging: *default-logging
     profiles:
       - setup
     entrypoint:
@@ -105,6 +116,7 @@ services:
   # docker compose --profile demo run --rm demo-seed
   demo-seed:
     image: agentforge/openemr:local
+    logging: *default-logging
     profiles:
       - demo
     entrypoint:
@@ -129,6 +141,7 @@ services:
   # database; the model key and delegation secret are file secrets here.
   agent:
     image: agentforge/copilot-agent:local
+    logging: *default-logging
     build:
       context: ./build/agent
       dockerfile: Dockerfile
@@ -167,8 +180,41 @@ services:
       timeout: 5s
       retries: 3
 
+  # PRD runtime alerts (docs/operations/alerts.md): the evaluator loops every
+  # 300 s over the agent's /metrics and /ready, keeping the previous sample on
+  # the agent state volume for rate math. Same image as the agent (no build
+  # key: `docker compose build agent` in start.sh produces it). The inherited
+  # Dockerfile HEALTHCHECK probes :8080, which this process never serves, so
+  # it is disabled here; otherwise `up --wait` in start.sh would stall.
+  alerts:
+    image: agentforge/copilot-agent:local
+    logging: *default-logging
+    restart: unless-stopped
+    command:
+      - python
+      - -m
+      - app.alerts
+      - --url
+      - http://agent:8080/metrics
+      - --ready-url
+      - http://agent:8080/ready
+      - --state
+      - /var/lib/copilot/alerts-state.json
+      - --interval
+      - "300"
+    volumes:
+      - agent_state:/var/lib/copilot
+    networks:
+      - frontend
+    depends_on:
+      agent:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
   caddy:
     image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    logging: *default-logging
     restart: unless-stopped
     environment:
       PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME in .env}
