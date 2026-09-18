@@ -187,6 +187,36 @@ self-hosted (ADR-0007's real-deployment path) above that with rough hosting
 figures. Sampling traces at 10 percent would cut these lines by about 90
 percent.
 
+### What breaks first, by tier
+
+The node counts above size the agent service (1 node per ~100 concurrent
+turns) and assume matching OpenEMR nodes at the same count. The M4 load test
+(2026-09-18, `docs/audit/evidence/performance/{load-test,baseline}-2026-09-18.md`)
+found that assumption backwards: at 10 and 50 concurrent turns against a
+single `s-2vcpu-4gb` Droplet, the agent's own CPU never exceeded 54% peak /
+12% mean — nowhere near saturated — while OpenEMR's Apache/PHP and MariaDB
+each independently saturated a full vCPU core, and turn p95 was already
+45.0 s (past the 30 s budget) at just 10 concurrent turns. Every tool call is
+an HTTP request from the agent back into the same OpenEMR/Apache process pool
+that serves the browser UI (`agent/app/gateway_client.py:44`,
+`tools.php:21`), so OpenEMR/MariaDB CPU is the real ceiling, not the agent,
+and it is reached at roughly a tenth of the concurrency the current node
+counts assume.
+
+| Tier | Assumed peak concurrency | What breaks first | Change | Cost effect |
+| --- | ---: | --- | --- | --- |
+| 100 users | ~2.4 | Nothing measured — comfortably under the ~10-concurrent-turn range where the single co-located Droplet was already marginal in testing | None | No change to the $24/mo line |
+| 1,000 users | ~24 | OpenEMR/MariaDB CPU on the Droplet, not the agent (1 agent node would be genuinely sufficient; 1 matching OpenEMR node, as currently assumed, would not) | Split OpenEMR+MariaDB onto Droplet(s) sized to OpenEMR's measured ceiling, decoupled from the agent's node count | The $96/mo figure assumes 1:1 agent:OpenEMR nodes; keeping OpenEMR under its measured ceiling at ~24 concurrent likely needs multiple OpenEMR-side nodes even with only 1 agent node — this tier's infra cost is understated in the table above |
+| 10,000 users | ~240 | Same OpenEMR/MariaDB CPU wall, at a scale where the load balancer and managed database already flagged "not priced" become load-bearing, not optional | Managed database with real horizontal read scaling, load balancer across many OpenEMR nodes sized to the measured per-node ceiling rather than the agent's | The $288/mo figure is an order-of-magnitude understatement once OpenEMR is sized to its measured ceiling instead of the agent's; not repriced here pending a capacity curve past 50 concurrent |
+| 100,000 users | ~2,360 | Same, at the scale the doc already scopes out | Multi-site OpenEMR architecture (existing scope boundary, unchanged) | Not estimated, consistent with the text above |
+
+None of this changes the qualitative conclusion below (model cost dominates
+by a wide enough margin that even a 5-10x infra correction at the 1K-10K
+tiers stays a small fraction of the model line) — but the specific
+per-tier infrastructure dollar figures above 100 users should be read as
+directionally low, not firm quotes, until a load test runs past 50
+concurrent turns.
+
 ### Sensitivity
 
 - Follow-ups per visit double (3 turns per visit): 1,320 turns per user per
@@ -194,9 +224,13 @@ percent.
   100 users, $2.94M at 100K).
 - Prompt caching off: $0.0288 per turn, $25.37 per user per month, and the
   model line rises 29 percent ($2,537 at 100 users, $2.54M at 100K).
-- Model cost scales linearly with users; infrastructure and observability
-  stay under 1 percent of the total at every tier, so the model line is the
-  only one worth optimizing.
+- Model cost scales linearly with users until the tier levers above apply
+  (OpenEMR/MariaDB CPU forcing a node split once concurrency crosses the
+  measured ~10-concurrent-turn ceiling per Droplet) — infrastructure and
+  observability still stay a small fraction of the total at every tier even
+  after that correction, so the model line remains the primary one worth
+  optimizing, but "scales linearly" understates how the infrastructure line
+  actually moves once the OpenEMR ceiling is crossed.
 
 ### Cheapest levers in the code today
 

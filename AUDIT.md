@@ -886,9 +886,19 @@ None of these shows up on a three-patient, one-visit dataset.
   use of the Droplet's bandwidth. Blast radius is bounded by synthetic data
   and rotatable keys.
   Closing it means `DOCKER-USER` rules proven on the rehearsal Droplet first,
-  never built first on the graded host. Decision: `<M4 step 6: either
-  "Accepted for Week 1 on 2026-09-19 by the owner." or "Closed on 2026-09-19:
-  DOCKER-USER rules proven on the rehearsal Droplet, then applied.">`
+  never built first on the graded host. **Decision: Accepted for Week 1 on
+  2026-09-18 by the owner.** The M4 disaster-recovery rehearsal that day
+  (`docs/deployment/digitalocean.md`'s Rehearsal Runbook) did not attempt
+  `DOCKER-USER` rules, so the "proven on the rehearsal Droplet" path was not
+  available; a hostname/IP-allowlist approach also carries its own ongoing
+  risk (Anthropic and Langfuse sit behind anycast CDN IPs that can shift,
+  so a naive `DOCKER-USER` IP allowlist can silently start dropping
+  legitimate traffic later without any code change — an SNI-filtering
+  forward proxy avoids that failure mode but adds a new single point of
+  failure of its own, and needs the same throwaway-Droplet proof-out before
+  it touches the live host). Deferred to Week 2, tracked in
+  `docs/WEEK2_HANDOFF.md`, rather than building and testing an egress
+  restriction under grading-week time pressure.
 - **Before any real patient use:**
   - Executed BAAs (LLM, tracing, hosting).
   - An external append-only audit sink with a least-privilege writer.

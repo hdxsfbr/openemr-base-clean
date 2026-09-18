@@ -243,8 +243,11 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 - **No SMART on FHIR.** Integration is bespoke to OpenEMR (ADR-0003); the
   authorization adapter is shaped so a SMART token could feed it later.
 - **Deployment.** A single Droplet on a disposable `sslip.io` hostname; one
-  failure domain; no backups; egress from the agent is not yet restricted to
-  the model and tracer endpoints.
+  failure domain; no scheduled backups (a one-off DO snapshot exists from
+  2026-09-18, and `backup.sh`/`restore.sh` are proven end-to-end via the M4
+  rehearsal, but nothing runs on a recurring schedule); egress from the
+  agent is not restricted to the model and tracer endpoints (risk accepted
+  for Week 1, `AUDIT.md` §9).
 - From `ARCHITECTURE.md`, "Known Limitations": notes cover the Clinical Notes
   encounter form only (`ClinicalNotesTool` reads `ClinicalNotesService`; no
   SOAP or other encounter form is retrieved); codes and titles are used as written, no terminology
@@ -265,6 +268,8 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 | UC-01 turn, follow-up with tool chaining, Langfuse traces | Verified live |
 | Eval cases and results (`evals/cases/`, `evals/results/`) | 46 cases (14 golden, 4 holdout; `ISO-FRESH-REPEAT-001` added 2026-09-17, not yet run); eleven reports in `evals/results/`. Latest full run `evals/results/2026-09-17T024919Z-a4a5856.md` (2026-09-17): 45 ran, 44 passed, every blocking gate PASS, Golden set integrity 14/14 for the first time, citations 177/177, model-backed p95 24.1 s, $0.0127 per model-backed turn. The one miss, `CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking task-success gate, which still reported PASS at 95%. Two recall checks flip run to run: `MISS-AUTHOR-J-001` (missed at `1ddf824` and `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (missed at `a4a5856`). History: 44/44 at `a7641e9` and 114/116 over a same-commit `--repeat 3` at `1ddf824` (citations 528/528) |
 | GitLab CI | Green on the dedicated runner (lints, agent tests, offline evals); manual `test:evals-live` job ran 44/44 against the deployment (`docs/SUBMISSION_CHECKLIST.md`) |
-| Load tests at 10 and 50 concurrent users | Pending (target 2026-09-19) |
-| Cost measurements and scale projections (`AI_COST_ANALYSIS.md`) | Measured per-turn cost and projections written; per-turn release threshold still to be set |
-| Owned hostname, backup and rollback rehearsal, agent egress restriction | Pending |
+| Load tests at 10 and 50 concurrent users | **Done 2026-09-18.** Both levels contradict the 30 s p95 threshold (45.0 s at 10 users); a `--fault model` control isolated the cause to OpenEMR/MariaDB CPU, not the agent (`docs/audit/evidence/performance/load-test-2026-09-18.md`) |
+| Cost measurements and scale projections (`AI_COST_ANALYSIS.md`) | Measured per-turn cost and projections written; per-tier scaling levers now grounded in the load test above |
+| Backup and rollback rehearsal | **Done 2026-09-18.** Full clean-deploy/rollback/roll-forward/restore/destroy cycle against a throwaway Droplet, all 7 timed steps passed (`docs/deployment/digitalocean.md` Rehearsal Runbook) |
+| Agent egress restriction | **Decided, not built.** Accepted the residual risk for Week 1 (2026-09-18); deferred to Week 2 (`AUDIT.md` §9, `docs/WEEK2_HANDOFF.md`) |
+| Owned hostname | Pending |

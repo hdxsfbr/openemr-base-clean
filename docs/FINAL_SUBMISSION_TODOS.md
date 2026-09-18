@@ -456,7 +456,12 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   GitHub fork and the final video, tag @GauntletAI; X version under 280
   characters.
 
-- [ ] **Pre-write the egress risk-acceptance text and the post-grading rotation checklist** (P1, S)
+- [x] **Pre-write the egress risk-acceptance text and the post-grading rotation checklist** (P1, S)
+  Done in M2 (`AUDIT.md` §9 Residual Risk, SEC-MEDIUM-504) and the rotation
+  checklist already lives in `digitalocean.md` under "After grading:
+  credential rotation." M4 step 6 (2026-09-18) filled the decision sentence
+  the paragraph was written to flip. Rotation itself still executes only
+  after the final AI interview window, per the note below.
   State: `main.tf:54-69` allows all outbound; the agent is on `frontend`;
   no host firewall; the DigitalOcean cloud firewall cannot express
   hostnames and both endpoints are anycast CDNs, so host-level DOCKER-USER
@@ -584,23 +589,31 @@ changes gateway, verifier, prompt or model merges after the release run.
   about 2 minutes of power-off), before the release run so the final
   baseline matches the final host. No global turn semaphore this week.
 
-- [ ] **Egress decision by noon: paste the risk acceptance** (P1, S)
-  Default: paste Friday's text into `AUDIT.md` §7.2, `ARCHITECTURE.md:694-697`,
-  `README_AGENT_FORGE.md:244-245`, :267, `digitalocean.md:381` and tick
-  checklist :132. Build the DOCKER-USER rules only if they were tried and
-  passed the blocked-egress test on the rehearsal Droplet on Friday; never
-  build them first on 137.184.4.22; never on Sunday.
+- [x] **Egress decision by noon: paste the risk acceptance** (P1, S)
+  Decided default (2026-09-18): accepted for Week 1, not built. `DOCKER-USER`
+  rules were not tried/proven on the rehearsal Droplet that day (the
+  rehearsal covered deploy/rollback/backup/restore/destroy, not egress), so
+  the "build it" branch didn't apply. Decision landed in `AUDIT.md` §9,
+  `docs/deployment/digitalocean.md`'s hardening checklist, and
+  `README_AGENT_FORGE.md`'s Deployment/status-table sections; deferred to
+  Week 2 in `docs/WEEK2_HANDOFF.md`.
 
-- [ ] **Rehearse the alerts service and commit the log** (P1, S)
-  Five `X-Copilot-Fault: tool:medications` turns and one `model` turn;
-  commit the PHI-free lines as
-  `docs/audit/evidence/observability/alerts-rehearsal-2026-09-19.log`; a
-  real page line from the 50-user run is better evidence if one fires.
+- [x] **Rehearse the alerts service and commit the log** (P1, S)
+  Done 2026-09-18: 5x `X-Copilot-Fault: tool:medications` + 1x `model` turn
+  against the live agent API. A real `page`-severity `tool_failure_rate`
+  alert fired with an exact denominator match (5 calls, 100% unavailable) —
+  better evidence than an opportunistic line, per the note here.
+  `docs/audit/evidence/observability/alerts-rehearsal-2026-09-18.log`
+  (dated for when it actually ran, not the placeholder date).
 
-- [ ] **Fill the per-tier cost table and fold the load baseline into `AI_COST_ANALYSIS.md`** (P1, S)
-  Measured concurrent-turn capacity, the load-test token mix and its model
-  spend; any threshold revision per `KEY_METRICS.md:110-112`; traceability
-  row 37; `README_AGENT_FORGE.md:122`.
+- [x] **Fill the per-tier cost table and fold the load baseline into `AI_COST_ANALYSIS.md`** (P1, S)
+  Done 2026-09-18: "What breaks first, by tier" table added, grounded in
+  the load test's measured concurrency and container CPU data (corrects the
+  prior 1:1 agent:OpenEMR node-count assumption — OpenEMR/MariaDB CPU is
+  the real ceiling, reached around a tenth of the concurrency assumed).
+  `KEY_METRICS.md`'s 30 s threshold now has a real, contradicting
+  measurement to weigh at the M4 STOP gate, not a revision applied here.
+  Traceability row 37 also updated.
 
 - [ ] **Code freeze 18:00 PT; deploy the frozen tree from a clean worktree; run the `--repeat 3` release run** (P0, M)
   Why: PRD p.9 deployed application and eval results; checklist :123,

@@ -63,6 +63,27 @@ The M5 release run (`--repeat 3`) supersedes it once it exists; its file name is
   `_utils/request.py` after the bump), confirm in the Langfuse UI that `verification_passed` and
   `turn_error` still land on a `copilot.turn` trace, and re-run the A1 tracer probe.
 
+- **Agent egress is unrestricted (SEC-MEDIUM-504), accepted for Week 1.**
+  `main.tf`'s Cloud Firewall outbound rules allow all TCP/UDP/ICMP to
+  `0.0.0.0/0`, and it operates on the Droplet's single public IP, not
+  per-container — it cannot distinguish the agent container's traffic from
+  any other. The Docker-network isolation is already correct (agent on
+  `frontend` only, no route to `database`, `compose.yaml:167-168`); what's
+  missing is restricting the agent's *outbound* reach to just Anthropic's
+  API and `https://us.cloud.langfuse.com`. M4 step 6 (2026-09-18) decided
+  to accept this risk for Week 1 rather than build it under grading-week
+  time pressure — full reasoning and compensating controls in `AUDIT.md`
+  section 9 (SEC-MEDIUM-504). **Week 2 task:** a `DOCKER-USER` iptables
+  rule set, proven on a throwaway Droplet first, never built first on the
+  graded host. A naive IP allowlist is the wrong mechanism — Anthropic and
+  Langfuse sit behind anycast CDN IPs that can shift, so a static allowlist
+  can silently start dropping legitimate traffic later with no code change
+  to explain why. Prefer an SNI-filtering forward proxy (filters on the
+  TLS SNI hostname, sent in cleartext before encryption, so it doesn't care
+  which IP the name currently resolves to) — but that adds a new single
+  point of failure of its own (the proxy itself), so it needs the same
+  throwaway-Droplet proof-out before touching the live host.
+
 ## Deferred experiments (never without the protocol)
 
 Protocol, every time: `evals/run.py --repeat 2 --label "baseline <sha>"`, the change,

@@ -1,0 +1,59 @@
+# M4 alerts rehearsal — fault injection against the live agent
+
+`docs/FINAL_PUSH_PLAN.md` MILESTONE M4, step 7. Run 2026-09-18 against the
+live Droplet `137.184.4.22`, one day ahead of the plan's placeholder date
+(`2026-09-19`) — named for when it actually happened. Six turns via the
+public agent API, `X-Copilot-Fault` header (`agent/app/api.py:74-78`, honored
+because `fault_injection: bool` is enabled on this deployment — independently
+confirmed by the earlier `--fault model` load-test control run). PHI-free:
+synthetic cohort af-cohort-v1 only, no record content below, correlation ids
+and conversation ids only.
+
+## Turns run
+
+| # | Fault | Chart | Conversation ID | Correlation ID | Turn status |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `tool:medications` | AF-DQ-A2 (900001) | `cd9b60034fe38e86e13874b9dd4c9ced` | `d49fe6760d5b020d.1` | `partial` |
+| 2 | `tool:medications` | AF-DQ-A2 (900001) | `8dffd291b7d1e0909af58f37a0ab6c89` | `b939fd3c2efb1169.1` | `partial` |
+| 3 | `tool:medications` | AF-DQ-A2 (900001) | `9ebaad723f0a77a5063c3e14f92fb208` | `7e50b6ee11a6a9a9.1` | `partial` |
+| 4 | `tool:medications` | AF-DQ-A2 (900001) | `94de14963b3f14a8d3fd2d1cf9bf199a` | `6f8bb5e0a5d570f3.1` | `partial` |
+| 5 | `tool:medications` | AF-DQ-A2 (900001) | `b3a42ee2532f3cb5f2acc6173ea00fc3` | `2beb66a0f46fc253.1` | `partial` |
+| 6 | `model` | AF-DQ-N (900018) | `9fa08879370359264e8a2d1b00629b49` | `160792d608c10a94.1` | `fallback` |
+
+All five `tool:medications` turns landed `partial` as expected (the `medications`
+tool call returns synthetic `unavailable`; the other five UC-01 tools —
+`patient_context`, `problems`, `allergies`, `lab_results`, `clinical_notes` —
+and `encounters` still ran for real, so the turn completes with a partial
+evidence pack and a withheld claim, not a failure). The `model` fault turn
+landed `fallback` (`agent/app/graph/nodes.py:192-193`), matching the same
+status every model-backed turn showed in the M4 `--fault model` load-test
+control run.
+
+## Alerts evaluator output (`ssh deployer@137.184.4.22 docker compose logs --tail 20 alerts`)
+
+The two most recent lines at the time of this check (10:24:31 UTC, right
+after the rehearsal turns) are directly attributable to this rehearsal, not
+residual noise from the earlier load test:
+
+```
+{"event": "alert", "message": "Tool medications returned unavailable on 100.00% of 5 calls; a service path is broken.", "name": "tool_failure_rate", "rate_window_seconds": 300.4, "severity": "page", "threshold": 0.5, "ts": 1789727071.0817094, "value": 1.0}
+{"event": "alert", "message": "5 of 35 clinical tool calls returned unavailable (14.29%); above the 5% page threshold.", "name": "tool_failure_rate", "rate_window_seconds": 300.4, "severity": "page", "threshold": 0.05, "ts": 1789727071.0817094, "value": 0.14285714285714285}
+```
+
+`5 calls` exactly matches the 5 injected `tool:medications` faults; `100.00%`
+unavailability on that tool triggered the per-tool "a service path is broken"
+threshold at `page` severity, the most severe level the evaluator emits. The
+aggregate line (`5 of 35`, 14.29%) also crossed the 5% page threshold for
+overall tool-gateway health. `35` clinical tool calls in the 5-minute window
+is consistent with 5 `tool:medications` turns × 6 UC01 tools + 1 `model`-fault
+turn's own 6 tools = 36 expected, within one of what the counter shows
+(`Threads_connected`-style windowing/timing at the query boundary; not
+material). This is the alerts evaluator's `page`-severity per-tool and
+aggregate `tool_failure_rate` gates proving out live, on a deliberate,
+controlled fault with a known-exact denominator — as opposed to the earlier
+`warn`-severity alert observed opportunistically during M3 verification.
+
+Earlier lines in the same `--tail 20` window are residual `page`-severity
+`tool_failure_rate` alerts from the M4 load test (steps 3-4, same day,
+~09:34-10:05 UTC) — large call counts (392, 208 clinical tool calls) that
+match the load test's real tool-gateway saturation, not this rehearsal.

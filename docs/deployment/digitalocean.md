@@ -736,9 +736,14 @@ the co-pilot; it does not repair OpenEMR.
   non-zero on a failed check. It is run explicitly after `start.sh`, not
   inside it, so a seeding failure never blocks the application start.
 - [x] **Agent container** on the `frontend` network only with file secrets.
-  [ ] Egress restriction to the model and tracer endpoints is not in place;
-  the risk acceptance with its compensating controls is `AUDIT.md` section 9
-  Residual Risk (SEC-MEDIUM-504), decided at plan M4 step 6.
+  [x] Egress restriction to the model and tracer endpoints is still not in
+  place — the M4 step 6 decision (2026-09-18) is to accept the risk for
+  Week 1 rather than build it, since `DOCKER-USER` rules were not proven on
+  a rehearsal Droplet first (M4's rehearsal that day covered deploy/rollback/
+  backup/restore/destroy, not egress) and a naive IP allowlist carries its
+  own ongoing risk against Anthropic/Langfuse's anycast CDN IPs. Full risk
+  acceptance and compensating controls: `AUDIT.md` section 9 Residual Risk
+  (SEC-MEDIUM-504). Deferred to Week 2: `docs/WEEK2_HANDOFF.md`.
 - [x] **REST/FHIR** stay disabled and are unrouted at the edge (`/apis/*`,
   `/oauth2/*` 404).
 - [x] **Readiness** from the agent's `/ready`; OpenEMR `readyz` is unrouted.
