@@ -42,12 +42,22 @@ async def lifespan(app: FastAPI):
     guard_environment()
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-    async with AsyncSqliteSaver.from_conn_string(checkpoint_path()) as saver:
-        runtime = Runtime(gateway=HttpGateway(), model=live_model())
-        app.state.runtime = runtime
-        app.state.graph = build_graph(runtime, checkpointer=saver)
-        log.info("agent ready", extra={"component": "startup"})
-        yield
+    gateway = HttpGateway()
+    try:
+        async with AsyncSqliteSaver.from_conn_string(checkpoint_path()) as saver:
+            # Every checkpoint read/write serializes on the saver's own
+            # asyncio.Lock (langgraph.checkpoint.sqlite.aio), including the
+            # commit -- WAL + NORMAL synchronous shrinks what that commit
+            # costs while the lock is held, instead of a full fsync per step.
+            await saver.conn.execute("PRAGMA journal_mode=WAL")
+            await saver.conn.execute("PRAGMA synchronous=NORMAL")
+            runtime = Runtime(gateway=gateway, model=live_model())
+            app.state.runtime = runtime
+            app.state.graph = build_graph(runtime, checkpointer=saver)
+            log.info("agent ready", extra={"component": "startup"})
+            yield
+    finally:
+        await gateway.aclose()
 
 
 app = FastAPI(title="AgentForge Clinical Co-Pilot Agent", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan)

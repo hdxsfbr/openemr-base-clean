@@ -37,13 +37,19 @@ class HttpGateway:
     def __init__(self, base_url: str | None = None, timeout: float | None = None) -> None:
         self.base_url = (base_url or settings.gateway_base_url).rstrip("/")
         self.timeout = timeout or settings.gateway_timeout_seconds
+        # Shared, pooled client: a fresh AsyncClient per call paid a new TCP/TLS
+        # handshake on every one of the ~6 parallel tool calls a turn makes, on
+        # both ends of the connection (this process and OpenEMR's Apache).
+        self._client = httpx.AsyncClient(timeout=self.timeout)
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
     async def call(self, tool: str, params: dict, token: str, correlation_id: str) -> ToolResponse:
         started = time.perf_counter()
         headers = {"X-Copilot-Token": token, "X-Correlation-Id": correlation_id, "Accept": "application/json"}
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(f"{self.base_url}/tools.php", params={"tool": tool}, json=params, headers=headers)
+            response = await self._client.post(f"{self.base_url}/tools.php", params={"tool": tool}, json=params, headers=headers)
         except httpx.TimeoutException:
             return unavailable(tool, "timeout", correlation_id, (time.perf_counter() - started) * 1000)
         except httpx.HTTPError:
