@@ -15,7 +15,6 @@ import json
 import logging
 import os
 import re
-import sys
 from contextlib import contextmanager
 from typing import Any, Iterator
 
@@ -126,16 +125,34 @@ def prompt_version(*parts: str) -> str:
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()[:12]
 
 
+def _callback_handler() -> Any:
+    """The Langfuse LangChain handler. The SDK's mask covers input, output, and
+    metadata only; an error's text goes out as the span's `status_message`, and
+    a gateway or contract error can quote record text. In masked mode the
+    message is therefore reduced to the exception class. The override is of a
+    private SDK method: if it moves, the base class still masks payloads and
+    the contract test in `test_telemetry.py` fails."""
+    from langfuse.langchain import CallbackHandler
+
+    if settings.trace_content:
+        return CallbackHandler()
+
+    class _ClassNameOnErrors(CallbackHandler):  # type: ignore[misc, valid-type]
+        def _get_error_level_and_status_message(self, error: BaseException) -> tuple[Any, str]:
+            level, _ = super()._get_error_level_and_status_message(error)
+            return level, type(error).__name__
+
+    return _ClassNameOnErrors()
+
+
 def trace_config(correlation_id: str, conversation_id: str, turn_type: str) -> dict[str, Any]:
     """LangChain run config additions that attach the Langfuse handler and the
     PHI-free trace attributes. Empty when the tracer is not configured or fails."""
     try:
         if not _ensure_client():
             return {}
-        from langfuse.langchain import CallbackHandler
-
         return {
-            "callbacks": [CallbackHandler()],
+            "callbacks": [_callback_handler()],
             "run_name": "copilot.turn",
             "metadata": {
                 "correlation_id": correlation_id,
@@ -171,6 +188,24 @@ def _close(cm: Any, exc_type: Any, exc: Any, tb: Any) -> None:
         pass
 
 
+def _close_on_error(cm: Any, obs: Any, exc: BaseException) -> None:
+    """Close an observation whose body raised. With content on, the span is
+    closed with the exception so the trace shows it in full. In masked mode it
+    is closed clean and marked with the exception class only: OpenTelemetry
+    would otherwise export the message and stack (status description and the
+    `exception` event), which the SDK's mask never sees and which can quote
+    record text."""
+    if settings.trace_content:
+        _close(cm, type(exc), exc, exc.__traceback__)
+        return
+    if obs is not None and isinstance(exc, Exception):  # cancellation and generator exit are not errors
+        try:
+            obs.update(level="ERROR", status_message=exc.__class__.__name__)
+        except Exception:  # noqa: BLE001 - telemetry never blocks care
+            pass
+    _close(cm, None, None, None)
+
+
 @contextmanager
 def _observation(as_type: str, name: str, label: str, correlation_id: str | None, **kwargs: Any) -> Iterator[Any]:
     """Open one Langfuse observation as the current context and yield it, or
@@ -195,8 +230,8 @@ def _observation(as_type: str, name: str, label: str, correlation_id: str | None
         return
     try:
         yield obs
-    except BaseException:
-        _close(cm, *sys.exc_info())
+    except BaseException as exc:
+        _close_on_error(cm, obs, exc)
         raise
     _close(cm, None, None, None)
 
@@ -227,8 +262,8 @@ def _trace_attributes(correlation_id: str, conversation_id: str) -> Iterator[Non
         return
     try:
         yield
-    except BaseException:
-        _close(cm, *sys.exc_info())
+    except BaseException as exc:
+        _close_on_error(cm, None, exc)
         raise
     _close(cm, None, None, None)
 

@@ -151,6 +151,60 @@ cohort saw tracer rate limits stall requests.
   eval blocks the exporter endpoint during a live turn, so the Verification
   item below is still open.
 
+### Amendment (2026-09-19): content capture mode
+
+Revisit trigger 3 fired: error analysis of the 2026-09-18 sessions found 19 of
+79 turns had the model's narrative replaced by the count-only summary, and
+neither the rejected text nor the reason was visible anywhere an operator
+could read it without shell access to the Droplet. Digest-only traces cannot
+feed error analysis or eval data.
+
+- **Decision.** A setting `COPILOT_TRACE_CONTENT` (`settings.trace_content`)
+  selects between two modes. Off, the code default, is decision 2 as written:
+  the mask is installed and no prompt, response, or record text leaves the
+  process. On, the mask is not installed and each `plan`, `narrate`, and
+  `repair` generation carries its system prompt, messages (evidence pack and
+  question), and raw model output; the turn span and the trace carry the
+  question, the rendered answer, the model's own summary, accepted and
+  rejected claims, and the summary-replacement reason.
+- **Assumption, stated as one.** Content mode is permitted only where the
+  tracer is inside the compliance boundary: self-hosted next to OpenEMR, or a
+  BAA-covered region (Langfuse offers one at `hipaa.cloud.langfuse.com`, Pro
+  plan, signed BAA). For this challenge the hosted project in use is assumed
+  to meet that bar, in the same way the LLM provider's BAA is assumed
+  (`docs/audit/compliance.md`, "Important disclaimers"); the deployment holds synthetic patients
+  only, so no PHI reaches the tracer either way. Moving to a covered tracer is
+  configuration (`COPILOT_LANGFUSE_HOST` and keys), not code. The demo compose
+  file sets the mode on; `COPILOT_TRACE_CONTENT=0` restores decision 2.
+- **What the assumption does not cover.** Access to the tracer project,
+  retention, and audit logging of trace reads are the operator's to provide
+  (Langfuse audit logs are Enterprise-only; the open-source edition keeps
+  data indefinitely). Eval data promoted from traces into this public
+  repository must stay synthetic.
+- **Fixed in both modes** (commit `49f1637`): the SDK runs metadata through the
+  same mask as payloads, so the end-of-turn totals had been digested and were
+  unreadable; an allowlist (`METADATA_KEYS`, enum-shaped values only) now lets
+  them through. `span.update_trace` does not exist in langfuse 4.x and its
+  `AttributeError` was swallowed; trace name, session, and tags now go through
+  `propagate_attributes`. New on every trace: the `summary_model_kept` score,
+  the `summary_replaced` rule name, and a `prompt_version` hash on each
+  generation.
+- **Exception text in masked mode (found and fixed 2026-09-19).** The SDK's
+  mask covers input, output, and metadata only. Exception text left through
+  two other channels: the LangChain handler's `status_message`, and the
+  OpenTelemetry status description and `exception` event written when a span
+  is closed with the exception. A gateway or contract error that quotes record
+  text would have reached the tracer. In masked mode the handler now reports
+  the exception class only (`_callback_handler`), and observations are closed
+  clean and marked `ERROR` with the class name (`_close_on_error`); the body's
+  exception still reaches the caller unchanged. Content mode keeps full error
+  text. Verified against the real SDK with an in-memory exporter
+  (`test_exception_text_never_reaches_the_exporter_in_masked_mode`; the same
+  scenario with the fix bypassed exports the text 8 times). That test is also
+  the first export-grep check this ADR's Verification section asked for, and
+  the contract test for the SDK surface the module relies on, including the
+  private `_get_error_level_and_status_message`.
+
 ## Verification
 
 - **Observed 2026-09-15 on the deployment:** one Langfuse trace per turn

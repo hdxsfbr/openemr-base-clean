@@ -138,12 +138,16 @@ PROPAGATED: list[dict[str, Any]] = []  # what the fake `langfuse.propagate_attri
     ],
     ids=["generation", "tool_observation", "turn_trace"],
 )
-def test_exception_inside_a_real_observation_propagates_unchanged_and_closes_the_span(cm, args, opened_as, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("trace_content", [True, False], ids=["content", "masked"])
+def test_exception_inside_a_real_observation_propagates_unchanged_and_closes_the_span(cm, args, opened_as, trace_content: bool, monkeypatch: pytest.MonkeyPatch) -> None:
     """The production branch of `_observation` (tracer on): the Langfuse
-    context manager is entered, the body raises, `__exit__` receives the
-    body's own `(ModelError, instance, traceback)`, and the ModelError reaches
+    context manager is entered, the body raises, and the ModelError reaches
     the caller unchanged instead of RuntimeError('generator didn't stop after
-    throw()')."""
+    throw()'). With content on, `__exit__` receives the body's own
+    `(ModelError, instance, traceback)`. In masked mode it receives nothing
+    (OpenTelemetry would export the message) and the span is marked with the
+    exception class only."""
+    monkeypatch.setattr(telemetry.settings, "trace_content", trace_content)
     opened = _fake_langfuse(monkeypatch)
     with pytest.raises(ModelError) as info:
         with cm(*args) as obs:
@@ -152,7 +156,11 @@ def test_exception_inside_a_real_observation_propagates_unchanged_and_closes_the
     assert info.value.kind == "rate_limited"
     assert len(opened) == 1 and opened[0].entered and opened[0].kwargs == opened_as
     exc_type, exc, tb = opened[0].exit_args
-    assert exc_type is ModelError and exc is info.value and tb is not None
+    if trace_content:
+        assert exc_type is ModelError and exc is info.value and tb is not None
+    else:
+        assert (exc_type, exc, tb) == (None, None, None)
+        assert opened[0].observation.calls == [("update", {"level": "ERROR", "status_message": "ModelError"})]
 
 
 def test_a_real_observation_is_closed_cleanly_on_normal_exit(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -166,11 +174,49 @@ def test_a_real_observation_is_closed_cleanly_on_normal_exit(monkeypatch: pytest
 def test_a_failing_observation_exit_never_masks_the_body_exception(monkeypatch: pytest.MonkeyPatch) -> None:
     """`_close` swallows the tracer's own `__exit__` failure so the body's
     ModelError, not the tracer's RuntimeError, is what propagates."""
-    opened = _fake_langfuse(monkeypatch, exit_raises=True)
-    with pytest.raises(ModelError) as info:
-        with generation("narrate", "model-x", "cid-1"):
-            raise ModelError("overloaded")
-    assert info.value.kind == "overloaded" and opened[0].exit_args[0] is ModelError
+    for trace_content, closed_with in ((True, ModelError), (False, None)):
+        monkeypatch.setattr(telemetry.settings, "trace_content", trace_content)
+        opened = _fake_langfuse(monkeypatch, exit_raises=True)
+        with pytest.raises(ModelError) as info:
+            with generation("narrate", "model-x", "cid-1"):
+                raise ModelError("overloaded")
+        assert info.value.kind == "overloaded" and opened[0].exit_args[0] is closed_with
+
+
+def test_exception_text_never_reaches_the_exporter_in_masked_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Against the real SDK, no network: the SDK's mask covers input, output,
+    and metadata only, so an error that quotes record text must not leave
+    through the span status, the OpenTelemetry `exception` event, or the
+    LangChain handler's `status_message`. Also the contract test for the SDK
+    surface this module relies on."""
+    from langchain_core.runnables import RunnableLambda
+    from langfuse import Langfuse, propagate_attributes  # noqa: F401 - import is part of the contract
+    from langfuse._client.span import LangfuseSpan
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    assert all(hasattr(LangfuseSpan, name) for name in ("update", "score_trace", "set_trace_io"))
+    needle = "Zebulon Synthetic metformin 500 mg"
+    exporter = InMemorySpanExporter()
+    client = Langfuse(public_key="pk-lf-test", secret_key="sk-lf-test", host="http://127.0.0.1:9", span_exporter=exporter, mask=mask)
+    monkeypatch.setattr(telemetry.settings, "trace_content", False)
+    monkeypatch.setattr(telemetry, "_ensure_client", lambda: True)
+
+    def boom(_: Any) -> None:
+        raise ValueError(f"contract violation in record: {needle}")
+
+    with pytest.raises(ValueError, match="Zebulon"):
+        with turn_trace("cid-leak-1", "conv-leak-1"):
+            with tool_observation("lab_results", "cid-leak-1"):
+                pass
+            with generation("narrate", "model-x", "cid-leak-1"):
+                RunnableLambda(boom).invoke({"question": needle}, config={"callbacks": [telemetry._callback_handler()]})
+    client.flush()
+
+    spans = exporter.get_finished_spans()
+    assert {s.name for s in spans} >= {"copilot.turn", "narrate", "lab_results"}
+    exported = json.dumps([{"attributes": dict(s.attributes or {}), "status": s.status.description, "events": [{"name": e.name, "attributes": dict(e.attributes or {})} for e in s.events]} for s in spans], default=str)
+    assert "Zebulon" not in exported and "metformin" not in exported
+    assert "ValueError" in exported, "the exception class is what an operator still sees"
 
 
 def test_observation_failure_logs_the_correlation_id(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
