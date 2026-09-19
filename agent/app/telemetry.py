@@ -1,15 +1,20 @@
-"""PHI-free telemetry (ADR-0007): Langfuse's LangGraph callback handler with a
-mask that replaces every input and output payload with a digest. Refuses to
-start if LangSmith tracing variables are set. Telemetry never blocks care:
-every observation degrades to a no-op when the tracer is off or fails, and an
-exception raised by the code inside an observation propagates unchanged (a
-`ModelError` inside a generation span must still reach the graph's fallback)."""
+"""Telemetry (ADR-0007): Langfuse's LangGraph callback handler. By default a
+mask replaces every input and output payload with a digest, and only
+allowlisted PHI-free metadata stays readable. With `COPILOT_TRACE_CONTENT` on
+(tracer inside the compliance boundary) the mask is not installed and each
+model call carries its full exchange. Refuses to start if LangSmith tracing
+variables are set. Telemetry never blocks care: every observation degrades to
+a no-op when the tracer is off or fails, and an exception raised by the code
+inside an observation propagates unchanged (a `ModelError` inside a generation
+span must still reach the graph's fallback)."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import re
 import sys
 from contextlib import contextmanager
 from typing import Any, Iterator
@@ -24,6 +29,8 @@ FORBIDDEN_ENV = ("LANGCHAIN_TRACING_V2", "LANGSMITH_TRACING", "LANGCHAIN_API_KEY
 # Trace scores (ADR-0007 dashboard minimum: verification pass/fail rate and error rate).
 SCORE_VERIFICATION_PASSED = "verification_passed"
 SCORE_TURN_ERROR = "turn_error"
+# 1.0 when the model's narrative was shown, 0.0 when the count-only summary replaced it.
+SCORE_SUMMARY_MODEL_KEPT = "summary_model_kept"
 
 
 def guard_environment() -> None:
@@ -32,9 +39,54 @@ def guard_environment() -> None:
         raise RuntimeError(f"LangSmith tracing variables must not be set (PHI): {present}")
 
 
+# The SDK passes metadata through the same mask as inputs and outputs, as one dict.
+# These are the keys this module itself writes; their values are counts, enums, and ids.
+METADATA_KEYS = frozenset({
+    "status", "turn_type", "claims", "withheld", "tool_calls", "timings_ms", "usage", "verification",
+    "summary_basis", "summary_replaced", "prompt_version",
+    "effort", "attempt", "stop_reason",
+    "reason", "record_count", "truncated", "gateway_latency_ms",
+})
+# Enum-shaped: lowercase-led snake/colon tokens ("partial", "lexicon:judgment", "http_503", "n/a").
+# Rejects names, dates, MRN/SSN/phone shapes, non-ASCII, and anything with whitespace.
+_ENUM_SHAPED = re.compile(r"[a-z][a-z0-9_:/]{0,63}")
+_PROMPT_VERSION = re.compile(r"[0-9a-f]{12}")
+
+
+def _phi_free_scalar(key: str, value: Any) -> bool:
+    if value is None or isinstance(value, (bool, int, float)):
+        return True
+    if not isinstance(value, str):
+        return False
+    return bool((_PROMPT_VERSION if key == "prompt_version" else _ENUM_SHAPED).fullmatch(value))
+
+
+def _phi_free_metadata(data: Any) -> bool:
+    """Whether `data` is one of this module's own metadata dicts: known keys
+    only, each value a number, bool, None, an enum-shaped string, or a flat
+    dict of enum-shaped keys to numbers (`timings_ms`, `usage`). The SDK runs
+    node inputs and outputs through the same mask, so the shape check, not the
+    caller, is what keeps chart content out."""
+    if not isinstance(data, dict) or not data or not set(data) <= METADATA_KEYS:
+        return False
+    for key, value in data.items():
+        if isinstance(value, dict):
+            if not all(isinstance(k, str) and _ENUM_SHAPED.fullmatch(k) and isinstance(v, (bool, int, float)) for k, v in value.items()):
+                return False
+        elif not _phi_free_scalar(key, value):
+            return False
+    return True
+
+
 def mask(data: Any) -> Any:
-    """Replace any payload with a PHI-free digest: type, size, and counts only."""
+    """Replace any payload with a PHI-free digest: type, size, and counts only.
+    Allowlisted metadata (counts, enums, ids) passes through unchanged."""
     try:
+        # The SDK masks absent fields too; a digest of None would overwrite real attributes.
+        if data is None:
+            return None
+        if _phi_free_metadata(data):
+            return data
         if isinstance(data, dict):
             return {"digest": True, "keys": sorted(str(k) for k in data.keys())[:20], "bytes": len(json.dumps(data, default=str))}
         if isinstance(data, list):
@@ -47,10 +99,12 @@ def mask(data: Any) -> Any:
 
 
 _client_ready = False
+_trace_io_warned = False  # the SDK-surface warning in `_record_turn_io` fires once per process
 
 
 def _ensure_client() -> bool:
-    """Initialize the Langfuse client once with the PHI mask; False when not configured."""
+    """Initialize the Langfuse client once; False when not configured. The PHI
+    mask is installed unless `trace_content` is on."""
     global _client_ready
     if _client_ready:
         return True
@@ -60,9 +114,16 @@ def _ensure_client() -> bool:
         return False
     from langfuse import Langfuse
 
-    Langfuse(public_key=public, secret_key=secret, host=settings.langfuse_host, mask=mask)
+    Langfuse(public_key=public, secret_key=secret, host=settings.langfuse_host, mask=None if settings.trace_content else mask)
     _client_ready = True
+    log.info("tracer ready: content %s", "on" if settings.trace_content else "masked", extra={"component": "telemetry"})
     return True
+
+
+def prompt_version(*parts: str) -> str:
+    """A short stable id for the prompt text a model call was made with, so
+    traces and eval reports can be compared across prompt changes."""
+    return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()[:12]
 
 
 def trace_config(correlation_id: str, conversation_id: str, turn_type: str) -> dict[str, Any]:
@@ -95,7 +156,7 @@ class _NoGeneration:
     def update(self, **kwargs: Any) -> None:
         return None
 
-    def update_trace(self, **kwargs: Any) -> None:
+    def set_trace_io(self, **kwargs: Any) -> None:
         return None
 
     def score_trace(self, **kwargs: Any) -> None:
@@ -141,20 +202,44 @@ def _observation(as_type: str, name: str, label: str, correlation_id: str | None
 
 
 @contextmanager
-def turn_trace(correlation_id: str, conversation_id: str) -> Iterator[Any]:
-    """The root span for one turn. Node spans (LangChain callback) and
-    generation spans nest under it because it sets the current context."""
-    with _observation("span", "copilot.turn", "turn trace", correlation_id) as span:
-        try:
-            span.update_trace(
-                name="copilot.turn",
+def _trace_attributes(correlation_id: str, conversation_id: str) -> Iterator[None]:
+    """Set the trace-level attributes (name, session, tags, ids) on the current
+    span and every span opened inside. langfuse 4.x replaced `span.update_trace`
+    with the module-level `propagate_attributes`. Same exception discipline as
+    `_observation`: tracer failures are swallowed, the body's own are not."""
+    cm: Any = None
+    try:
+        if _ensure_client():
+            from langfuse import propagate_attributes
+
+            cm = propagate_attributes(
+                trace_name="copilot.turn",
                 session_id=conversation_id,
                 tags=["copilot"],
                 metadata={"correlation_id": correlation_id, "conversation_id": conversation_id},
             )
-        except Exception:  # noqa: BLE001
-            pass
-        yield span
+            cm.__enter__()
+    except Exception as exc:  # noqa: BLE001 - telemetry never blocks care
+        log.warning("trace attributes unavailable: %s", exc.__class__.__name__, extra={"component": "telemetry", "correlation_id": correlation_id})
+        cm = None
+    if cm is None:
+        yield
+        return
+    try:
+        yield
+    except BaseException:
+        _close(cm, *sys.exc_info())
+        raise
+    _close(cm, None, None, None)
+
+
+@contextmanager
+def turn_trace(correlation_id: str, conversation_id: str) -> Iterator[Any]:
+    """The root span for one turn. Node spans (LangChain callback) and
+    generation spans nest under it because it sets the current context."""
+    with _observation("span", "copilot.turn", "turn trace", correlation_id) as span:
+        with _trace_attributes(correlation_id, conversation_id):
+            yield span
 
 
 def score_trace(span: Any, name: str, value: float) -> None:
@@ -172,8 +257,11 @@ def finish_turn_trace(span: Any, state: dict[str, Any]) -> None:
     `failed_closed`, absent when the verifier did not run) and `turn_error`
     (1.0 for a failed or timed-out turn, else 0.0). `state` is the final graph
     state, or `{"status": "timeout"}` / `{"status": "failed"}` from the API's
-    own failure paths."""
+    own failure paths. With `trace_content` on, the question and the rendered
+    answer are also set as the span's and the trace's input and output."""
     outcome = verification_outcome(state)
+    basis = state.get("summary_basis")
+    reason = str(state.get("summary_reason") or "")
     try:
         span.update(metadata={
             "status": state.get("status"),
@@ -184,21 +272,69 @@ def finish_turn_trace(span: Any, state: dict[str, Any]) -> None:
             "timings_ms": state.get("timings_ms") or {},
             "usage": state.get("usage") or {},
             "verification": outcome,
+            "summary_basis": basis,
+            # Rule name only: the ungrounded token after the colon is chart content.
+            "summary_replaced": (reason.split(":")[0] if reason.startswith("ungrounded") else reason) if basis == "deterministic" else None,
         })
     except Exception:  # noqa: BLE001
         pass
+    if settings.trace_content:
+        _record_turn_io(span, state, reason)
+    if basis in ("model", "deterministic"):
+        score_trace(span, SCORE_SUMMARY_MODEL_KEPT, 1.0 if basis == "model" else 0.0)
     if outcome != "not_run":
         score_trace(span, SCORE_VERIFICATION_PASSED, 1.0 if outcome == "passed" else 0.0)
     score_trace(span, SCORE_TURN_ERROR, 1.0 if turn_error(state) else 0.0)
 
 
+def _record_turn_io(span: Any, state: dict[str, Any], summary_reason: str) -> None:
+    """The turn as the physician saw it, plus what the verifier did to it."""
+    turn_input = {"question": state.get("question"), "turn_type": state.get("turn_type"), "window_since": state.get("window_since")}
+    turn_output = {
+        "status": state.get("status"),
+        "summary": state.get("summary"),
+        "summary_basis": state.get("summary_basis"),
+        "summary_reason": summary_reason,
+        "raw_summary": state.get("raw_summary"),
+        "claims": state.get("accepted") or [],
+        "rejected": state.get("rejected") or [],
+        "limitations": state.get("limitations") or [],
+        "suggestions": state.get("suggestions") or [],
+        "repair_attempted": bool(state.get("repair_attempted")),
+    }
+    try:
+        span.update(input=turn_input, output=turn_output)
+    except Exception:  # noqa: BLE001 - telemetry never blocks care
+        pass
+    try:
+        # Trace-level I/O is what the Langfuse Sessions view renders as the conversation.
+        # Deprecated in langfuse 4.x with no replacement yet; pyproject caps the major version.
+        span.set_trace_io(input=turn_input, output=turn_output)
+    except Exception as exc:  # noqa: BLE001 - telemetry never blocks care
+        global _trace_io_warned
+        if not _trace_io_warned:
+            _trace_io_warned = True
+            log.warning("trace io unavailable: %s", exc.__class__.__name__, extra={"component": "telemetry", "correlation_id": state.get("correlation_id")})
+
+
 @contextmanager
 def generation(name: str, model: str, correlation_id: str | None) -> Iterator[Any]:
     """A Langfuse generation span for one model call, nested under the current
-    turn trace. Only usage, model, and PHI-free metadata are ever set on it;
-    inputs and outputs are never attached. No-op when the tracer is off."""
+    turn trace. Usage, model, and PHI-free metadata are always set on it; the
+    exchange itself only through `record_exchange`. No-op when the tracer is off."""
     with _observation("generation", name, "generation span", correlation_id, model=model) as gen:
         yield gen
+
+
+def record_exchange(gen: Any, system: str, messages: list[dict[str, Any]], output: Any) -> None:
+    """Attach one model call's full exchange (system prompt, messages, raw
+    output) to its generation span. Does nothing unless `trace_content` is on."""
+    if not settings.trace_content:
+        return
+    try:
+        gen.update(input={"system": system, "messages": messages}, output=output)
+    except Exception:  # noqa: BLE001 - telemetry never blocks care
+        pass
 
 
 @contextmanager

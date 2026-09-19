@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from .contracts import LabsParams, NotesParams, TurnClaims, WindowParams
 from .model_output import ModelTurnClaims, model_suggestions, model_summary, to_claims
 from .settings import settings
-from .telemetry import generation, record_usage
+from .telemetry import generation, prompt_version, record_exchange, record_usage
 
 log = logging.getLogger("copilot.model")
 
@@ -66,6 +66,9 @@ OUTPUT_INSTRUCTIONS = (
     '"facts": {<only the fields the claim type needs>}}], "summary": "<one to three sentences restating the claims>", "suggestions": ["<follow-up question>", ...]}. '
     "Omit facts fields you do not use. At most 10 claims."
 )
+
+# Stamped on every generation so traces and eval runs can be compared across prompt changes.
+PROMPT_VERSION = prompt_version(SYSTEM_PROMPT, OUTPUT_INSTRUCTIONS)
 
 
 def parse_model_json(text: str) -> ModelTurnClaims | None:
@@ -253,11 +256,12 @@ class AnthropicModel:
                     )
                 )
                 call_usage = _usage_of(response)
-                record_usage(gen, call_usage, effort=effort, attempt=attempt, stop_reason=getattr(response, "stop_reason", None))
+                text = "".join(block.text for block in response.content if block.type == "text")
+                record_usage(gen, call_usage, effort=effort, attempt=attempt, stop_reason=getattr(response, "stop_reason", None), prompt_version=PROMPT_VERSION)
+                record_exchange(gen, SYSTEM_PROMPT, messages, text)
             usage.add(call_usage)
             if getattr(response, "stop_reason", None) == "refusal":
                 return NarrateResult(None, usage, "refusal")
-            text = "".join(block.text for block in response.content if block.type == "text")
             output = parse_model_json(text)
             if output is not None:
                 claims, dropped = to_claims(output)
@@ -295,7 +299,13 @@ class AnthropicModel:
             kwargs["output_config"] = {"effort": settings.effort_followup}
         with generation("plan", plan_model, correlation_id) as gen:
             response = await self._guarded(lambda: self.client.messages.create(**kwargs))
-            record_usage(gen, _usage_of(response), effort=settings.effort_followup if settings.plan_model_supports_effort else "n/a", tool_calls=sum(1 for b in response.content if b.type == "tool_use"))
+            record_usage(gen, _usage_of(response), effort=settings.effort_followup if settings.plan_model_supports_effort else "n/a", tool_calls=sum(1 for b in response.content if b.type == "tool_use"), prompt_version=PROMPT_VERSION)
+            record_exchange(
+                gen,
+                SYSTEM_PROMPT,
+                kwargs["messages"],
+                [{"type": b.type, "name": b.name, "input": b.input} if b.type == "tool_use" else {"type": b.type, "text": getattr(b, "text", "")} for b in response.content],
+            )
         calls: list[tuple[str, dict[str, Any]]] = []
         text = ""
         for block in response.content:

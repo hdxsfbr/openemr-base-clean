@@ -30,6 +30,7 @@ class TurnState(TypedDict, total=False):
     raw_suggestions: list[str]
     summary: str
     summary_basis: str
+    summary_reason: str
     suggestions: list[str]
     answered_at: str | None
     narrate_error: str | None
@@ -66,6 +67,7 @@ PER_TURN_DEFAULTS: dict[str, Any] = {
     "raw_suggestions": [],
     "summary": "",
     "summary_basis": "none",
+    "summary_reason": "",
     "suggestions": [],
     "answered_at": None,
     "narrate_error": None,

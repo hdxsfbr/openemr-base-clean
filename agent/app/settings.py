@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     langfuse_public_key_file: Path = Path("/run/secrets/langfuse_public_key")
     langfuse_secret_key_file: Path = Path("/run/secrets/langfuse_secret_key")
     langfuse_host: str = "https://us.cloud.langfuse.com"
+    # Full exchange content (prompts, evidence pack, raw model output, final answer) on the
+    # traces instead of digests. Off by default; on only where the tracer is inside the
+    # compliance boundary (ADR-0007 amendment 2026-09-19).
+    trace_content: bool = False
 
     # Model (ADR-0004).
     model_id: str = "claude-sonnet-5"  # owner decision 2026-09-15 on measured latency (ADR-0004)

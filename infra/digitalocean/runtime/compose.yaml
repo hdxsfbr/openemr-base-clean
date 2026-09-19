@@ -165,6 +165,11 @@ services:
       COPILOT_MAX_PLAN_ROUNDS: ${COPILOT_MAX_PLAN_ROUNDS:-1}
       # Demo deployment only: honors X-Copilot-Fault for the collection's failure examples.
       COPILOT_FAULT_INJECTION: ${COPILOT_FAULT_INJECTION:-1}
+      # Full model exchanges (prompts, evidence pack, raw output, final answer) on the
+      # Langfuse traces instead of digests, for error analysis and eval data. The tracer
+      # is treated as inside the compliance boundary (ADR-0007 amendment 2026-09-19);
+      # set 0 to restore the PHI-free digest mask.
+      COPILOT_TRACE_CONTENT: ${COPILOT_TRACE_CONTENT:-1}
     # The agent runs as uid 10001; start.sh makes these four host files 0644
     # (Compose file secrets keep the host mode; `mode` is swarm-only).
     secrets:

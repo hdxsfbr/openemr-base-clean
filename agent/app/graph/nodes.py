@@ -318,6 +318,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             "sources": sources,
             "summary": summary,
             "summary_basis": summary_basis,
+            "summary_reason": summary_reason,
             "suggestions": suggestions,
             "answered_at": answered_at,
             "status": status,

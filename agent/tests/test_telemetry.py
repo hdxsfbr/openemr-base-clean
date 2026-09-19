@@ -17,20 +17,26 @@ import pytest
 from app import telemetry
 from app.metrics import Metrics, bounded_reason
 from app.model import AnthropicModel, ModelError
-from app.telemetry import finish_turn_trace, generation, score_trace, tool_observation, turn_trace
+from app.telemetry import finish_turn_trace, generation, mask, record_exchange, score_trace, tool_observation, turn_trace
 from app.turn_outcome import turn_error, verification_outcome
 
 
 class FakeSpan:
+    """Only the methods langfuse 4.x spans really have: a fake `update_trace`
+    here is what let a call to that removed method go unnoticed."""
+
     def __init__(self) -> None:
         self.scores: dict[str, float] = {}
         self.metadata: dict[str, Any] = {}
+        self.io: dict[str, Any] = {}
+        self.trace_io: dict[str, Any] = {}
 
     def update(self, **kwargs: Any) -> None:
         self.metadata.update(kwargs.get("metadata") or {})
+        self.io.update({k: v for k, v in kwargs.items() if k in ("input", "output")})
 
-    def update_trace(self, **kwargs: Any) -> None:
-        return None
+    def set_trace_io(self, **kwargs: Any) -> None:
+        self.trace_io.update(kwargs)
 
     def score_trace(self, *, name: str, value: float, **kwargs: Any) -> None:
         self.scores[name] = value
@@ -60,9 +66,6 @@ class _RecordingObservation:
 
     def update(self, **kwargs: Any) -> None:
         self.calls.append(("update", kwargs))
-
-    def update_trace(self, **kwargs: Any) -> None:
-        self.calls.append(("update_trace", kwargs))
 
     def score_trace(self, **kwargs: Any) -> None:
         self.calls.append(("score_trace", kwargs))
@@ -103,11 +106,27 @@ def _fake_langfuse(monkeypatch: pytest.MonkeyPatch, *, exit_raises: bool = False
             opened.append(cm)
             return cm
 
+    class Propagated:
+        def __enter__(self) -> None:
+            return None
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+            return False
+
+    def propagate_attributes(**kwargs: Any) -> Propagated:
+        PROPAGATED.append(kwargs)
+        return Propagated()
+
+    PROPAGATED.clear()
     fake = types.ModuleType("langfuse")
     fake.get_client = lambda: Client()  # type: ignore[attr-defined]
+    fake.propagate_attributes = propagate_attributes  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "langfuse", fake)
     monkeypatch.setattr(telemetry, "_ensure_client", lambda: True)
     return opened
+
+
+PROPAGATED: list[dict[str, Any]] = []  # what the fake `langfuse.propagate_attributes` was called with
 
 
 @pytest.mark.parametrize(
@@ -202,6 +221,82 @@ def test_finish_turn_trace_sets_the_two_dashboard_scores() -> None:
     span = FakeSpan()
     finish_turn_trace(span, {"status": "failed"})
     assert span.scores == {"turn_error": 1.0}
+
+
+def test_turn_trace_sets_the_trace_attributes_through_propagate_attributes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """langfuse 4.x has no `span.update_trace`; name, session, tags, and ids go
+    through the module-level `propagate_attributes`."""
+    _fake_langfuse(monkeypatch)
+    with turn_trace("cid-1", "conv-1"):
+        pass
+    assert PROPAGATED == [{"trace_name": "copilot.turn", "session_id": "conv-1", "tags": ["copilot"], "metadata": {"correlation_id": "cid-1", "conversation_id": "conv-1"}}]
+
+
+def test_mask_keeps_allowlisted_metadata_readable_and_digests_everything_else() -> None:
+    totals = {"status": "partial", "turn_type": "followup", "claims": 3, "withheld": 1, "timings_ms": {"narrate": 3578.2}, "usage": {"input_tokens": 182}, "verification": "partial", "summary_replaced": "ungrounded_number", "prompt_version": "a1b2c3d4e5f6"}
+    assert mask(totals) == totals
+    assert mask({"reason": None, "record_count": 4, "status": "ok", "truncated": False, "gateway_latency_ms": 12.5})["record_count"] == 4
+    for payload in (
+        {"status": "complete", "question": "What changed?"},  # unknown key
+        {"status": "Metformin 500 mg was stopped"},  # free text under a known key
+        {"usage": {"note": "Metformin"}},  # nested non-number
+        {"claims": [{"text": "Metformin"}]},  # list value
+        {"reason": "Metformin"}, {"status": "Smith"}, {"reason": "Müller"}, {"reason": "1985-03-14"},  # single-token chart content
+        {"reason": "555-12-3456"}, {"status": "MRN:00123456"}, {"reason": "metformin\n"},
+        {"usage": {"Jane Doe, DOB 1985-03-14": 1}},  # chart content as a nested key
+        {"prompt_version": "not-a-hash"},
+        "What changed since the last visit?",
+        ["a", "b"],
+        {},
+    ):
+        assert mask(payload).get("digest") is True, payload
+    assert mask(None) is None, "the SDK masks absent fields too; a digest of None would overwrite real attributes"
+    assert mask({"effort": "n/a", "stop_reason": "end_turn", "attempt": 0, "prompt_version": "0a1b2c3d4e5f"})["effort"] == "n/a"
+
+
+def test_finish_turn_trace_reports_why_the_summary_was_replaced_without_chart_content() -> None:
+    span = FakeSpan()
+    finish_turn_trace(span, {"status": "complete", "raw_claims": [{}], "rejected": [], "summary_basis": "deterministic", "summary_reason": "ungrounded_number:40"})
+    assert span.metadata["summary_replaced"] == "ungrounded_number" and span.scores["summary_model_kept"] == 0.0
+    assert mask(span.metadata) == span.metadata, "the turn totals must survive the mask"
+    span = FakeSpan()
+    finish_turn_trace(span, {"status": "complete", "raw_claims": [{}], "rejected": [], "summary_basis": "deterministic", "summary_reason": "lexicon:judgment"})
+    assert span.metadata["summary_replaced"] == "lexicon:judgment"
+    span = FakeSpan()
+    finish_turn_trace(span, {"status": "complete", "raw_claims": [{}], "rejected": [], "summary_basis": "model", "summary_reason": "ok"})
+    assert span.metadata["summary_replaced"] is None and span.scores["summary_model_kept"] == 1.0
+
+
+def test_exchange_content_is_attached_only_when_trace_content_is_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = {"status": "complete", "raw_claims": [{}], "rejected": [], "question": "What changed?", "summary": "Lisinopril started.", "summary_basis": "model", "summary_reason": "ok", "accepted": [{"id": "c1"}]}
+    messages = [{"role": "user", "content": "EVIDENCE PACK: ..."}]
+
+    monkeypatch.setattr(telemetry.settings, "trace_content", False)
+    span, gen = FakeSpan(), FakeSpan()
+    finish_turn_trace(span, state)
+    record_exchange(gen, "SYSTEM", messages, '{"claims": []}')
+    assert span.io == {} and span.trace_io == {} and gen.io == {}
+
+    monkeypatch.setattr(telemetry.settings, "trace_content", True)
+    span, gen = FakeSpan(), FakeSpan()
+    finish_turn_trace(span, state)
+    record_exchange(gen, "SYSTEM", messages, '{"claims": []}')
+    assert span.io["input"]["question"] == "What changed?" and span.io["output"]["summary"] == "Lisinopril started."
+    assert span.trace_io == span.io, "trace-level I/O is what the Sessions view renders"
+    assert gen.io == {"input": {"system": "SYSTEM", "messages": messages}, "output": '{"claims": []}'}
+
+
+@pytest.mark.parametrize(("trace_content", "installs_mask"), [(False, True), (True, False)])
+def test_the_mask_is_installed_unless_trace_content_is_on(trace_content: bool, installs_mask: bool, monkeypatch: pytest.MonkeyPatch) -> None:
+    built: list[dict[str, Any]] = []
+    fake = types.ModuleType("langfuse")
+    fake.Langfuse = lambda **kwargs: built.append(kwargs)  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "langfuse", fake)
+    monkeypatch.setattr(telemetry, "_client_ready", False)
+    monkeypatch.setattr(telemetry.settings, "trace_content", trace_content)
+    monkeypatch.setattr(type(telemetry.settings), "secret", lambda self, path: "key")
+    assert telemetry._ensure_client() is True
+    assert (built[0]["mask"] is mask) is installs_mask and (built[0]["mask"] is None) is not installs_mask
 
 
 def test_score_trace_never_raises_and_is_a_noop_when_the_tracer_is_off() -> None:
