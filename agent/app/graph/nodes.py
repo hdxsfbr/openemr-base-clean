@@ -139,6 +139,14 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         except ValidationError:
             return None
 
+    def _disclosure(state: TurnState) -> dict[str, str] | None:
+        """Declared on a retrieval whose records will go to the model provider, so the module
+        audits the disclosure before it returns them. None when this turn will not call the
+        model (none configured, the model fault injected, a budget limit, an earlier model error)."""
+        if rt.model is None or state.get("fault") == "model" or state.get("budget_limit") or state.get("narrate_error"):
+            return None
+        return {"provider": settings.model_provider, "model": settings.model_id}
+
     async def _call_batch(calls: list[tuple[str, dict[str, Any]]], state: TurnState) -> list[ToolResponse]:
         """One gateway request serving every call in `calls`: one OpenEMR
         bootstrap (translation/ACL/layout lookups, PERF-MED-002) instead of
@@ -164,7 +172,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             token = get_token(state["turn_id"]) or ""
             with contextlib.ExitStack() as stack:
                 observations = [stack.enter_context(tool_observation(tool, state["correlation_id"])) for _, tool, _ in live]
-                responses = await rt.gateway.call_batch([(tool, clean) for _, tool, clean in live], token, state["correlation_id"])
+                responses = await rt.gateway.call_batch([(tool, clean) for _, tool, clean in live], token, state["correlation_id"], disclosure=_disclosure(state))
                 for (i, tool, _), obs, response in zip(live, observations, responses):
                     record_tool_result(obs, response)
                     metrics.tool_call(tool, response.status.value, response.reason)

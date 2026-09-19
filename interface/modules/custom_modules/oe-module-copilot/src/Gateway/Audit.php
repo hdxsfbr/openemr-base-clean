@@ -39,6 +39,34 @@ final class Audit
         ] + $fields);
     }
 
+    /**
+     * Chart records are about to leave for an AI model provider (the agent declared it on the
+     * batch that retrieved them). Who, which patient, which provider and model, which tools and
+     * how many records; never a record. Written before the records are returned, like toolRead.
+     *
+     * @param array<array-key, mixed> $declared the agent's {provider, model}; anything not id-shaped is recorded as "unspecified"
+     * @param list<array<string, mixed>> $released the tool envelopes of this batch that carry records
+     */
+    public static function modelDisclosure(AuthorizedPatientContext $ctx, array $declared, array $released): void
+    {
+        $idShaped = static fn(mixed $value): string => is_string($value) && preg_match('/^[A-Za-z0-9._:-]{1,64}$/', $value) === 1 ? $value : 'unspecified';
+        $tools = [];
+        $records = 0;
+        foreach ($released as $envelope) {
+            $tools[] = is_string($envelope['tool'] ?? null) ? $envelope['tool'] : 'unknown';
+            $records += is_array($envelope['records'] ?? null) ? count($envelope['records']) : 0;
+        }
+        self::event('copilot-model-disclosure', $ctx->username, $ctx->groupName, true, $ctx->pid, [
+            'provider' => $idShaped($declared['provider'] ?? null),
+            'model' => $idShaped($declared['model'] ?? null),
+            'tools' => implode(',', $tools),
+            'records' => $records,
+            'conversation_id' => $ctx->conversationId,
+            'turn_id' => $ctx->turnId,
+            'correlation_id' => $ctx->correlationId,
+        ]);
+    }
+
     /** @param array<string, scalar|null> $fields */
     public static function denied(?string $username, ?string $groupName, ?int $pid, string $reason, array $fields): void
     {

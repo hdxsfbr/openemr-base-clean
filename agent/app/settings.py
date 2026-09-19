@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     trace_content: bool = False
 
     # Model (ADR-0004).
+    # Named with the model id in the module's `copilot-model-disclosure` audit row.
+    model_provider: str = "anthropic"
     model_id: str = "claude-sonnet-5"  # owner decision 2026-09-15 on measured latency (ADR-0004)
     # Optional override for the `plan` call only (tool selection -- a bounded, structured
     # decision, unlike narrate/repair's open-ended clinical synthesis). None falls back to

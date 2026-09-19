@@ -989,7 +989,10 @@ are in `docs/audit/compliance.md` §2, §4, §5, §6. This design implements:
   identifiers in the evidence pack beyond what a claim needs ("the patient",
   age band, dates of records).
 - Access trail: `copilot-session-start`, `copilot-tool-read`,
-  `copilot-denied`, and `copilot-session-end` via `EventAuditLogger::newEvent`
+  `copilot-model-disclosure` (since 2026-09-19: provider, model, tools, and
+  record count, written before a retrieval's records are returned for a
+  model-backed turn), `copilot-denied`, and `copilot-session-end` via
+  `EventAuditLogger::newEvent`
   (`oe-module-copilot/src/Gateway/Audit.php`, `public/api/conversation.php`),
   the tool-read event written before data is returned. `copilot-llm-call`
   (counts only) and `copilot-verification-result` audit events are

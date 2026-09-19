@@ -20,6 +20,7 @@ class FakeGateway:
     def __init__(self, failing: set[str] | None = None) -> None:
         self.failing = failing or set()
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.disclosures: list[dict[str, str] | None] = []  # one per batch: what the agent declared
 
     async def call(self, tool: str, params: dict, token: str, correlation_id: str) -> ToolResponse:
         self.calls.append((tool, params))
@@ -30,7 +31,8 @@ class FakeGateway:
         payload["correlation_id"] = correlation_id
         return ToolResponse.model_validate(payload)
 
-    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str) -> list[ToolResponse]:
+    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str, disclosure: dict[str, str] | None = None) -> list[ToolResponse]:
+        self.disclosures.append(disclosure)
         return [await self.call(tool, params, token, correlation_id) for tool, params in calls]
 
 

@@ -202,7 +202,7 @@ spans with token counts and cost.
 One correlation ID is minted per conversation and extended per turn. The
 panel shows it as "ref …" under each answer. The module writes it into the
 OpenEMR `log` table events `copilot-session-start`, `copilot-tool-read`,
-`copilot-denied`, and `copilot-session-end`
+`copilot-model-disclosure`, `copilot-denied`, and `copilot-session-end`
 (`oe-module-copilot/src/Gateway/Audit.php`, `public/api/conversation.php`),
 and the agent's structured JSON logs carry the same ID.
 `/copilot-api/metrics` exposes `copilot_requests_total`,

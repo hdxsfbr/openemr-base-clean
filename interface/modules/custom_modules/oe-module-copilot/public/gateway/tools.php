@@ -9,12 +9,18 @@
  * Denials are generic to the caller, specific in the audit log.
  *
  * GET/POST ?tool=<name>   body: JSON params (since, until, limit, term, analyte)
- * POST (no ?tool)         body: {"calls": [{"tool": <name>, "params": {...}}, ...]}
+ * POST (no ?tool)         body: {"calls": [{"tool": <name>, "params": {...}}, ...],
+ *                                "disclosure": {"provider": <id>, "model": <id>}}
  *                         -> {"results": [<envelope>, ...]}, one per call, in
  *                         request order. Added to serve a turn's whole tool
  *                         fan-out in one request instead of one bootstrap
  *                         (globals.php: translations, ACL, layout lookups,
- *                         PERF-MED-002) per tool call.
+ *                         PERF-MED-002) per tool call. "disclosure" is
+ *                         optional: the agent sends it when the records of
+ *                         this batch will go to a model provider, and a
+ *                         copilot-model-disclosure audit row is written
+ *                         before they are returned. If that row cannot be
+ *                         written, no record is returned (audit_unavailable).
  *
  * @package   OpenEMR
  * @link      https://www.open-emr.org
@@ -91,6 +97,23 @@ foreach ($calls as $call) {
         // One item's unexpected failure must never orphan the rest of the batch's response.
         error_log('oe-module-copilot tools.php batch item failed: ' . $requestedName . ': ' . $e::class);
         $results[] = BatchRunner::rawUnavailable($requestedName, $ctx, 'service_error');
+    }
+}
+
+// AI disclosure: audited before the records leave, and no audit row means no records.
+$declared = $body['disclosure'] ?? null;
+if (is_array($declared)) {
+    $released = array_values(array_filter($results, static fn(array $r): bool => ($r['status'] ?? null) === 'ok'));
+    if ($released !== []) {
+        try {
+            Audit::modelDisclosure($ctx, $declared, $released);
+        } catch (\Throwable $e) {
+            error_log('oe-module-copilot tools.php disclosure audit failed: ' . $e::class);
+            $results = array_map(
+                static fn(array $r): array => BatchRunner::rawUnavailable(is_string($r['tool'] ?? null) ? $r['tool'] : 'unknown', $ctx, 'audit_unavailable'),
+                $results
+            );
+        }
     }
 }
 

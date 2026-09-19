@@ -330,3 +330,27 @@ async def test_the_agents_own_follow_ups_retrieve_without_a_plan_call() -> None:
     own = set(default_suggestions(every_type, [])) | set(default_suggestions([], [])) | set(STARTER_QUESTIONS)
     assert {normalized_question(q) for q in own} - {normalized_question(STARTER_QUESTIONS[0])} <= set(KNOWN_PLANS)
     assert all(tool in {"problems", "medications", "allergies", "lab_results", "clinical_notes", "encounters"} for calls in KNOWN_PLANS.values() for tool, _ in calls)
+
+
+@pytest.mark.anyio
+async def test_a_retrieval_whose_records_go_to_the_model_declares_the_disclosure() -> None:
+    """The module writes its `copilot-model-disclosure` audit row from this
+    declaration, before it returns the records. A turn that will not call the
+    model (none configured, the model fault) declares nothing, so the audit log
+    never claims a disclosure that did not happen."""
+    from app.settings import settings
+
+    budget.daily.reset()
+    good = {"id": "c1", "type": "medication_status", "text": "Metformin is active.", "facts": {"name": "metformin", "status": "active"}, "source_ids": [METFORMIN]}
+    gateway = FakeGateway()
+    await make_graph(FakeModel(claims=[good]), gateway).ainvoke(turn_input("What changed since the last visit?"), CFG)
+    assert len(gateway.disclosures) == 2, "a UC-01 first turn retrieves in two batches"
+    assert all(d == {"provider": "anthropic", "model": settings.model_id} for d in gateway.disclosures)
+
+    gateway = FakeGateway()
+    await make_graph(None, gateway).ainvoke(turn_input("What changed since the last visit?", turn_id="fb5c2fa60b22e602"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb22"}})
+    assert gateway.disclosures == [None, None]
+
+    gateway = FakeGateway()
+    await make_graph(FakeModel(claims=[good]), gateway).ainvoke(turn_input("What changed since the last visit?", turn_id="fb5c2fa60b22e603", fault="model"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb23"}})
+    assert gateway.disclosures == [None, None]

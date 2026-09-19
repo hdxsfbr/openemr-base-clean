@@ -5,7 +5,7 @@ carries the turn's delegation token and correlation id; failures become an
 from __future__ import annotations
 
 import time
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx
 from pydantic import ValidationError
@@ -16,7 +16,7 @@ from .settings import settings
 
 class GatewayPort(Protocol):
     async def call(self, tool: str, params: dict, token: str, correlation_id: str) -> ToolResponse: ...
-    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str) -> list[ToolResponse]: ...
+    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str, disclosure: dict[str, str] | None = None) -> list[ToolResponse]: ...
 
 
 def unavailable(tool: str, reason: str, correlation_id: str, latency_ms: float = 0.0) -> ToolResponse:
@@ -63,16 +63,21 @@ class HttpGateway:
         except (ValueError, ValidationError):
             return unavailable(tool, "contract_violation", correlation_id, (time.perf_counter() - started) * 1000)
 
-    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str) -> list[ToolResponse]:
+    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str, disclosure: dict[str, str] | None = None) -> list[ToolResponse]:
         """One request serving every tool in `calls`: one gateway bootstrap
         (globals.php translations/ACL/layout lookups, PERF-MED-002) instead of
         one per tool. A transport-level failure marks every requested tool
         unavailable with the same reasons `call()` uses; a malformed or
         mismatched single result degrades only that tool, using the name we
-        asked for rather than whatever the gateway returned."""
+        asked for rather than whatever the gateway returned. `disclosure`
+        ({provider, model}) declares that these records will go to a model
+        provider; the module writes a `copilot-model-disclosure` audit row
+        before it returns them, and returns none if it cannot."""
         started = time.perf_counter()
         headers = {"X-Copilot-Token": token, "X-Correlation-Id": correlation_id, "Accept": "application/json"}
-        body = {"calls": [{"tool": tool, "params": params} for tool, params in calls]}
+        body: dict[str, Any] = {"calls": [{"tool": tool, "params": params} for tool, params in calls]}
+        if disclosure:
+            body["disclosure"] = disclosure
         try:
             response = await self._client.post(f"{self.base_url}/tools.php", json=body, headers=headers)
         except httpx.TimeoutException:

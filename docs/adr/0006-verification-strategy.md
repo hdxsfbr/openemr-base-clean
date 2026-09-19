@@ -148,7 +148,8 @@ retrieved in that turn. It makes no model call.
   task-success gate (`evals/README.md`, "Two classes of failure").
 - Audit event (decision 5): the `copilot-verification-result` OpenEMR
   audit event is not written; the module logs `copilot-session-start`,
-  `copilot-tool-read`, `copilot-denied`, and `copilot-session-end` only
+  `copilot-tool-read`, `copilot-model-disclosure` (since 2026-09-19),
+  `copilot-denied`, and `copilot-session-end` only
   (`src/Gateway/Audit.php`). The verifier outcome is returned in
   `TurnResponse.verification` and carried on the Langfuse trace; the audit
   row remains **planned** (`ARCHITECTURE.md`, Privacy).

@@ -271,6 +271,7 @@ patient id in the `patient_id` column.
 | `copilot-tool-read` / `copilot` | Gateway, per tool call | user, pid, tool name, resource types, record count, date window, correlation_id, ACL decision | 1/0 |
 | `copilot-access-denied` / `security-access-denied` | Gateway (reuse `AccessDeniedHelper::logDenial`) | user, requested pid, tool, reason code, correlation_id; confirms no LLM call made | 0 |
 | `copilot-patient-context-mismatch` / `security` | Gateway/agent | user, session pid, requested pid, correlation_id | 0 |
+| `copilot-model-disclosure` / `copilot` | Gateway, per retrieval batch whose records the agent declares will go to the model provider; written before the records are returned | user, pid, provider, model id, tool names, record count, conversation_id, turn_id, correlation_id; **no record, prompt, or response** | 1 |
 | `copilot-llm-call` / `copilot` | Agent service → gateway audit endpoint | correlation_id, model id, provider, input/output token counts, resource types in context, duration, outcome; **no prompt/response text** | 1/0 |
 | `copilot-verification-result` / `copilot` | Verifier | correlation_id, claims total / verified / withheld, rule ids failed | 1 if no rejections |
 | `copilot-response-rendered` / `copilot` | Module | correlation_id, cited source ids count, partial flag | 1 |
@@ -295,6 +296,26 @@ table on 2026-09-15 (commit `2dc51a0`). Not implemented in the OpenEMR log:
 verifier outcomes, and dependency failures are recorded in the PHI-masked
 Langfuse trace and the agent's `/metrics` instead. The idle close (30 min)
 is not audited as a session-end event.
+
+*Status 2026-09-19:* `copilot-model-disclosure` is implemented
+(`Audit::modelDisclosure`, `public/gateway/tools.php`). The agent declares
+`{provider, model}` on a retrieval batch when that turn's records will go to
+the model (`_disclosure` in `agent/app/graph/nodes.py`: not when no model is
+configured, the model fault is injected, a budget limit applies, or an
+earlier model call of the turn failed), and the module writes the row before
+it returns the records; if the row cannot be written every tool of the batch
+answers `unavailable, reason=audit_unavailable`, the rule `copilot-tool-read`
+already follows. It is the who, which patient, which provider, which
+sections of the planned `copilot-llm-call`, moved to before the data leaves;
+the token counts, duration, and outcome of the call stay on the Langfuse
+trace and join on `correlation_id`. A UC-01 first turn retrieves in two
+batches and writes two rows. The row records a declared intent: a model
+call that then fails after retrieval still has its row, which is the
+conservative side for an accounting of disclosures (the request may have
+been sent). The agent side is covered by
+`test_a_retrieval_whose_records_go_to_the_model_declares_the_disclosure`;
+the PHP has been linted only, and the row has **not yet been read back from
+the deployment's `log` table**.
 
 ## 6. Procedures: demo project vs. real deployment
 
@@ -492,6 +513,9 @@ is not audited as a session-end event.
   correlation id is not automated (`evals/run.py` does not query `log`); the
   suite asserts correlation-id propagation and tool statuses only.
   `copilot-llm-call` is not written to the OpenEMR log (Section 5 status).
+  Since 2026-09-19 the disclosure itself is: `copilot-model-disclosure`
+  (provider, model, tools, record count) is written before a batch's records
+  are returned for a model-backed turn (Section 5 status, 2026-09-19).
 
 ### COMP-HIGH-004: Observability traces will capture PHI and create an uncovered business associate unless designed otherwise
 
