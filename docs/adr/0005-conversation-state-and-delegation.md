@@ -32,6 +32,30 @@
   still closes and denies as before; normal patient navigation no longer
   probes one patient's conversation while another chart is open. Covered by
   `ISO-RECENT-PATIENT-RESUME-001` and `ConversationRepositoryTest`.
+- **Status note (2026-09-19):** fixed a cross-window session defect the drawer
+  had from the start (commit 060ed97, module 0.4.4). OpenEMR supports one user
+  holding several concurrent logins by keeping each top window's session id in
+  the shared browser cookie and re-pinning it with `top.restoreSession()`
+  (`library/restoreSession.php`, always active via `restore_sessions=1` in
+  `interface/globals.php`) before every same-origin call. The drawer's
+  `fetch()` calls omitted that pin, so a login, logout, or patient switch in
+  another window left `session.php`, `conversation.php`, and `ticket.php`
+  riding a foreign or destroyed session — surfacing empty-body 400s
+  (`MissingSiteIdException`: no `site_id`) and the §2 `patient_context_changed`
+  denial. This is a live manifestation of `AUDIT.md` ARCH-HIGH-001, the single
+  mutable `pid` per login. Fix: `pinSession()` calls
+  `window.top.restoreSession()` before `fetchJson`/`postStream`, plus a
+  one-shot re-pin retry in `refreshSession()` and consistent soft-error styling
+  (`isSoftCode()`). Verified live on 0.4.4 by a controlled before/after in the
+  deployed drawer frame: with the shared cookie corrupted to simulate another
+  window, `session.php` returns 400 (empty body) without the pin and 200 with
+  it. Two residuals left open: (a) the same login opened in two tabs still
+  shares one server-side `pid` by OpenEMR design, so a patient switch there
+  still closes with `patient_context_changed` (now a calm, self-recovering
+  notice rather than a red error); true per-tab isolation is out of scope; (b)
+  each CI deploy recreates the openemr container and PHP sessions live in that
+  container's filesystem, so every deploy logs users out — a candidate
+  follow-up is moving the session store to a named volume.
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (module and agent service)
 - **Related requirements:** PRD "multi-turn AI agent that can maintain

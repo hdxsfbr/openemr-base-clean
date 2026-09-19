@@ -875,6 +875,15 @@ the OpenEMR session, because that is where the authorization facts live:
 | `GET  .../public/gateway/ping.php` | none, internal only | Readiness probe for the gateway (bootstraps OpenEMR, checks DB) |
 | `POST .../public/gateway/tools.php?tool={tool}` (GET also accepted) | delegation token | Tool calls from the agent; JSON body `since`, `until`, `limit`, `term` (notes), `analyte` (labs); unknown keys such as `pid` are rejected |
 
+Every session-authenticated module call above is same-origin and rides the
+OpenEMR window session. Because one user may hold several concurrent logins in
+one browser (shared cookie jar), the panel calls `top.restoreSession()`
+(`library/restoreSession.php`) before each such call to pin the cookie to its
+own window's session. Without that pin a login, logout, or patient switch in
+another window makes these calls ride a foreign or destroyed session and fail —
+an empty-body 400 (`MissingSiteIdException`) or a `patient_context_changed`
+denial. See ADR-0005 status note 2026-09-19.
+
 **The collection (`docs/api-collection/`, Bruno format, git-friendly).**
 Graders must run every workflow without reading source, so the collection
 performs the same handshake the panel does:
