@@ -18,6 +18,14 @@ Workflow
 
        python evals/error_analysis.py sample --base-url https://host -n 20
 
+   Each sampled conversation also asks follow-up turns (`--follow-ups`, default 1): the first
+   follow-up chip the answer offered, as a physician would click it, or a second bank question
+   when no chip came back. Follow-ups are their own entries. In the 2026-09-18 sessions 16 of
+   the 19 turns whose narrative was replaced were follow-ups, and a first-turn-only sample
+   never reaches that path. Each entry's status line carries the summary basis (`model`, or
+   `deterministic` with the reason a reviewer can look up) and the `ref` that finds the full
+   exchange in Langfuse (Tracing, filter metadata `correlation_id`).
+
    Each entry gets exactly two blank fields to fill by hand: **First issue** (stop at the
    first thing that looks wrong — do not keep reading and do not list more than one) and
    **Notes** (anything else worth remembering, not a second issue).
@@ -80,7 +88,16 @@ QUESTION_BANK = [
 ]
 
 
-def sample(base_url: str, password: str, n: int, seed: int | None) -> Path:
+def follow_up_question(body: dict[str, Any], asked: list[str], rng: random.Random) -> tuple[str, str]:
+    """The next question in a sampled conversation and where it came from: the first chip the
+    last answer offered that was not already asked, else a bank question not already asked."""
+    for chip in body.get("suggestions") or []:
+        if isinstance(chip, str) and chip.strip() and chip not in asked:
+            return chip.strip(), "chip"
+    return rng.choice([q for q in QUESTION_BANK if q not in asked] or QUESTION_BANK), "bank"
+
+
+def sample(base_url: str, password: str, n: int, seed: int | None, follow_ups: int = 1) -> Path:
     cohort = json.loads(COHORT_PATH.read_text())
     patients = [p for p in cohort if not p.startswith("AF-ACL")]  # ACL fixtures are authorization-only, not chart content
     rng = random.Random(seed)
@@ -92,37 +109,64 @@ def sample(base_url: str, password: str, n: int, seed: int | None) -> Path:
     lines = [
         f"# Error-analysis journal {stamp}",
         "",
-        f"{n} unscripted turns across {len(set(p for _, p in picks))} patients, dataset `af-cohort-v1`.",
+        f"{n} unscripted conversations ({n * (1 + follow_ups)} turns: a first question and {follow_ups} follow-up(s) each) across {len(set(p for _, p in picks))} patients, dataset `af-cohort-v1`.",
         "",
         "For each trace: read it, then fill in **First issue** (stop at the first thing that "
         "looks wrong; leave blank if the turn looks right) and **Notes**. One issue per trace, "
         "no scoring, no categorizing yet — see the docstring in evals/error_analysis.py.",
         "",
     ]
+    entry_no = 0
     for i, (question, patient) in enumerate(picks, start=1):
         session = Session(base_url, "audit-physician", password, cohort)
+        asked: list[str] = []
+        kind, first_entry = "first turn", 0
         try:
             session.open_chart(patient)
             session.start()
-            resp, latency_ms = session.turn(question)
-            try:
-                body = resp.json() if resp.content else {}
-            except ValueError:
-                body = {"_raw_status": resp.status_code}
-        except Exception as exc:  # noqa: BLE001 - one bad trace must not stop the sample
-            body = {"_error": f"{exc.__class__.__name__}: {str(exc)[:200]}"}
-            latency_ms = 0.0
+            for turn_no in range(1 + follow_ups):
+                try:
+                    resp, latency_ms = session.turn(question)
+                    try:
+                        body = resp.json() if resp.content else {}
+                    except ValueError:
+                        body = {"_raw_status": resp.status_code}
+                except Exception as exc:  # noqa: BLE001 - one bad trace must not stop the sample
+                    body = {"_error": f"{exc.__class__.__name__}: {str(exc)[:200]}"}
+                    latency_ms = 0.0
+                entry_no += 1
+                first_entry = first_entry or entry_no
+                lines += _entry(entry_no, patient, question, body, latency_ms, kind)
+                print(f"[{i}/{n}] {patient}: {question}")
+                asked.append(question)
+                if "_error" in body or "_raw_status" in body:
+                    break  # the conversation is not in a state worth following up
+                question, source = follow_up_question(body, asked, rng)
+                kind = f"follow-up to entry {first_entry} ({source})"
+        except Exception as exc:  # noqa: BLE001 - login or chart open failed: record it and move on
+            entry_no += 1
+            lines += _entry(entry_no, patient, question, {"_error": f"{exc.__class__.__name__}: {str(exc)[:200]}"}, 0.0, kind)
         finally:
             session.close()
-        lines += _entry(i, patient, question, body, latency_ms)
-        print(f"[{i}/{n}] {patient}: {question}")
     path.write_text("\n".join(lines) + "\n")
     print(f"\nJournal written: {path.relative_to(ROOT)}")
     print("Open it, read each trace, and fill in First issue / Notes by hand before running `report`.")
     return path
 
 
-def _entry(i: int, patient: str, question: str, body: dict[str, Any], latency_ms: float) -> list[str]:
+def _summary_basis(body: dict[str, Any]) -> str:
+    """`model`, or `deterministic` with why the model's summary was replaced when the response says."""
+    basis = str(body.get("summary_basis") or "?")
+    if basis != "deterministic":
+        return basis
+    if int(body.get("withheld_count") or 0):
+        return "deterministic (claims withheld)"
+    if any(l.get("kind") in ("narrative_unavailable", "model_budget_exhausted") for l in body.get("limitations") or []):
+        return "deterministic (narrative unavailable)"
+    return "deterministic (summary gate; the reason is on the trace)"
+
+
+def _entry(i: int, patient: str, question: str, body: dict[str, Any], latency_ms: float, kind: str = "first turn") -> list[str]:
     claims = body.get("claims") or []
     claim_lines = [f"  - `{c.get('type')}` {c.get('text', '')}" for c in claims] or ["  - (none)"]
     limitations = body.get("limitations") or []
@@ -133,7 +177,8 @@ def _entry(i: int, patient: str, question: str, body: dict[str, Any], latency_ms
         f"## {i}. {patient} — {question}",
         "",
         f"Status: `{body.get('status', body.get('_error', '?'))}` · latency {latency_ms:.0f} ms · "
-        f"model calls {(body.get('usage') or {}).get('model_calls', '?')}",
+        f"model calls {(body.get('usage') or {}).get('model_calls', '?')} · summary: {_summary_basis(body)} · {kind} · "
+        f"ref {body.get('correlation_id') or '?'}",
         "",
         "**Claims:**",
         *claim_lines,
@@ -275,7 +320,8 @@ def main() -> int:
     s = sub.add_parser("sample", help="drive unscripted questions and write a blank journal")
     s.add_argument("--base-url", default="https://openemr-137-184-4-22.sslip.io")
     s.add_argument("--password-file", default="-", help="file with the demo password, or '-' for DEMO_PASSWORD env var")
-    s.add_argument("-n", type=int, default=20, help="number of traces to sample")
+    s.add_argument("-n", type=int, default=20, help="number of conversations to sample")
+    s.add_argument("--follow-ups", type=int, default=1, help="follow-up turns per conversation: the first offered chip, else a second bank question (0 for first turns only)")
     s.add_argument("--seed", type=int, default=None, help="for a reproducible sample; omit for a fresh random draw")
 
     r = sub.add_parser("report", help="print filled-in issues from one or more journals, ready to paste for categorization")
@@ -288,7 +334,7 @@ def main() -> int:
         if not password:
             print("a demo password is required (DEMO_PASSWORD or --password-file)", file=sys.stderr)
             return 2
-        sample(args.base_url, password, args.n, args.seed)
+        sample(args.base_url, password, args.n, args.seed, max(0, args.follow_ups))
     elif args.cmd == "report":
         report([Path(p) for p in args.journal])
     return 0

@@ -222,9 +222,21 @@ agent/.venv/bin/python evals/error_analysis.py report --journal evals/error_anal
 ```
 
 `sample` flags: `--base-url` (default the demo hostname), `--password-file`
-(`-`, the default, reads `DEMO_PASSWORD`), `-n` (traces to sample, default
-20), `--seed` (reproducible draw; omit for a fresh one). `report` takes one
-or more `--journal` files.
+(`-`, the default, reads `DEMO_PASSWORD`), `-n` (conversations to sample,
+default 20), `--follow-ups` (follow-up turns per conversation, default 1: the
+first chip the answer offered, as a physician would click it, else a second
+bank question; 0 for first turns only), `--seed` (reproducible draw; omit for
+a fresh one). `report` takes one or more `--journal` files.
+
+Follow-ups are sampled because that is where the narrative failed: in the
+2026-09-18 sessions 16 of the 19 turns whose model summary was replaced were
+follow-ups. Each entry's status line carries the summary basis (`model`, or
+`deterministic` with as much of the reason as the response shows), whether
+the turn was a first question or a follow-up, and the `ref`. With content
+capture on (`COPILOT_TRACE_CONTENT`, ADR-0007), the `ref` finds the whole
+exchange in Langfuse: Tracing, filter metadata `correlation_id` = the ref;
+the trace's Session link is the conversation. Pure parts are tested offline
+in `evals/test_error_analysis.py`.
 
 `evals/review_ui.py` is a small local FastAPI app (it reuses the agent's
 `fastapi`/`uvicorn` dependencies, so run it from `agent/.venv`) that reads
