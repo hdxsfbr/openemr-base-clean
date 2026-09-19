@@ -314,8 +314,13 @@ call that then fails after retrieval still has its row, which is the
 conservative side for an accounting of disclosures (the request may have
 been sent). The agent side is covered by
 `test_a_retrieval_whose_records_go_to_the_model_declares_the_disclosure`;
-the PHP has been linted only, and the row has **not yet been read back from
-the deployment's `log` table**.
+the PHP was linted by CI, and the rows were read back from the deployment's
+`log` table the same day after two drawer turns on a synthetic patient: one
+row for the follow-up, two for the UC-01 first turn, provider, model, tool
+names and record counts matching the drawer and the Langfuse traces, a tool
+that answered `empty` not listed, and no chart content
+(`docs/audit/evidence/compliance/04-model-disclosure-rows-2026-09-19.md`).
+The fail-closed branch has not been exercised in the deployment.
 
 ## 6. Procedures: demo project vs. real deployment
 
