@@ -120,6 +120,11 @@ JSON schema (schema_version 1; every key is always present):
                         "unlabelled" when absent, so both label sets aggregate
       client_tool_unavailable  evidence entries with status unavailable in turn bodies
       usage             summed input_tokens, output_tokens, cache_read_tokens, model_calls
+      prompt_cache      {"read_fraction", "first", "followup"}: cache_read_tokens / (input_tokens +
+                        cache_read_tokens) over all turns, first turns, and follow-ups; null when no
+                        turn reported usage. How warm the provider's prompt cache was, which a latency
+                        percentile cannot be compared across runs without. The agent does not record
+                        cache-write tokens, so a turn that wrote the cache reads as cold, not partly warm
       step_http         {step: {"<http status>" or "transport": count}}
       metrics           {"before": bool, "after": bool}: whether /metrics was read
       vu_records[]      one entry per VU in start order: {index, user, scenario, completed,
@@ -460,6 +465,15 @@ def labelled_counter_by(before: str | None, after: str | None, name: str, label:
     return dict(sorted(out.items()))
 
 
+def cache_read_fraction(turns: Iterable[TurnSample]) -> float | None:
+    """Share of the reported prompt tokens that the provider served from its prompt cache."""
+    read = fresh = 0.0
+    for t in turns:
+        read += float(t.usage.get("cache_read_tokens", 0) or 0)
+        fresh += float(t.usage.get("input_tokens", 0) or 0)
+    return round(read / (read + fresh), 3) if read + fresh else None
+
+
 def _latencies(samples: Iterable[StepSample | TurnSample]) -> list[float]:
     return [s.ms for s in samples if s.error is None and s.http_status is not None]
 
@@ -566,6 +580,11 @@ def summarize_level(users: int, vus: list[VirtualUserResult], metrics_before: st
         "tool_unavailable": tool_unavailable_deltas(metrics_before, metrics_after),
         "client_tool_unavailable": sum(t.evidence_unavailable for t in turns),
         "usage": usage,
+        "prompt_cache": {
+            "read_fraction": cache_read_fraction(turns),
+            "first": cache_read_fraction(t for t in turns if t.turn_type == "first"),
+            "followup": cache_read_fraction(t for t in turns if t.turn_type == "followup"),
+        },
         "step_http": _step_http(steps, turns),
         "metrics": {"before": metrics_before is not None, "after": metrics_after is not None},
         "vu_records": [_vu_record(v) for v in sorted(vus, key=lambda v: v.index)],
@@ -598,6 +617,10 @@ def _fmt_dist(d: dict[str, Any], keys: tuple[str, ...] = ("p50", "p95", "p99")) 
     return " / ".join(f"{d[k]:.0f}" for k in keys)
 
 
+def _fmt_fraction(value: float | None) -> str:
+    return "not measured" if value is None else f"{value:.0%}"
+
+
 def _fmt_errors(e: dict[str, Any]) -> str:
     return f"{e['total']} ({e['rate']:.1%}): " + " ".join(f"{b}={e[b]}" for b in ERROR_BUCKETS)
 
@@ -616,12 +639,15 @@ def render_markdown(results: dict[str, Any]) -> str:
         f"{', '.join(str(u) for u in results['stream_levels']) or 'none'}. Synthetic cohort af-cohort-v1; no PHI.",
         "",
         "Latency columns are p50 / p95 / p99 in ms over every request that received an HTTP response; "
-        "transport failures count as errors only. Status share is complete / partial / fallback / failed / denied.",
+        "transport failures count as errors only. Status share is complete / partial / fallback / failed / denied. "
+        "Prompt-cache read fraction is cache-read tokens over cache-read plus uncached input tokens: how warm the "
+        "provider's cache was, without which two runs' latency percentiles are not comparable.",
     ]
     if results["interrupted"]:
         lines += ["", "**Interrupted run.** Only the levels that completed before Ctrl-C are recorded below."]
     for lv in results["levels"]:
         lat, errs = lv["latency_ms"], lv["errors"]
+        pc = lv.get("prompt_cache") or {"read_fraction": None, "first": None, "followup": None}  # results recorded before 2026-09-19 have none
         lines += [
             "",
             f"## {lv['users']} users — {lv['vus']['completed']} of {lv['vus']['total']} VUs completed in {lv['duration_s']} s, {lv['turns']} turns",
@@ -641,6 +667,7 @@ def render_markdown(results: dict[str, Any]) -> str:
             "",
             f"First turn p50 / p95 / p99: {_fmt_dist(lat['turn_first'])}; follow-up: {_fmt_dist(lat['turn_followup'])}; "
             f"login: {_fmt_dist(lat['login'])}; session.php: {_fmt_dist(lat['session'])}; start: {_fmt_dist(lat['start'])}; history: {_fmt_dist(lat['history'])}.",
+            f"Prompt-cache read fraction: all turns {_fmt_fraction(pc['read_fraction'])}, first turns {_fmt_fraction(pc['first'])}, follow-ups {_fmt_fraction(pc['followup'])}.",
         ]
         if lv["failed_at"]:
             lines.append("VUs that stopped early, by step: " + ", ".join(f"{k}={v}" for k, v in lv["failed_at"].items()) + ".")

@@ -228,6 +228,8 @@ def test_summarize_level_error_split_status_share_and_denials() -> None:
     assert lv["server_turns_by_status"] == {"complete": 15, "partial": 4}
     assert lv["client_tool_unavailable"] == 1
     assert lv["usage"] == {"input_tokens": 500, "output_tokens": 250, "cache_read_tokens": 100, "model_calls": 10}
+    # 20 cache-read of 120 reported prompt tokens on every synthetic turn, whatever its type.
+    assert lv["prompt_cache"] == {"read_fraction": 0.167, "first": 0.167, "followup": 0.167}
     assert lv["step_http"]["turn"] == {"200": 2, "403": 1, "504": 1, "transport": 1}
     assert lv["metrics"] == {"before": True, "after": True}
     assert lv["duration_s"] == 120.0
@@ -269,7 +271,7 @@ def test_build_results_has_the_documented_top_level_keys_and_serializes() -> Non
     assert results["interrupted"] is False
     assert results["schema_version"] == L.SCHEMA_VERSION and results["kind"] == "load"
     assert results["users_levels"] == [4] and results["stream_levels"] == [1, 10] and results["fault"] == "model"
-    level_keys = ["users", "started_at", "finished_at", "duration_s", "vus", "failed_at", "latency_ms", "by_scenario", "turns", "errors", "denials", "status_counts", "status_share", "server_turns_by_status", "tool_unavailable", "client_tool_unavailable", "usage", "step_http", "metrics", "vu_records"]
+    level_keys = ["users", "started_at", "finished_at", "duration_s", "vus", "failed_at", "latency_ms", "by_scenario", "turns", "errors", "denials", "status_counts", "status_share", "server_turns_by_status", "tool_unavailable", "client_tool_unavailable", "usage", "prompt_cache", "step_http", "metrics", "vu_records"]
     assert list(results["levels"][0]) == level_keys
     assert set(results["levels"][0]["latency_ms"]) == set(L.STEP_NAMES)
     assert json.loads(json.dumps(results)) == results
@@ -487,3 +489,16 @@ def test_run_all_reads_metrics_around_each_level_and_builds_the_schema() -> None
     assert [t["correlation_id"] for r in levels[1]["vu_records"] for t in r["turns"]] == ["corr-1"] * 6
     blob = json.dumps(results)
     assert "corr-1" in blob and "tok-fake" not in blob and "csrf-fake" not in blob and "clearPass" not in blob
+
+
+def test_cache_read_fraction_separates_warm_follow_ups_from_cold_first_turns() -> None:
+    cold = L.TurnSample("AF-DQ-A2", "physician", "first", 9000.0, 200, None, "complete", usage={"input_tokens": 4000, "output_tokens": 900, "cache_read_tokens": 0, "model_calls": 1})
+    warm = L.TurnSample("AF-DQ-A2", "physician", "followup", 5000.0, 200, None, "complete", usage={"input_tokens": 400, "output_tokens": 300, "cache_read_tokens": 3600, "model_calls": 2})
+    no_usage = L.TurnSample("AF-DQ-A2", "physician", "followup", 100.0, None, "ReadTimeout", None)
+    lv = L.summarize_level(1, [L.VirtualUserResult(0, "physician", "AF-DQ-A2", turns=[cold, warm, no_usage])], None, None, "t0", "t1", 1.0, L.DEFAULT_SCENARIOS)
+    assert lv["prompt_cache"] == {"read_fraction": 0.45, "first": 0.0, "followup": 0.9}
+    assert L.cache_read_fraction([no_usage]) is None
+    md = L.render_markdown(L.build_results(commit="abc1234", timestamp="t", label="", cfg=config(), levels=[lv]))
+    assert "Prompt-cache read fraction: all turns 45%, first turns 0%, follow-ups 90%." in md
+    lv.pop("prompt_cache")  # a results file recorded before the field existed still renders
+    assert "first turns not measured" in L.render_markdown(L.build_results(commit="abc1234", timestamp="t", label="", cfg=config(), levels=[lv]))

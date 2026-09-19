@@ -46,6 +46,13 @@ of `run_load.py`; the short form:
   set (`tool`, `status`; reasons aggregate as `unlabelled`) and the
   `reason`-labelled set the agent emits after M2;
 - summed token usage and per-step HTTP status counts;
+- the prompt-cache read fraction (`prompt_cache`: cache-read tokens over
+  cache-read plus uncached input tokens, for all turns, first turns, and
+  follow-ups), printed beside the latency percentiles. A p95 from a run with
+  a warm provider cache and one from a cold run are different measurements;
+  results recorded before 2026-09-19 do not carry it and render as "not
+  measured". The agent does not record cache-write tokens, so a turn that
+  wrote the cache reads as cold rather than partly warm;
 - one record per VU (`vu_records`): user, chart, where it stopped, and each
   turn's HTTP status, body status, latency and correlation id.
 
