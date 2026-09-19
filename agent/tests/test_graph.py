@@ -302,3 +302,31 @@ def test_indication_text_value_and_cross_source_status_become_limitation_lines()
     assert any(l["kind"] == "not_documented" and l["section"] == "labs" and "recorded as text" in l["detail"] for l in lims)
     conflict = [l for l in lims if l["kind"] == "conflict" and "differs across sources" in l["detail"]]
     assert conflict and set(conflict[0]["source_ids"]) == {med.source.source_id, twin.source.source_id}
+
+
+@pytest.mark.anyio
+async def test_the_agents_own_follow_ups_retrieve_without_a_plan_call() -> None:
+    """The follow-ups the agent writes itself have fixed wording, so the tools
+    they need are known and the plan model call only re-derives them. Matching
+    is on the agent's own constants: nothing the client sends can assert it."""
+    from app.graph.nodes import KNOWN_PLANS
+    from app.verifier import STARTER_QUESTIONS, default_suggestions, normalized_question
+
+    budget.daily.reset()
+    good = {"id": "c1", "type": "medication_status", "text": "Metformin is active.", "facts": {"name": "metformin", "status": "active"}, "source_ids": [METFORMIN]}
+    model, gateway = FakeModel(claims=[good]), FakeGateway()
+    final = await make_graph(model, gateway).ainvoke(turn_input("  what does the chart say about why each current medication is on the list  "), CFG)
+    assert model.plan_rounds == 0 and model.narrate_calls == 1, "the known question skipped the plan call and still narrated"
+    assert [c[0] for c in final["tool_calls"]] == ["medications", "problems", "clinical_notes"] == [tool for tool, _ in gateway.calls]
+    assert final["turn_type"] == "followup" and final["status"] == "complete" and [c["id"] for c in final["accepted"]] == ["c1"]
+
+    # Any other follow-up still goes through plan, which is what decides filters, search terms and the window.
+    model = FakeModel(claims=[good], plan_calls=[("medications", {})])
+    await make_graph(model).ainvoke(turn_input("Which notes mention metformin?", turn_id="fb5c2fa60b22e601"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb21"}})
+    assert model.plan_rounds == 1
+
+    # Every follow-up the agent can write itself has a plan, except the UC-01 starter, which has its own route.
+    every_type = [Claim.model_validate({"id": f"c{i}", "type": t, "text": "x", "source_ids": []}) for i, t in enumerate(("lab_result", "conflict", "change_event"), start=1)]
+    own = set(default_suggestions(every_type, [])) | set(default_suggestions([], [])) | set(STARTER_QUESTIONS)
+    assert {normalized_question(q) for q in own} - {normalized_question(STARTER_QUESTIONS[0])} <= set(KNOWN_PLANS)
+    assert all(tool in {"problems", "medications", "allergies", "lab_results", "clinical_notes", "encounters"} for calls in KNOWN_PLANS.values() for tool, _ in calls)

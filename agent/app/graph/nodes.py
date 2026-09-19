@@ -22,7 +22,18 @@ from ..model import ModelError, ModelPort, NarrateResult, PlanResult, Usage
 from ..settings import settings
 from ..state_store import get_pack, get_token, put_pack
 from ..telemetry import record_tool_result, tool_observation
-from ..verifier import default_suggestions, deterministic_summary, filter_suggestions, verify, verify_summary
+from ..verifier import (
+    CONFLICT_NOTE_QUESTION,
+    FLAGGED_LABS_QUESTION,
+    NEWEST_PROBLEM_QUESTION,
+    STARTER_QUESTIONS,
+    default_suggestions,
+    deterministic_summary,
+    filter_suggestions,
+    normalized_question,
+    verify,
+    verify_summary,
+)
 from .state import TurnState
 
 log = logging.getLogger("copilot.graph")
@@ -30,6 +41,22 @@ log = logging.getLogger("copilot.graph")
 UC01_PATTERNS = [r"what (has )?changed", r"changes? since", r"since (the |my )?last visit", r"pre-?visit brief", r"^brief$"]
 PARAM_MODELS = {"clinical_notes": NotesParams, "lab_results": LabsParams}
 UC01_TOOLS = ("patient_context", "problems", "medications", "allergies", "lab_results", "clinical_notes")
+
+# The follow-ups the agent writes itself have fixed wording, so the tools they need are known
+# and the `plan` model call (p50 2.0 s, Langfuse 2026-09-18) only re-derives them. These are the
+# calls `plan` made for each question in 3 of 3 runs on 2026-09-19 (for the medication question,
+# the union of the three); the verifier and narrate are unchanged. Matching is on the agent's
+# own constants, not on anything the client asserts, so there is no flag to forge: a physician
+# who types the same words gets the same retrieval. Model-written chips still go through `plan`,
+# because what they need (an analyte filter, a note search term, the whole chart instead of the
+# window) is exactly what `plan` decides.
+KNOWN_PLANS: dict[str, list[list[Any]]] = {
+    normalized_question(STARTER_QUESTIONS[1]): [["lab_results", {}], ["clinical_notes", {}]],
+    normalized_question(STARTER_QUESTIONS[2]): [["medications", {}], ["problems", {}], ["clinical_notes", {}]],
+    normalized_question(FLAGGED_LABS_QUESTION): [["lab_results", {}]],
+    normalized_question(CONFLICT_NOTE_QUESTION): [["medications", {}], ["clinical_notes", {}]],
+    normalized_question(NEWEST_PROBLEM_QUESTION): [["problems", {}]],
+}
 
 
 @dataclass
@@ -193,6 +220,10 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         if rt.model is None or limit or state.get("fault") == "model":
             return {"plan_round": round_no, "pending_calls": [], "narrate_error": "model_unavailable" if not limit else limit, "route": "narrate"}
         prior = [(c[0], c[1]) for c in (state.get("tool_calls") or [])]
+        known = KNOWN_PLANS.get(normalized_question(state["question"])) if not prior else None
+        if known:
+            log.info("plan skipped: known question", extra={"component": "plan", "correlation_id": state.get("correlation_id")})
+            return {"plan_round": round_no, "pending_calls": [list(call) for call in known], "usage": state.get("usage") or {}, "route": "retrieve"}
         try:
             result: PlanResult = await rt.model.plan(state["question"], pack.text, prior, correlation_id=state.get("correlation_id"))
         except ModelError as exc:

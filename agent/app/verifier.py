@@ -473,6 +473,11 @@ def deterministic_summary(accepted: list[Claim], withheld: int, window_since: st
 
 # ---------------------------------------------------------------- suggestions
 
+# The follow-ups the agent itself writes (the starters below and `default_suggestions`). Their
+# wording is fixed, so the tools they need are known: `KNOWN_PLANS` in `graph/nodes.py`.
+FLAGGED_LABS_QUESTION = "Which of these lab results are flagged abnormal?"
+CONFLICT_NOTE_QUESTION = "Was the conflicting medication change documented in a note?"
+NEWEST_PROBLEM_QUESTION = "What does the chart say about the newest problem?"
 STARTER_QUESTIONS = [
     "What changed since the last visit?",
     "Which recent abnormal labs still have no later result or documented follow-up?",
@@ -483,6 +488,11 @@ MAX_SUGGESTION_CHARS = 120
 
 def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9 ]+", "", " ".join(text.lower().split()))
+
+
+def normalized_question(text: str) -> str:
+    """Case, spacing, and punctuation do not make a different question."""
+    return _norm(text)
 
 
 def filter_suggestions(raw: list[str], asked: list[str]) -> list[str]:
@@ -517,10 +527,10 @@ def default_suggestions(accepted: list[Claim], asked: list[str]) -> list[str]:
     candidates: list[str] = []
     types = {c.type for c in accepted}
     if ClaimType.lab_result in types or ClaimType.change_event in types:
-        candidates.append("Which of these lab results are flagged abnormal?")
+        candidates.append(FLAGGED_LABS_QUESTION)
     if ClaimType.conflict in types:
-        candidates.append("Was the conflicting medication change documented in a note?")
+        candidates.append(CONFLICT_NOTE_QUESTION)
     if ClaimType.change_event in types:
-        candidates.append("What does the chart say about the newest problem?")
+        candidates.append(NEWEST_PROBLEM_QUESTION)
     candidates.extend(STARTER_QUESTIONS)
     return filter_suggestions(candidates, asked)
