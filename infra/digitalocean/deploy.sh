@@ -57,7 +57,17 @@ tar -C "${repo_root}/evals/fixtures" -cf - cohort \
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/demo -xf -'
 
 # Operator secrets from ~/.config/agentforge/ (skipped when absent), before start.sh.
-"${script_dir}/push-secrets.sh" "${droplet_ip}" 2>/dev/null | grep '^pushed' || true
+# Immediately after cloud-init finishes and SSH first becomes reachable, push-secrets.sh
+# has been observed to fail transiently (2 of 3 droplets in the 2026-09-18 capacity test;
+# see docs/audit/evidence/performance/droplet-tier-comparison-2026-09-18.md) -- retry once
+# after a short delay, and surface the failure instead of silently continuing.
+if ! push_secrets_out="$("${script_dir}/push-secrets.sh" "${droplet_ip}" 2>&1)"; then
+    printf 'push-secrets.sh failed, retrying once in 5s:\n%s\n' "${push_secrets_out}" >&2
+    sleep 5
+    push_secrets_out="$("${script_dir}/push-secrets.sh" "${droplet_ip}" 2>&1)" \
+        || printf 'push-secrets.sh failed again, continuing without pushing secrets:\n%s\n' "${push_secrets_out}" >&2
+fi
+printf '%s\n' "${push_secrets_out}" | grep '^pushed' || true
 
 printf -v remote_command 'cd /opt/agentforge && chmod 700 start.sh openemr-entrypoint.sh && ./start.sh %q %q %q' \
     "${public_hostname}" "${tls_email}" "${openemr_image}"
