@@ -94,6 +94,42 @@ And what a physician now sees when a summary is replaced:
 > 7.4% on 2026-06-16 to 6.8% on 2026-08-31. 6 more verified statements follow.
 > 1 statement(s) were withheld because they could not be verified."
 
+## The live suite after deploy
+
+Commit `12cd849`, GitLab job 77522, the full run with the holdout set
+(`evals/results/2026-09-19T223524Z-12cd849a.json`) against the 2026-09-18
+baseline (`61ed997`), by `evals/compare.py`:
+
+| | 2026-09-18 | 2026-09-19 |
+|---|---|---|
+| Cases passed | 46 of 46 | 47 of 48 |
+| Blocking gates | all PASS | all PASS |
+| Model summary share | 78.6% | 81.0% |
+| Repair rate | 21.4% | 14.3% |
+| Withheld rate | 1.8% | 1.1% |
+| Hedge-word rate (`near_miss_rate`) | 11.9% | 4.8% |
+| Claims per turn | 4.00 | 4.21 |
+| Cost per model-backed turn | $0.0103 | $0.0116 |
+| First-turn p95 / follow-up p95 | 19.4 s / 12.4 s | 18.0 s / 12.3 s |
+
+**One regression, in the holdout set.** `CONF-DUP-NAMES-C2-001` went from pass
+to fail: with a brand and a generic entry and no shared code, the summary said
+the two entries were "raising a duplicate-source conflict", and the case
+requires a hedge (possible, cannot be confirmed, no shared code) wherever
+"duplicate" or "same medication" appears. The likely cause is this prompt: it
+now lists the filtered words, several of them hedges in form ("may indicate",
+"might need to", "may want to"), and the hedge-word rate fell from 11.9% to
+4.8% across the run. The model hedges less, which is mostly the intent and,
+here, the failure.
+
+The prompt has **not** been changed in response. The case is holdout, and
+`AGENTS.md` forbids tuning a prompt on the holdout set; patching the wording it
+checks would turn the one case that caught this into a case that can no longer
+catch anything. The way to fix it is a coverage-tier sibling (another patient,
+another brand and generic pair) to tune against, a general instruction that
+stating uncertainty is not inference ("cannot be confirmed from the chart" is
+always allowed), and the holdout case left alone as the final check.
+
 ## What this does not show
 
 - One chart, eight questions, 16 turns per arm. The direction is consistent;

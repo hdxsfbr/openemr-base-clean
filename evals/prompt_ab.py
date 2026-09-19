@@ -13,6 +13,12 @@ Costs about USD 0.03 per turn on the configured model (8 questions x reps x 2
 prompts). The key is read from COPILOT_ANTHROPIC_API_KEY_FILE, default
 ~/.config/agentforge/anthropic_api_key. Env: AB_QUESTIONS="q1|q2" to narrow the
 questions, AB_ONLY=NEW to skip the old prompt, AB_OUT=<file> to keep the rows.
+
+The same harness compares two values of one agent setting under the working
+tree's prompt, which is how a latency lever is measured before it ships:
+
+    AB_SETTING=effort_followup:medium,low agent/.venv/bin/python evals/prompt_ab.py HEAD 2
+
 One chart and a handful of questions: read it as a smoke test and a wording
 check, not as a release gate; the live suite (evals/run.py) stays the gate."""
 
@@ -67,9 +73,23 @@ def prompts_at(ref: str) -> dict[str, str]:
     return out
 
 
-async def run_variant(name: str, prompts: dict[str, str], reps: int) -> list[dict]:
+def coerce(current: object, text: str) -> object:
+    """A setting value from the command line, as the type the setting already has."""
+    if isinstance(current, bool):
+        return text.lower() in ("1", "true", "yes", "on")
+    if isinstance(current, int):
+        return int(text)
+    if isinstance(current, float):
+        return float(text)
+    return text
+
+
+async def run_variant(name: str, prompts: dict[str, str], reps: int, setting: tuple[str, str] | None = None) -> list[dict]:
     model_module.SYSTEM_PROMPT = prompts["SYSTEM_PROMPT"]
     model_module.OUTPUT_INSTRUCTIONS = prompts["OUTPUT_INSTRUCTIONS"]
+    if setting:
+        attr, value = setting
+        setattr(model_module.settings, attr, coerce(getattr(model_module.settings, attr), value))
     live = model_module.live_model()
     assert live is not None, "no API key file"
     rows: list[dict] = []
@@ -80,7 +100,7 @@ async def run_variant(name: str, prompts: dict[str, str], reps: int) -> list[dic
             thread = f"{abs(hash((name, i, rep))):032x}"[:32]
             graph = build_graph(Runtime(gateway=FakeGateway(), model=live, today=lambda: dt.date(2026, 9, 15)), checkpointer=InMemorySaver())
             state = dict(PER_TURN_DEFAULTS)
-            state.update({"conversation_id": thread, "turn_id": f"{i:04x}{rep:04x}{abs(hash(name)) % 0xFFFFFFFF:08x}", "correlation_id": f"ab-{name}-{i}-{rep}", "token": "t.t", "question": question, "fault": None})
+            state.update({"conversation_id": thread, "turn_id": f"{i:04x}{rep:04x}{abs(hash(name)) % 0xFFFFFFFF:08x}", "correlation_id": re.sub(r"[^A-Za-z0-9._-]", "-", f"ab-{name}-{i}-{rep}")[:64], "token": "t.t", "question": question, "fault": None})
             t0 = time.perf_counter()
             try:
                 final = await graph.ainvoke(state, {"configurable": {"thread_id": thread}})
@@ -103,7 +123,8 @@ async def run_variant(name: str, prompts: dict[str, str], reps: int) -> list[dic
 
 
 def report(rows: list[dict]) -> None:
-    for variant in ("OLD", "NEW"):
+    variants = list(dict.fromkeys(r["variant"] for r in rows))
+    for variant in variants:
         rs = [r for r in rows if r["variant"] == variant and "error" not in r]
         kept = [r for r in rs if r["summary_basis"] == "model"]
         words = [len((r["raw_summary"] or "").split()) for r in rs if r["raw_summary"]]
@@ -120,7 +141,7 @@ def report(rows: list[dict]) -> None:
     print("\n================ side by side (raw model summary; [basis/reason])")
     for q in QUESTIONS:
         print(f"\nQ: {q}")
-        for variant in ("OLD", "NEW"):
+        for variant in variants:
             for r in [r for r in rows if r["variant"] == variant and r["question"] == q]:
                 if "error" in r:
                     print(f"  {variant}: ERROR {r['error']}")
@@ -133,10 +154,17 @@ async def main() -> None:
     reps = int(sys.argv[2]) if len(sys.argv) > 2 else 1
     new = {"SYSTEM_PROMPT": model_module.SYSTEM_PROMPT, "OUTPUT_INSTRUCTIONS": model_module.OUTPUT_INSTRUCTIONS}
     old = prompts_at(ref)
-    assert old["SYSTEM_PROMPT"] != new["SYSTEM_PROMPT"], "prompts are identical"
+    assert os.environ.get("AB_SETTING") or os.environ.get("AB_ONLY") == "NEW" or old["SYSTEM_PROMPT"] != new["SYSTEM_PROMPT"], "prompts are identical"
     budget.daily.reset()
-    rows = [] if os.environ.get("AB_ONLY") == "NEW" else await run_variant("OLD", old, reps)
-    rows += await run_variant("NEW", new, reps)
+    if os.environ.get("AB_SETTING"):
+        attr, _, values = os.environ["AB_SETTING"].partition(":")
+        assert hasattr(model_module.settings, attr), f"no such setting: {attr}"
+        rows = []
+        for value in values.split(","):
+            rows += await run_variant(f"{attr}={value}", new, reps, (attr, value))
+    else:
+        rows = [] if os.environ.get("AB_ONLY") == "NEW" else await run_variant("OLD", old, reps)
+        rows += await run_variant("NEW", new, reps)
     if os.environ.get("AB_OUT"):
         Path(os.environ["AB_OUT"]).write_text(json.dumps(rows, indent=1))
     report(rows)
