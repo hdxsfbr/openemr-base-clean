@@ -354,3 +354,23 @@ async def test_a_retrieval_whose_records_go_to_the_model_declares_the_disclosure
     gateway = FakeGateway()
     await make_graph(FakeModel(claims=[good]), gateway).ainvoke(turn_input("What changed since the last visit?", turn_id="fb5c2fa60b22e603", fault="model"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb23"}})
     assert gateway.disclosures == [None, None]
+
+
+@pytest.mark.anyio
+async def test_a_garbled_optional_plan_parameter_widens_the_retrieval_instead_of_cancelling_it() -> None:
+    """Recorded 2026-09-19: the planner asked for `lab_results` with the right
+    analyte and `since: "\\n"`, `until: "\\n"` where it meant no bound. The whole
+    call was refused as invalid_params, nothing was retrievable, and the answer
+    was the empty-turn sentence. A parameter name is never chart content, so
+    which ones were dropped is safe to log."""
+    budget.daily.reset()
+    good = {"id": "c1", "type": "lab_result", "text": "Hemoglobin A1c 6.8 % on 2026-08-31, flagged abnormal.", "facts": {"analyte": "Hemoglobin A1c", "value_text": "6.8", "unit": "%", "date": "2026-08-31", "flag": "abnormal"}, "source_ids": [A1C_LATEST]}
+    model, gateway = FakeModel(claims=[good], plan_calls=[("lab_results", {"since": "\n", "until": "</parameter>\n", "analyte": " A1c "})]), FakeGateway()
+    final = await make_graph(model, gateway).ainvoke(turn_input("Are there earlier A1c results to compare?"), CFG)
+    assert gateway.calls == [("lab_results", {"analyte": "A1c", "limit": 50})], "blank and unparseable bounds are dropped, the analyte is kept and trimmed"
+    assert final["status"] == "complete" and [c["id"] for c in final["accepted"]] == ["c1"] and model.narrate_calls == 1
+
+    # Nothing usable at all is still refused: a wrong type for every parameter the tool has.
+    model, gateway = FakeModel(claims=[good], plan_calls=[("lab_results", {"limit": "many"})]), FakeGateway()
+    final = await make_graph(model, gateway).ainvoke(turn_input("Are there earlier A1c results to compare?", turn_id="fb5c2fa60b22e604"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb24"}})
+    assert gateway.calls == [("lab_results", {"limit": 50})], "a bad limit falls back to the contract's default rather than cancelling the call"

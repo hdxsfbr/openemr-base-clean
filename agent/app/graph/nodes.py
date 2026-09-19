@@ -133,9 +133,27 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         return {"turn_type": turn_type, "route": "retrieve" if turn_type == "uc01_first" else "plan"}
 
     def _clean_params(tool: str, params: dict[str, Any]) -> dict[str, Any] | None:
+        """The planner's parameters as the tool's contract, or None when they cannot be used.
+        Every parameter is optional, and a planner that means "no bound" does not always say
+        null: recorded 2026-09-19, about half of `lab_results` plans carried `since: "\n"` and
+        `until: "\n"`, once a stray markup fragment. Rejecting the whole call for that left
+        the turn with nothing retrievable and the physician with "No statement about this
+        question could be made". So blank strings are nulls, and a parameter that still fails
+        its contract is dropped, which widens the retrieval instead of cancelling it; a call
+        whose remaining parameters fail too is refused as before."""
         model = PARAM_MODELS.get(tool, WindowParams)
+        given = {k: (v.strip() if isinstance(v, str) else v) for k, v in params.items()}
+        given = {k: v for k, v in given.items() if v is not None and v != ""}
         try:
-            return model.model_validate(params).model_dump(mode="json", exclude_none=True)
+            return model.model_validate(given).model_dump(mode="json", exclude_none=True)
+        except ValidationError as exc:
+            failed = {str(error["loc"][0]) for error in exc.errors() if error.get("loc")}
+        kept = {k: v for k, v in given.items() if k not in failed}
+        if not failed or kept == given:
+            return None
+        log.info("plan parameters dropped: %s", ",".join(sorted(failed)), extra={"component": "retrieve"})
+        try:
+            return model.model_validate(kept).model_dump(mode="json", exclude_none=True)
         except ValidationError:
             return None
 
