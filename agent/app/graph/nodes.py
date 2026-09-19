@@ -281,7 +281,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         cited = {sid for c in accepted for sid in c.source_ids}
         sources = [source_summary(pack.records[sid]) for sid in sorted(cited) if sid in pack.records]
         # The summary is prose: the model's is shown only when every claim verified (ADR-0006 §7);
-        # otherwise a count-only summary is built from the verified claims.
+        # otherwise the first verified claims are restated word for word.
         summary_ok, summary_reason = verify_summary(state.get("raw_summary") or "", accepted, state.get("rejected") or [], known_values=[state.get("window_since") or ""]) if not state.get("narrate_error") else (False, "narrative_unavailable")
         if summary_ok:
             summary, summary_basis = " ".join((state.get("raw_summary") or "").split()), "model"

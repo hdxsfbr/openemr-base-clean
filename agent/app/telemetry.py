@@ -28,7 +28,7 @@ FORBIDDEN_ENV = ("LANGCHAIN_TRACING_V2", "LANGSMITH_TRACING", "LANGCHAIN_API_KEY
 # Trace scores (ADR-0007 dashboard minimum: verification pass/fail rate and error rate).
 SCORE_VERIFICATION_PASSED = "verification_passed"
 SCORE_TURN_ERROR = "turn_error"
-# 1.0 when the model's narrative was shown, 0.0 when the count-only summary replaced it.
+# 1.0 when the model's narrative was shown, 0.0 when the deterministic summary replaced it.
 SCORE_SUMMARY_MODEL_KEPT = "summary_model_kept"
 
 

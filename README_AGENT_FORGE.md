@@ -123,7 +123,7 @@ Dashed arrows are streamed events or a denial.*
 | `docs/adr/` | ADR-0001 to ADR-0007 |
 | `docs/api-collection/` | Bruno collection: session handshake, use-case turns, failure examples, health |
 | `docs/deployment/digitalocean.md` | Deployment runbook, current deployment status, secrets handling |
-| `evals/` | Eval suite: `evals/README.md` (design), `cases/` (46 YAML cases in golden, coverage, and holdout tiers), `run.py` (runner, release-gate table, scorecard), `compare.py` (A/B diff of two runs), `error_analysis.py` and `review_ui.py` (manual trace-review journal and its local browser UI), `results/` (versioned run reports), synthetic cohort seeders under `fixtures/cohort/` |
+| `evals/` | Eval suite: `evals/README.md` (design), `cases/` (48 YAML cases in golden, coverage, and holdout tiers), `run.py` (runner, release-gate table, scorecard), `compare.py` (A/B diff of two runs), `error_analysis.py` and `review_ui.py` (manual trace-review journal and its local browser UI), `results/` (versioned run reports), synthetic cohort seeders under `fixtures/cohort/` |
 | `docs/operations/` | Alerts runbook, correlation-id walkthrough with a real turn, Langfuse dashboard notes |
 | `docs/WEEK2_HANDOFF.md` | Week 2 handoff stub: read-first order, code-versus-prose seams, the `evals/compare.py` baseline, residual risks, the two deferred experiments with their eval protocol |
 | `docs/diagrams/` | Chat-flow swimlane diagram (standalone SVG) embedded in this README and `ARCHITECTURE.md` |
@@ -157,7 +157,7 @@ agent/.venv/bin/python evals/run.py --offline-only
 DEMO_PASSWORD="$(ssh deployer@137.184.4.22 cat /opt/agentforge/secrets/demo_user_password)" \
   agent/.venv/bin/python evals/run.py --golden-only
 
-# Full release run: all 46 cases including the holdout set; exit code follows the blocking gates
+# Full release run: all 48 cases including the holdout set; exit code follows the blocking gates
 DEMO_PASSWORD="..." agent/.venv/bin/python evals/run.py
 
 # Compare two runs; review an error-analysis journal in the browser (local only)
@@ -234,9 +234,9 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
   toward", and the eval scorecard tracks a non-blocking hedge-language
   near-miss rate as a drift canary.
 - **Summary paragraph gate.** The model's prose summary is shown only when
-  no claim was withheld, it passes the lexicon, and every number in it
-  appears in a verified claim; otherwise a count-only summary is shown and
-  labeled `summary_basis=deterministic`.
+  no claim was withheld, it passes the lexicon, and every date and number in
+  it appears in a verified claim; otherwise the first verified claims are
+  restated word for word and labeled `summary_basis=deterministic`.
 - **Week-1 scope refusals.** No general medical knowledge (no guideline
   source yet), no other patients, no schedule access, no diagnosis, dosing,
   interaction, or discontinuation advice, no writes.

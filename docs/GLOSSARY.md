@@ -154,9 +154,9 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   retrieved records before display.
 - **Summary**: the one-paragraph answer shown above the claims table. Its
   `summary_basis` is `model` when the model's prose passed the summary gate
-  (no claim withheld, lexicon clean, every number grounded in a verified
-  claim) or `deterministic` when the agent built a count-only paragraph from
-  the verified claims instead.
+  (no claim withheld, lexicon clean, every date and number grounded in a
+  verified claim) or `deterministic` when the agent restated the first
+  verified claims word for word instead.
 - **Correlation ID**: the identifier carried through one request end to end.
 - **LangGraph**: the graph runtime the agent service uses for state and
   edges; nodes are plain Python functions that call the Anthropic SDK.

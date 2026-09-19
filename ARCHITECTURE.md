@@ -430,8 +430,8 @@ permitted.
   contract_version}`. `summary` is the one-paragraph answer shown above the
   claims; `summary_basis` says whether it is the model's prose (`model`,
   allowed only when no claim was withheld this turn and the prose passes the
-  lexicon and cites no number absent from the verified claims) or a
-  count-only paragraph built from the verified claims (`deterministic`).
+  lexicon and cites no date or number absent from the verified claims) or
+  the first verified claims restated word for word (`deterministic`).
   `suggestions` are up to three follow-up questions the panel offers as
   chips: written by the model in the same narrate call from that turn's
   records, filtered for shape and lexicon (a question, short, not already
@@ -567,9 +567,10 @@ advice pattern to every displayed turn.
 claims are withheld; the response shows "N statements withheld" and the
 rejection reasons go to the trace. The model also writes a short summary
 paragraph; it is shown only when no claim was withheld in the turn, it
-passes the same lexicon, and every number in it appears in a verified
-claim. Otherwise the panel shows a count-only summary built from the
-verified claims, labeled as such (ADR-0006 §7). If any claim was rejected, one repair
+passes the same lexicon, and every date and number in it appears in a
+verified claim (dates in any written form, numbers in canonical form).
+Otherwise the panel shows the first verified claims restated word for word,
+labeled as such (ADR-0006 §7). If any claim was rejected, one repair
 call is made with the rejection list; the second result is verified the same
 way and there is no third attempt. A turn with zero verified claims renders
 the evidence list and a limitation, never free text.
@@ -1079,7 +1080,7 @@ now, no orchestration rewrite in Week 2).
 | Supervisor with two workers, checkpointing, human-in-the-loop | The turn graph is a LangGraph subgraph with a checkpointer; the supervisor becomes the parent graph |
 | Lab PDF and intake-form ingestion; round-tripping derived records without duplicates | `SourceId` URI scheme, open claim types, provenance fields, the reserved `actions/` endpoint class with idempotency keys; a write ADR is still required |
 | Guideline evidence through hybrid RAG | `guideline:` source scheme and `guideline_reference` claim type reserved; the "no general medical knowledge" refusal is Week 1 scope |
-| 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; 46 cases with a 14-case golden tier and a 4-case holdout already reported separately and gated; the offline subset runs in GitLab CI on every push and the full suite as a manual job |
+| 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; 48 cases with a 15-case golden tier and a 4-case holdout already reported separately and gated; the offline subset runs in GitLab CI on every push and the full suite as a manual job |
 | Adversarial platform driving this co-pilot unattended; cost amplification | Headless drive path (agent API, ticket script, eval client); fault-injection switch; loop bounds, rate limit, token budgets, daily halt; PHI-free trace export and audit log as queryable system state |
 
 ## Known Limitations

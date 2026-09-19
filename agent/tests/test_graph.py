@@ -72,7 +72,7 @@ async def test_model_claims_are_verified_and_bad_ones_withheld() -> None:
     assert final["repair_attempted"] is True and model.narrate_calls == 2
     assert final["sources"][0]["source_id"] == A1C_LATEST and final["sources"][0]["table"] == "procedure_result"
     # Statements were withheld, so the model's prose is not shown; the summary is built from verified claims only.
-    assert final["summary_basis"] == "deterministic" and "1 lab result" in final["summary"] and "3 statement(s) were withheld" in final["summary"]
+    assert final["summary_basis"] == "deterministic" and final["summary"].startswith("Since the visit on 2026-06-16: Hemoglobin A1c 6.8 % on 2026-08-31, flagged abnormal.") and "3 statement(s) were withheld" in final["summary"]
     assert final["history"][-1]["summary"] == final["summary"] and final["history"][-1]["sources"] == final["sources"]
 
 

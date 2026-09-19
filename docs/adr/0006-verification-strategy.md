@@ -155,6 +155,29 @@ retrieved in that turn. It makes no model call.
 - Summary and suggestion gates (decisions 7 and 8) are covered by
   `CIT-SUMMARY-GATE-001` and the runner's per-turn invariants (model
   summary shown only with nothing withheld, at most three suggestions).
+- **Decision 7 amended 2026-09-19.** In the 2026-09-18 sessions 19 of 79
+  turns had the model's summary replaced, and what replaced it ("The chart
+  shows 1 change, 1 documented reference and 1 reading across the chart")
+  answered nothing. Two changes, both in `agent/app/verifier.py`:
+  - *The gate grounds dates as dates and numbers in canonical form.* The
+    number check compared digit strings, so "September 3, 2026" failed
+    against a claim's `2026-09-03` while "October 3, 2026" would have been
+    judged on `3` and `2026` alone. Date mentions (ISO, month-name, `M/D/YYYY`,
+    month and year) are now parsed and must match a date a verified claim
+    carries; the rest are compared after normalizing thousands separators,
+    leading zeros, and trailing decimal zeros. The digits of a claim's date
+    and of its source ids no longer ground a loose number, which the old
+    check allowed by accident. The reason is reported as `ungrounded_date` or
+    `ungrounded_number`.
+  - *The fallback restates claims instead of counting them.* The replacement
+    summary is the first three verified claims word for word, plus how many
+    more follow and how many were withheld. The texts are already verified
+    and already on screen in the statement list, so no unverified content is
+    added. A claim whose wording the summary lexicon refuses (a note quoting
+    "stable angina") is counted, not quoted; the count sentence remains for
+    the case where nothing can be quoted. Numbers echoed from the physician's
+    question are still not grounded: that would let "is the A1c above 9?" come
+    back as a fact. Covered by `agent/tests/test_summary.py`.
 
 ## Verification
 

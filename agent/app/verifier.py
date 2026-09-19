@@ -268,6 +268,66 @@ def _verify_one(claim: Claim, pack: EvidencePack, result: VerifyResult) -> None:
 
 NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
 MAX_SUMMARY_CHARS = 600
+
+# Dates are grounded as dates, not as loose digits: "September 3, 2026" and "2026-09-03" are
+# the same fact, and "October 3, 2026" is not, which a digit-by-digit check cannot tell apart.
+_MONTH = r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+_MONTH_NUMBER = {name: i + 1 for i, name in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])}
+# (pattern, group order). Month names are matched case-sensitively so the verb "may" is not a month.
+_DATE_FORMS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"), "ymd"),
+    (re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b"), "mdy"),
+    (re.compile(rf"\b{_MONTH}\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?(?:,?\s+(\d{{4}}))?(?!\d)"), "Mdy"),
+    (re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+(?:of\s+)?{_MONTH}\.?(?:,?\s+(\d{{4}}))?(?!\d)"), "dMy"),
+    (re.compile(rf"\b{_MONTH}\.?,?\s+(\d{{4}})\b"), "My"),
+]
+_DatePart = tuple[int | None, int | None, int | None]  # (year, month, day); None where the text gave none
+
+
+def _split_dates(text: str) -> tuple[list[tuple[str, _DatePart]], str]:
+    """The date mentions in `text` as (matched text, (year, month, day)), and the
+    text with those mentions blanked so their digits are not read again as numbers.
+    A match whose month or day is out of range is not a date and is left in place."""
+    found: list[tuple[str, _DatePart]] = []
+    for pattern, order in _DATE_FORMS:
+        def blank(match: re.Match[str], order: str = order) -> str:
+            parts: dict[str, int | None] = {"y": None, "m": None, "d": None}
+            for key, group in zip(order, match.groups()):
+                if key == "M":
+                    parts["m"] = _MONTH_NUMBER[group[:3].lower()]
+                elif group is not None:
+                    parts[key] = int(group)
+            month, day = parts["m"], parts["d"]
+            if month is None or not 1 <= month <= 12 or (day is not None and not 1 <= day <= 31):
+                return match.group(0)
+            found.append((match.group(0), (parts["y"], month, day)))
+            return " "
+
+        text = pattern.sub(blank, text)
+    return found, text
+
+
+def _date_grounded(mention: _DatePart, grounded: set[tuple[int, int, int]]) -> bool:
+    """A date is grounded when a claim carries that day; one written without its
+    year or without its day is grounded by any claim date that agrees on the rest."""
+    year, month, day = mention
+    return any((year is None or year == y) and month == m and (day is None or day == d) for y, m, d in grounded)
+
+
+def _norm_number(token: str) -> str:
+    """Canonical form, so a format difference is not read as a different number:
+    '1,200' is '1200', '03' is '3', '8.40' is '8.4'. A comma is a thousands
+    separator only when exactly three digits follow it; otherwise a decimal mark."""
+    whole, sep, frac = token.partition(",") if "," in token else token.partition(".")
+    if sep == "," and len(frac) == 3:
+        whole, frac = whole + frac, ""
+    whole = whole.lstrip("0") or "0"
+    frac = frac.rstrip("0")
+    return f"{whole}.{frac}" if frac else whole
+
+
+# Source ids are citations, not facts a sentence restates; their digits must not ground a number.
+_UNGROUNDING_FACTS = frozenset({"earlier_source_id", "later_source_id"})
 # Judgments about a trajectory or control state are not facts a record carries; the
 # verifier checks lab direction on typed claims, prose may not editorialize it.
 SUMMARY_FORBIDDEN = [
@@ -287,9 +347,11 @@ def verify_summary(summary: str, accepted: list[Claim], rejected: list[dict[str,
     cannot be checked fact by fact; it is admitted only when (a) every claim
     of the final round verified, so nothing withheld can leak through it,
     (b) it is non-empty and within its cap, (c) it passes the lexicon, and
-    (d) every number in it appears in an accepted claim's text or facts, in
-    `known_values` (turn facts the agent itself established, such as the
-    window date), or is a count no larger than the number of claims.
+    (d) every date in it is a date an accepted claim carries (in any written
+    form), and every other number appears in an accepted claim's text or
+    facts, in `known_values` (turn facts the agent itself established, such as
+    the window date), or is a count no larger than the number of claims.
+    Numbers are compared in canonical form, so '8.40' matches '8.4'.
     Returns (ok, reason)."""
     text = " ".join(summary.split())
     if not text:
@@ -304,11 +366,23 @@ def verify_summary(summary: str, accepted: list[Claim], rejected: list[dict[str,
         if re.search(pattern, text, re.IGNORECASE):
             return False, "lexicon:" + rule
     grounded = " ".join(
-        [c.text for c in accepted] + [str(v) for c in accepted for v in c.facts.model_dump(exclude_none=True).values()] + [str(v) for v in known_values if v]
+        [c.text for c in accepted]
+        + [str(v) for c in accepted for k, v in c.facts.model_dump(exclude_none=True).items() if k not in _UNGROUNDING_FACTS]
+        + [str(v) for v in known_values if v]
     )
-    known = set(NUMBER_RE.findall(grounded)) | {str(n) for n in range(len(accepted) + 1)}
-    for token in NUMBER_RE.findall(text):
-        if token not in known:
+    grounded_mentions, grounded_rest = _split_dates(grounded)
+    grounded_dates = {(y, m, d) for _, (y, m, d) in grounded_mentions if y is not None and m is not None and d is not None}
+    mentions, rest = _split_dates(text)
+    for written, mention in mentions:
+        if not _date_grounded(mention, grounded_dates):
+            return False, f"ungrounded_date:{written}"
+    known = (
+        {_norm_number(n) for n in NUMBER_RE.findall(grounded_rest)}
+        | {str(n) for n in range(len(accepted) + 1)}
+        | {str(y) for y, _, _ in grounded_dates}
+    )
+    for token in NUMBER_RE.findall(rest):
+        if _norm_number(token) not in known:
             return False, f"ungrounded_number:{token}"
     return True, "ok"
 
@@ -327,28 +401,59 @@ _TYPE_PHRASES = {
 }
 
 
-def deterministic_summary(accepted: list[Claim], withheld: int, window_since: str | None, narrate_error: str | None) -> str:
-    """A summary built only from verified claims and turn state, used when the
-    model's summary cannot be shown. Counts, never content."""
-    if narrate_error:
-        lead = "The narrative service was unavailable, so this answer lists verified chart records only."
-    elif not accepted:
-        if not withheld:
-            return "No statement about this question could be made from the chart sections that were retrievable."
-        return f"No statement about this question could be verified against the chart. {withheld} statement(s) were withheld."
-    else:
-        lead = ""
+FALLBACK_SUMMARY_CLAIMS = 3
+
+
+def _count_sentence(accepted: list[Claim], window_since: str | None) -> str:
     counts: dict[ClaimType, int] = {}
     for c in accepted:
         counts[c.type] = counts.get(c.type, 0) + 1
     parts = [f"{n} {_TYPE_PHRASES[t][0 if n == 1 else 1]}" for t, n in counts.items()]
-    if len(parts) > 1:
-        joined = ", ".join(parts[:-1]) + " and " + parts[-1]
-    else:
-        joined = parts[0] if parts else "no statements"
+    joined = ", ".join(parts[:-1]) + " and " + parts[-1] if len(parts) > 1 else parts[0]
     scope = f"since the visit on {window_since}" if window_since else "across the chart"
-    body = f"The chart shows {joined} {scope}."
+    return f"The chart shows {joined} {scope}."
+
+
+def _as_sentence(text: str) -> str:
+    text = " ".join(text.split())
+    return text if text.endswith((".", "!", "?")) else text + "."
+
+
+def deterministic_summary(accepted: list[Claim], withheld: int, window_since: str | None, narrate_error: str | None) -> str:
+    """The summary shown when the model's cannot be: the first verified claims,
+    word for word. A count of claim types ("1 change and 2 lab results") told
+    the physician nothing, and the claim texts are already verified and already
+    on screen in the statement list, so restating them adds no unverified
+    content. A claim whose wording would not pass the summary lexicon is
+    counted, not quoted; if none can be quoted the count sentence is used."""
+    if not accepted:
+        if narrate_error:
+            return "The narrative service was unavailable, so no answer could be written for this question."
+        if not withheld:
+            return "No statement about this question could be made from the chart sections that were retrievable."
+        return f"No statement about this question could be verified against the chart. {withheld} statement(s) were withheld."
+    lead = "The narrative service was unavailable, so this answer lists verified chart records only." if narrate_error else ""
     tail = f" {withheld} statement(s) were withheld because they could not be verified." if withheld else ""
+    scope = f"Since the visit on {window_since}: " if window_since else ""
+    # The response contract caps the summary; a claim may be as long as 400 characters.
+    budget = MAX_SUMMARY_CHARS - len(lead) - len(tail) - len(scope) - 48  # 48: the "N more ... follow." sentence and joining spaces
+    shown: list[str] = []
+    for claim in accepted:
+        if len(shown) == FALLBACK_SUMMARY_CLAIMS:
+            break
+        if any(re.search(p, claim.text, re.IGNORECASE) for p, _ in FORBIDDEN + SUMMARY_FORBIDDEN):
+            continue
+        sentence = _as_sentence(claim.text)
+        if sum(len(s) + 1 for s in shown) + len(sentence) > budget:
+            break
+        shown.append(sentence)
+    if shown:
+        body = scope + " ".join(shown)
+        more = len(accepted) - len(shown)
+        if more:
+            body += f" {more} more verified statement{'s follow' if more > 1 else ' follows'}."
+    else:
+        body = _count_sentence(accepted, window_since)
     return " ".join(s for s in (lead, body + tail) if s)
 
 

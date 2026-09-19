@@ -114,8 +114,8 @@ window membership for changes, a forbidden-language lexicon (no advice, no
 causation), and permits an absence claim only after a successful retrieval of
 that section. A rejected claim is withheld, the turn's status becomes
 `partial`, one repair round runs with the specific rejection reasons, and the
-model's prose summary is replaced by a count-only summary whenever anything
-was withheld. The safety property therefore belongs to the verifier, not to
+model's prose summary is replaced by the first verified claims, restated word
+for word, whenever anything was withheld. The safety property therefore belongs to the verifier, not to
 the model: a weaker model raises the withheld and repair rates without making
 what is displayed less true.
 
@@ -665,8 +665,8 @@ through 2026-09-17.
   through the same authorization as the chart. Nothing outside it counts.
 - **Confidence thresholds.** None: verification is binary per claim. A
   rejected claim is withheld and counted; the answer's status becomes
-  `partial`; the model's prose summary is replaced by a count-only summary
-  when anything was withheld (ADR-0006 §7).
+  `partial`; the model's prose summary is replaced by the first verified
+  claims, restated word for word, when anything was withheld (ADR-0006 §7).
 - **Escalation.** A withheld claim triggers one repair round with the
   specific rejection reasons; after that it stays withheld. Model or budget
   failure escalates to the deterministic, cited fallback brief. Operational
@@ -839,7 +839,7 @@ through 2026-09-17.
    audit row).
 2. **Deterministic verifier before display** (ADR-0006). Defense: the
    safety property does not depend on the model; a weaker model degrades
-   quality (withheld rate, count-only summaries) but not safety, which is
+   quality (withheld rate, replaced summaries) but not safety, which is
    exactly what the scorecard measures.
 3. **JSON-as-text over grammar-constrained output** (ADR-0004). Defense:
    measured 45 s or more with constrained decoding versus 5 to 9 s as text,

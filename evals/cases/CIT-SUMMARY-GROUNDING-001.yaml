@@ -1,0 +1,13 @@
+id: CIT-SUMMARY-GROUNDING-001
+tier: golden
+name: Summary dates are grounded as dates and numbers in canonical form; the fallback restates verified claims only
+category: citation
+use_case: UC-01
+risk: A summary date or value no verified claim carries reaching the physician because its digits happened to match (a wrong month, a date digit read as a count), or the fallback summary quoting wording the summary lexicon refuses
+mode: offline
+pytest:
+- tests/test_summary.py::test_a_summary_that_restates_the_claims_is_shown_however_it_writes_dates_and_numbers
+- tests/test_summary.py::test_a_date_or_number_no_claim_carries_replaces_the_summary
+- tests/test_summary.py::test_number_forms_are_compared_canonically
+- tests/test_summary.py::test_the_fallback_summary_never_quotes_wording_the_summary_lexicon_refuses
+- tests/test_summary.py::test_the_fallback_summary_fits_the_response_contract
