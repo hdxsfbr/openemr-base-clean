@@ -248,6 +248,9 @@ concurrent turns.
 3. **Shorter evidence packs.** `evidence_pack_max_chars = 48_000` (about 12K
    tokens) is the cache-read line. Halving it halves that line and shortens
    narration on long charts. Because output is 87 percent of per-turn cost,
-   anything that reduces claims emitted per turn (a tighter
-   `max_output_tokens`, 1,800 today, or a per-question claim cap) is worth
-   more than any input-side change.
+   anything that reduces claims emitted per turn (a per-question claim cap) is
+   worth more than any input-side change. A tighter `max_output_tokens` is not
+   that lever: at 1,800, 10 percent of first-turn narrate calls were cut off
+   mid-JSON and paid for a second full call (2026-09-19, about 3,000 output
+   tokens across the two attempts where one uncapped call would have done),
+   so the cap was raised to 3,200.

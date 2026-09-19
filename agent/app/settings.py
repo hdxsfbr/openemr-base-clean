@@ -43,7 +43,12 @@ class Settings(BaseSettings):
     effort_first_turn: str = "low"
     effort_followup: str = "medium"
     model_timeout_seconds: float = 30.0
-    max_output_tokens: int = 1800
+    # Adaptive-thinking tokens count toward this cap. At 1,800, 10% of first-turn narrate
+    # calls stopped on `max_tokens` (Langfuse, 2026-09-18/19): the JSON was cut off, the
+    # re-ask ran a second full call, and the turn took 26 s instead of 9 s, which was the
+    # first-turn p95. 3,200 at the measured ~120 output tokens/s still finishes inside
+    # `model_timeout_seconds`. `stop_reason` on each generation's metadata shows any new hits.
+    max_output_tokens: int = 3200
 
     # Bounds (ADR-0004 decision 5, amended 2026-09-18: 3 -> 1 on measured latency/quality;
     # see docs/audit/evidence/performance/model-experiments-2026-09-18.md).
