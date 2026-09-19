@@ -54,6 +54,19 @@ FORBIDDEN = [
     (r"\bmay (explain|indicate|reflect)\b", "inference"),
 ]
 
+# The claim lexicon in plain words, for the prompt (`agent/app/model.py`): a model cannot avoid
+# a filter it is not told about, and every rejection costs a repair call. The prompt states the
+# words on top of its rules, not instead of them. `tests/test_summary.py` holds these lists to
+# the patterns in both directions; the summary's own list follows `SUMMARY_FORBIDDEN` below.
+FORBIDDEN_PLAIN = (
+    "recommend", "should", "consider", "advise", "diagnose", "diagnosis", "treat", "treatment",
+    "because", "due to", "caused", "likely", "suggest", "consistent with", "interact",
+    "resolved", "unresolved", "need to", "must", "dose increase", "dose decrease", "dose adjust",
+    "wise to", "prudent to", "advisable to", "worthwhile to", "may want to", "might need to",
+    "worth discussing with", "would be helpful", "good idea to", "might help", "points to",
+    "indicative of", "appears to be", "may indicate", "may explain", "may reflect",
+)
+
 TOOL_OF_SECTION = {v: k for k, v in SECTION_OF_TOOL.items()}
 
 
@@ -340,6 +353,7 @@ SUMMARY_FORBIDDEN = [
     (r"\bnormaliz", "judgment"),
     (r"\bconcern", "judgment"),
 ]
+SUMMARY_FORBIDDEN_PLAIN = ("improve", "worsen", "better", "worse", "controlled", "uncontrolled", "stable", "normalize", "concern")
 
 
 def verify_summary(summary: str, accepted: list[Claim], rejected: list[dict[str, str]], known_values: Iterable[str] = ()) -> tuple[bool, str]:

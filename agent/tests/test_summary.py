@@ -113,3 +113,21 @@ def test_the_fallback_summary_says_so_when_there_is_nothing_to_restate() -> None
     assert deterministic_summary([], 0, None, None) == "No statement about this question could be made from the chart sections that were retrievable."
     assert deterministic_summary([], 2, None, None) == "No statement about this question could be verified against the chart. 2 statement(s) were withheld."
     assert deterministic_summary([], 0, None, "timeout") == "The narrative service was unavailable, so no answer could be written for this question."
+
+
+def test_the_prompt_tells_the_model_every_word_the_lexicon_filters() -> None:
+    """The model cannot avoid a filter it is not told about, and a rejection
+    costs a repair call. Every pattern has a plain word in the prompt, and
+    every plain word in the prompt is really filtered."""
+    import re
+
+    from app.model import SYSTEM_PROMPT
+    from app.verifier import FORBIDDEN, FORBIDDEN_PLAIN, SUMMARY_FORBIDDEN, SUMMARY_FORBIDDEN_PLAIN
+
+    for patterns, plain in ((FORBIDDEN, FORBIDDEN_PLAIN), (SUMMARY_FORBIDDEN, SUMMARY_FORBIDDEN_PLAIN)):
+        for pattern, _rule in patterns:
+            assert any(re.search(pattern, word, re.IGNORECASE) for word in plain), f"no plain word for {pattern}"
+        for word in plain:
+            assert any(re.search(pattern, word, re.IGNORECASE) for pattern, _rule in patterns), f"{word!r} is not filtered"
+            assert word in SYSTEM_PROMPT
+    assert "<<FORBIDDEN" not in SYSTEM_PROMPT and "<<SUMMARY" not in SYSTEM_PROMPT

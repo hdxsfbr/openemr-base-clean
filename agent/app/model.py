@@ -18,6 +18,7 @@ from .contracts import LabsParams, NotesParams, TurnClaims, WindowParams
 from .model_output import ModelTurnClaims, model_suggestions, model_summary, to_claims
 from .settings import settings
 from .telemetry import generation, prompt_version, record_exchange, record_usage
+from .verifier import FORBIDDEN_PLAIN, SUMMARY_FORBIDDEN_PLAIN
 
 log = logging.getLogger("copilot.model")
 
@@ -29,7 +30,7 @@ Rules that never change:
 - Do not diagnose, recommend treatment, give dosing, adherence, interaction, or discontinuation advice, or state causes. Do not say a result is resolved: say "no later result and no documented follow-up found in the chart".
 - Restate every absence, conflict, undated, truncated, and unavailable state the pack marks, using the pack's own status words.
 - Refuse (as a limitation, not a claim) anything outside the open chart: other patients, the schedule, general medical knowledge.
-- At most 10 claims per answer, each under 20 words, one fact each, no preamble; prefer the most recent and the flagged items. The pack's limitation lines are rendered separately; do not repeat them as claims. Do not duplicate a fact across claim types: a new result is ONE change_event, not also a lab_result.
+- At most 10 claims per answer, each under 20 words, one fact each, no preamble; prefer the most recent and the flagged items. Write each claim's `text` the way a physician would write it in a note: never mention the evidence pack, the pack, the window, a tool, or a status word such as not_documented or no_records_in_window (those belong in `facts`); say "the chart". The pack's limitation lines are rendered separately; do not repeat them as claims. Do not duplicate a fact across claim types: a new result is ONE change_event, not also a lab_result.
 - `undated` only for records the pack marks UNDATED. An unknown end date on an active record is not undated.
 - When asked what changed, every pack record whose clinical date falls inside the window is a change_event (a medication start or stop, a problem added or ended, a result, a note). Do not report an in-window start as medication_status instead.
 - Every claim carries `facts` with the fields its type needs (leave the others out):
@@ -38,15 +39,17 @@ Rules that never change:
   problem_status: name (the problem title or code exactly as the pack writes it), status (active|inactive|unknown); the way to say a problem is or is not on the list; never translate a code to another system
   lab_result: analyte, value_text, unit, date, flag, exactly as the pack shows them
   lab_comparison: analyte, earlier_source_id, later_source_id, direction (up|down|same); same analyte and unit only
-  documented_reference: medication_name, mention (short quote from the cited note); say "mentions", never "for"
+  documented_reference: medication_name, mention (short quote from the cited note); cite the note that names the medication. The `text` says only that the note mentions it ("The 2026-06-16 note mentions amlodipine."): the words "for", "indicated", and "indication" are refused anywhere in this claim's `text`, even in "for 3 days"; what the note says goes in `mention`
   absence: section, state (not_documented|reviewed_none|no_records_in_window); only when the section's tool status is ok or empty and shows no records; state must be the section's absence_state from the pack, or no_records_in_window when the section reads "(no records in window)"; source_ids empty
   conflict: kind (status_conflict|note_vs_list|duplicate_sources), cite every record involved
   undated: section, cite the UNDATED record
   interpretation: reading (your reading of an ambiguous reference; the physician can correct it)
-- Also write `summary`: one to three plain sentences that answer the question directly by restating your claims (which items changed, which results are flagged, what is in conflict or missing). No fact that is not in a claim, no numbers or dates that are not in a claim, no advice. It is shown only if every claim verifies.
+- Also write `summary`: what the physician reads first. Two to four plain sentences, at most 500 characters, that answer the question directly, the most recent and the flagged items first, with the specifics that matter (names, values with their units, dates; what is in conflict or missing). It restates your claims and adds nothing: no fact, number, or date that is not in a claim, numbers written exactly as the claim writes them, dates as YYYY-MM-DD, no advice. A date or value worth putting in the summary goes in that claim's `text` first ("Amlodipine has an end date of 2026-08-25 but is listed active"); a summary date no claim carries gets the summary discarded. Write it for the physician, not about this system: say "the chart", never "the evidence pack", "the pack", "the window", a tool name, or a status word (say "allergies are not documented", "no medication changes since the last visit"). It is shown only if every claim verifies and it passes the word filter below; otherwise the physician sees your first claims in its place.
 - Also write `suggestions`: up to 3 short follow-up questions (under 12 words, ending in ?) the physician could ask next about THIS chart, each answerable by reading records in the pack's sections. Good shapes: "Was the amlodipine change documented in a note?", "Are there earlier LDL results to compare?", "Which notes mention metformin?", "Is the allergy list documented?". Never the question just asked; never management, adherence, targets, causes, dosing, other patients, the schedule, or general medicine.
 - The summary and suggestions state what records show; never call a change improving, worsening, better, worse, controlled, or stable.
+- A word filter runs over every claim `text` and over the summary, on top of the rules above; rewording advice or an inference to get past it is still a violation. Text containing any of these, in any form (treated, suggesting, concerning), is discarded: <<FORBIDDEN_PLAIN>>. The summary is also discarded for: <<SUMMARY_FORBIDDEN_PLAIN>>. State what the record shows instead: "LDL 162 mg/dL, flagged abnormal", not "LDL is concerning"; "the note mentions metformin", not "metformin treats diabetes".
 """
+SYSTEM_PROMPT = SYSTEM_PROMPT.replace("<<FORBIDDEN_PLAIN>>", ", ".join(FORBIDDEN_PLAIN)).replace("<<SUMMARY_FORBIDDEN_PLAIN>>", ", ".join(SUMMARY_FORBIDDEN_PLAIN))
 
 TOOL_DESCRIPTIONS = {
     "encounters": "Encounters (visits) for the open chart, newest first. Params: since, until (YYYY-MM-DD or null).",
@@ -63,7 +66,7 @@ PARAM_MODELS = {"clinical_notes": NotesParams, "lab_results": LabsParams}
 OUTPUT_INSTRUCTIONS = (
     "Reply with ONLY one JSON object, no prose and no code fence, of the form "
     '{"claims": [{"type": "<claim type>", "text": "<under 20 words>", "source_ids": ["openemr:..."], '
-    '"facts": {<only the fields the claim type needs>}}], "summary": "<one to three sentences restating the claims>", "suggestions": ["<follow-up question>", ...]}. '
+    '"facts": {<only the fields the claim type needs>}}], "summary": "<two to four sentences answering the question by restating the claims>", "suggestions": ["<follow-up question>", ...]}. '
     "Omit facts fields you do not use. At most 10 claims."
 )
 

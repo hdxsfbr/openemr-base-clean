@@ -246,6 +246,23 @@ that journal (0/20 reviewed): the trace list with status dots and filters,
 the clinician-facing summary and claims for the selected trace, and the
 First-issue and Notes fields.
 
+## Prompt A/B before deploy
+
+`evals/prompt_ab.py` compares the prompt at a git ref with the working tree's
+on the recorded AF-DQ-A2 fixtures: the real model, graph, verifier, and parser,
+no stack needed. It reports how many model summaries survive the summary gate
+and why the others were replaced, rejected claims and repair rounds, system
+wording in summaries and claim texts, tokens and seconds per turn, and prints
+the summaries side by side.
+
+```bash
+agent/.venv/bin/python evals/prompt_ab.py HEAD 2   # old ref, runs per question
+```
+
+About USD 0.03 per turn. One chart and eight questions make it a smoke test and
+a wording check, not a gate; the live suite stays the gate. First use and its
+numbers: `docs/audit/evidence/quality/narrative-quality-2026-09-19.md`.
+
 ## Case Format
 
 One YAML file per case, id as filename. Live cases drive the deployed
