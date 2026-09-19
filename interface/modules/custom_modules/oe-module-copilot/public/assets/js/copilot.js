@@ -84,7 +84,7 @@
                 setStatus('', 'text-muted');
             }).catch(function (error) {
                 var code = error && error.message ? error.message : 'error';
-                appendNote(ERROR_MESSAGES[code] || 'This chart’s conversation could not be loaded.', 'text-danger');
+                appendNote(ERROR_MESSAGES[code] || 'This chart’s conversation could not be loaded.', isSoftCode(code) ? 'text-warning' : 'text-danger');
                 setStatus('', 'text-muted');
             }).finally(function () {
                 setBusy(false);
@@ -121,7 +121,23 @@
     });
 
     // ---- HTTP ----
+    // Pin the shared session cookie back to THIS window's session id before any
+    // same-origin call. OpenEMR lets one user hold several logins at once and
+    // keeps them apart with top.restoreSession() (library/restoreSession.php);
+    // most browsers share one cookie jar across windows, so without this a login,
+    // logout, or patient switch in another window sends our request under that
+    // window's session — the 400 (missing site_id) and patient_context_changed
+    // the drawer was surfacing. Core and other modules pin before every server
+    // call; this is the standard protocol the drawer was missing.
+    function pinSession() {
+        try {
+            if (window.top && typeof window.top.restoreSession === 'function') {
+                window.top.restoreSession();
+            }
+        } catch (e) { /* cross-frame or not yet defined; nothing to pin */ }
+    }
     function fetchJson(url, options, timeoutMs) {
+        pinSession();
         var controller = new AbortController();
         var timer = setTimeout(function () { controller.abort(); }, timeoutMs || 15000);
         options = options || {};
@@ -146,6 +162,7 @@
      * without a stream (for example an error envelope).
      */
     function postStream(url, payload, headers, timeoutMs, onEvent) {
+        pinSession();
         var controller = new AbortController();
         var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
         var options = {
@@ -401,9 +418,15 @@
     }
 
     // ---- conversation flow ----
-    function refreshSession() {
+    function refreshSession(retrying) {
         return fetchJson(modulePath + '/public/api/session.php').then(function (r) {
-            if (!r.ok || !r.data || !r.data.csrf_token) { throw new Error('session'); }
+            if (!r.ok || !r.data || !r.data.csrf_token) {
+                // A sign-in change in another window may have briefly pointed the
+                // shared cookie elsewhere. Re-pin this window's session and retry
+                // once before surfacing anything to the user.
+                if (!retrying) { pinSession(); return refreshSession(true); }
+                throw new Error('session');
+            }
             if (!r.data.chart_open) { throw new Error('no_chart'); }
             state.csrf = r.data.csrf_token;
         });
@@ -491,6 +514,7 @@
     }
     var ERROR_MESSAGES = {
         no_chart: 'Open a patient chart to use the co-pilot.',
+        session: 'Your session changed in another window. Reopen the patient chart to continue here.',
         patient_context_changed: 'The open chart changed. Ask again to start a conversation for this chart.',
         conversation_closed: 'The conversation ended. Ask again to start a new one.',
         rate_limited: 'Too many questions in a minute; wait a moment.',
@@ -498,6 +522,10 @@
         AbortError: 'The co-pilot did not answer in time. The chart is unaffected.',
         stream_incomplete: 'The co-pilot stopped answering before it finished. The chart is unaffected.'
     };
+    // Recoverable conditions the user can act on (reopen the chart, ask again):
+    // shown as a calm warning rather than a red error, on every entry point.
+    var SOFT_CODES = { patient_context_changed: 1, conversation_closed: 1, rate_limited: 1, session: 1, no_chart: 1 };
+    function isSoftCode(code) { return Object.prototype.hasOwnProperty.call(SOFT_CODES, code); }
     function setBusy(busy) {
         state.busy = busy;
         input.disabled = busy;
@@ -547,7 +575,7 @@
         }).catch(function (error) {
             var code = error && error.name === 'AbortError' ? 'AbortError' : (error && error.message ? error.message : 'error');
             if (error && error.status === 403 && error.data && error.data.status === 'denied') { dropConversation(true); }
-            var soft = code === 'patient_context_changed' || code === 'conversation_closed' || code === 'rate_limited';
+            var soft = isSoftCode(code);
             var message = ERROR_MESSAGES[code] || ('Co-Pilot unavailable (' + code + '). The chart is unaffected.');
             if (pending) {
                 pending.textContent = '';
