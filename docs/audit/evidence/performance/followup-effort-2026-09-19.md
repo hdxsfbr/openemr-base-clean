@@ -57,3 +57,36 @@ and `claims_per_turn` against the 2026-09-19 run at `medium`
 (`evals/results/2026-09-19T223524Z-12cd849a.json`: 100% recall, 4.21 claims per
 turn, follow-up p50 8.1 s and p95 12.3 s). If recall drops, the setting goes
 back: `COPILOT_EFFORT_FOLLOWUP=medium` needs no code change.
+
+## The live suite at low (same day)
+
+Commit `f4f69ab`, GitLab job 77550, the full run with the holdout set
+(`evals/results/2026-09-19T230512Z-f4f69ab4.json`) against the run at
+`medium` two hours earlier (`12cd849a`), by `evals/compare.py`:
+
+| | medium (`12cd849a`) | low (`f4f69ab4`) |
+|---|---|---|
+| Cases passed | 47 of 48 | 48 of 48 |
+| Blocking gates | all PASS | all PASS |
+| Task success (model recall) | 100% | 100% |
+| Claims per turn | 4.21 | 4.10 |
+| Model summary share | 81.0% | 88.1% |
+| Repair rate / withheld rate | 14.3% / 1.1% | 19.0% / 1.7% |
+| Follow-up p50 / p95 | 8.1 s / 12.3 s | 7.2 s / 11.9 s |
+| Cost per model-backed turn | $0.0116 | $0.0111 |
+| First-turn p50 / p95 | 9.5 s / 18.0 s | 9.2 s / 24.8 s |
+
+- Recall held at 100% and claims per turn barely moved, so the concern from
+  the fixture run (fewer claims on the medication question) did not show up
+  as a lost finding. The setting stays at `low`.
+- The follow-up gain is about 11% at the median here, not the 34% of the
+  fixture run: the suite's follow-ups are lighter questions than the fixture
+  bank's, with less thinking to save.
+- Repairs went from 6 to 8 of 42 turns. Small numbers, but it is the direction
+  less thinking would push, and it is the number to watch.
+- First turns do not use this setting (`effort_first_turn` was already
+  `low`), so the first-turn p95 moving from 18.0 s to 24.8 s is not this
+  change: with 24 first turns the p95 is one slow turn, and the median fell.
+- `CONF-DUP-NAMES-C2-001` passed this time with no prompt change, so its
+  failure in the earlier run was wording that varies run to run, not a fixed
+  defect and not now a fixed one. It stays a holdout case nobody tunes on.
