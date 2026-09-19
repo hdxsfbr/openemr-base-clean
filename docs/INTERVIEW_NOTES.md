@@ -342,41 +342,64 @@ through 2026-09-17.
   token halt that routes to the deterministic fallback (`agent/app/budget.py`,
   ADR-0004). Measured $0.012 to $0.014 per model-backed turn at list price
   with prompt caching (eval scorecards).
-- **OpenEMR web tier — a separate axis from the agent above, not yet load
-  tested.** The deployed `openemr` container is the official
-  `openemr/openemr:8.1.1` image, built from `docker/release/` (Alpine,
-  PHP-FPM behind Apache via FastCGI proxy, `docker/release/openemr.conf:213`).
-  Nothing in `docker/release/` sets `pm.max_children` (absent from the whole
-  directory), so the pool runs on Alpine's packaged php-fpm default — commonly
-  a small fixed worker count, though this has not been confirmed by reading
-  the live container's `/usr/local/etc/php-fpm.d/www.conf` or by a load test
-  that isolates FPM queuing (503/504s, workers pegged) from CPU saturation
-  (slow but successful responses). That gap is a plausible, **unverified**
-  explanation for the operator-observed step-function failure between 5 and
-  10 concurrent users on the production Droplet. `docker/binary/` is the
-  variant OpenEMR itself documents for this
-  (`docker/binary/php-fpm.d/www.conf`: `pm.max_children = 50`;
-  `docker/binary/README.md:168-189`: "Horizontal Scaling ... Kubernetes,
-  Docker Swarm").
-  - **Same-box mitigation, untested.** Raise `pm.max_children` / tune OPcache
-    on the current `s-2vcpu-4gb` Droplet before spending anything on new
-    infrastructure. Idle-container RSS is ~333 MiB
-    (`docs/audit/performance.md:237`), well under the 512 MB per-worker
-    `memory_limit`, so RAM headroom exists on paper; the 2 vCPUs remain a real
-    ceiling for simultaneously *rendering* requests, since `PERF-MED-002`
-    (`docs/audit/performance.md:73`) already found the patient dashboard
-    costs ≈1,045 SQL statements and is CPU-bound, not I/O-bound. Needs a load
-    test to turn "should help" into a number.
+- **OpenEMR web tier — a separate axis from the agent above, now measured by
+  the M4 load test (2026-09-18).** An earlier version of this note theorized
+  an unset PHP-FPM `pm.max_children` pool as the cause of the
+  operator-observed failure between 5 and 10 concurrent users. **That theory
+  is disproven**: a live check of the `openemr` container found `mod_php`
+  under Apache prefork (`MaxRequestWorkers=250`), not PHP-FPM at all, and the
+  load test never pushed the Apache process count anywhere near that limit
+  before CPU saturated. Confirmed cause: `openemr` and `database` each
+  independently peak at or above 100% of a full vCPU core on the Droplet's
+  two cores well before any worker-count ceiling matters. Full detail in
+  `ARCHITECTURE.md` "Latency and Scale" and
+  `docs/audit/evidence/performance/`.
+  - **Same-box mitigation: none left to try.** No FPM pool to raise — the
+    constraint is raw CPU. The one same-box lever that existed (batching the
+    co-pilot's own tool-gateway calls, which had been repeating OpenEMR's
+    ~1,045-query bootstrap up to six times per turn) shipped and was measured
+    2026-09-19: it lowered CPU peaks at 10 users but did not move the
+    failure onset, still between 10 and 15 concurrent users. Detail in the
+    clinic-size estimate below.
   - **Horizontal option, priced, not built.** Load balancer + N
     `docker/binary` app nodes + managed MySQL + managed Valkey (externalizing
     PHP sessions, which are container-local today) + one shared NFS node for
-    `sites/documents` (also container-local today). DigitalOcean list pricing
-    checked 2026-09-18: ≈$107/mo (2 lean app nodes, single non-HA DB/Valkey)
-    to ≈$177/mo (3 nodes, right-sized DB, still no failover) to ≈$277/mo
-    (4 nodes plus DB/Valkey standbys), against the current single-Droplet
-    $24/mo (`infra/digitalocean/variables.tf:13-16`). Not implemented, not
+    `sites/documents` (also container-local today). Unlike the disproven
+    FPM theory above, horizontal OpenEMR nodes are a real answer to the
+    now-confirmed CPU-bound constraint — N nodes is approximately N× the
+    CPU/SQL-processing budget the load tests measured, an axis those tests
+    never tried (they only varied single-Droplet size; see the droplet-tier
+    comparison below). DigitalOcean list pricing checked 2026-09-18:
+    ≈$107/mo (2 lean app nodes, single non-HA DB/Valkey) to ≈$177/mo (3
+    nodes, right-sized DB, still no failover) to ≈$277/mo (4 nodes plus
+    DB/Valkey standbys), against the current single-Droplet $24/mo
+    (`infra/digitalocean/variables.tf:13-16`). Not implemented, not
     load-tested, no ADR — a brainstormed answer to "how would you scale
     this," not a plan committed in `infra/`.
+  - **Extending the same topology to the agent tier, diagrammed, not
+    built.**
+
+    ![Horizontally scalable OpenEMR + agent architecture: an edge load balancer routes to an independently scalable OpenEMR app tier and agent tier, sharing MySQL, Redis/Valkey, and NFS storage](../diagrams/horizontal-scaling-openemr-agent.svg)
+
+    Both tiers scale by adding nodes behind the same edge (Caddy already
+    splits `/` to OpenEMR and `/copilot-api/*` to the agent); the agent's
+    gateway calls still land in-process inside whichever OpenEMR node picks
+    them up (ADR-0003), and it never touches MySQL directly. One important
+    caveat the M4 finding puts on this diagram: **adding agent replicas
+    would not move today's measured ceiling** — the confirmed bottleneck is
+    OpenEMR/MariaDB CPU, and `agent` CPU never exceeded 54% peak even under
+    real load (`ARCHITECTURE.md` "Latency and Scale"). Agent horizontal
+    scaling answers a different question — how many simultaneous
+    conversations the agent itself can hold once OpenEMR isn't the wall —
+    and it needs one change with no working precedent yet: swapping
+    `AsyncSqliteSaver` (a local file, one writer; still process-local after
+    the 2026-09-18 WAL fix) for a shared, multi-writer checkpointer. The
+    repo's own stated direction for that is Postgres, not Redis
+    (`ARCHITECTURE.md` "Latency and Scale"; deferred to Week 2,
+    `docs/WEEK2_HANDOFF.md`) — the diagram draws one shared Redis/Valkey box
+    for both OpenEMR sessions and agent state for simplicity; read the
+    agent's edge of that box as "a shared external store," not a commitment
+    to Redis specifically.
   - **Multi-cloud comparison, same topology, priced, not built.** Same shape
     (LB + N app nodes + managed MySQL + managed Redis/Valkey + shared NFS for
     `sites/documents`) repriced on AWS, Azure, and GCP list pricing checked
