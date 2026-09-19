@@ -3,7 +3,7 @@ returned in state (`route`) so it appears in the trace."""
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import logging
 import re
 import time
@@ -105,54 +105,72 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             turn_type = "followup"
         return {"turn_type": turn_type, "route": "retrieve" if turn_type == "uc01_first" else "plan"}
 
-    async def _call(tool: str, params: dict[str, Any], state: TurnState) -> ToolResponse:
-        with tool_observation(tool, state["correlation_id"]) as obs:
-            response = await _call_inner(tool, params, state)
-            record_tool_result(obs, response)
-            metrics.tool_call(tool, response.status.value, response.reason)
-            return response
-
-    async def _call_inner(tool: str, params: dict[str, Any], state: TurnState) -> ToolResponse:
-        if state.get("fault") == f"tool:{tool}":
-            return unavailable(tool, "fault_injected", state["correlation_id"])
+    def _clean_params(tool: str, params: dict[str, Any]) -> dict[str, Any] | None:
         model = PARAM_MODELS.get(tool, WindowParams)
         try:
-            clean = model.model_validate(params).model_dump(mode="json", exclude_none=True)
+            return model.model_validate(params).model_dump(mode="json", exclude_none=True)
         except ValidationError:
-            return unavailable(tool, "invalid_params", state["correlation_id"])
-        # The token lives in the per-turn cache, never in graph state (ADR-0005); a turn the API
-        # did not register sends an empty token and the gateway denies and audits it.
-        return await rt.gateway.call(tool, clean, get_token(state["turn_id"]) or "", state["correlation_id"])
+            return None
+
+    async def _call_batch(calls: list[tuple[str, dict[str, Any]]], state: TurnState) -> list[ToolResponse]:
+        """One gateway request serving every call in `calls`: one OpenEMR
+        bootstrap (translation/ACL/layout lookups, PERF-MED-002) instead of
+        one per tool. Fault-injected and invalid-params tools are resolved
+        locally without ever reaching the gateway, exactly as before; each
+        live tool still gets its own tracing observation and metric even
+        though the network call is shared."""
+        results: list[ToolResponse | None] = [None] * len(calls)
+        live: list[tuple[int, str, dict[str, Any]]] = []
+        for i, (tool, params) in enumerate(calls):
+            if state.get("fault") == f"tool:{tool}":
+                results[i] = unavailable(tool, "fault_injected", state["correlation_id"])
+                continue
+            clean = _clean_params(tool, params)
+            if clean is None:
+                results[i] = unavailable(tool, "invalid_params", state["correlation_id"])
+                continue
+            live.append((i, tool, clean))
+
+        if live:
+            # The token lives in the per-turn cache, never in graph state (ADR-0005); a turn
+            # the API did not register sends an empty token and the gateway denies and audits it.
+            token = get_token(state["turn_id"]) or ""
+            with contextlib.ExitStack() as stack:
+                observations = [stack.enter_context(tool_observation(tool, state["correlation_id"])) for _, tool, _ in live]
+                responses = await rt.gateway.call_batch([(tool, clean) for _, tool, clean in live], token, state["correlation_id"])
+                for (i, tool, _), obs, response in zip(live, observations, responses):
+                    record_tool_result(obs, response)
+                    metrics.tool_call(tool, response.status.value, response.reason)
+                    results[i] = response
+
+        return [r for r in results if r is not None]
 
     async def retrieve(state: TurnState) -> dict[str, Any]:
         pack = get_pack(state["turn_id"]) or EvidencePack()
         calls: list[list[Any]] = list(state.get("tool_calls") or [])
         if state["turn_type"] == "uc01_first" and not calls:
-            encounters = await _call("encounters", {}, state)
-            calls.append(["encounters", {}])
+            # encounters and patient_context need no window; the rest of UC01_TOOLS need
+            # encounters' own result to derive `since`, so they can't share one batch with it.
+            encounters, patient_context = await _call_batch([("encounters", {}), ("patient_context", {})], state)
+            calls.extend([["encounters", {}], ["patient_context", {}]])
             ref, since = build_uc01_window(encounters, rt.today())
             pack.reference_encounter = ref
             pack.window_since = since
-            add_responses(pack, [encounters])
+            add_responses(pack, [encounters, patient_context])
             params = {"since": since.isoformat()} if since else {}
-            sem = asyncio.Semaphore(settings.tool_concurrency)
-
-            async def one(tool: str) -> ToolResponse:
-                async with sem:
-                    return await _call(tool, {} if tool == "patient_context" else params, state)
-
-            responses = await asyncio.gather(*(one(t) for t in UC01_TOOLS))
-            calls.extend([t, {} if t == "patient_context" else params] for t in UC01_TOOLS)
-            add_responses(pack, list(responses))
+            remaining = [t for t in UC01_TOOLS if t != "patient_context"]
+            responses = await _call_batch([(t, params) for t in remaining], state)
+            calls.extend([t, params] for t in remaining)
+            add_responses(pack, responses)
         else:
             pending = list(state.get("pending_calls") or [])
             room = settings.max_tool_calls_per_turn - len(calls)
             pending = pending[: max(0, room)]
             if pack.window_since is None and (state.get("window_since")):
                 pack.window_since = date.fromisoformat(state["window_since"])
-            responses = await asyncio.gather(*(_call(t, p, state) for t, p in pending))
+            responses = await _call_batch(pending, state)
             calls.extend([t, p] for t, p in pending)
-            add_responses(pack, list(responses))
+            add_responses(pack, responses)
         derive_changes(pack)
         render(pack, settings.evidence_pack_max_chars)
         put_pack(state["turn_id"], pack)

@@ -17,6 +17,33 @@
   tool fan-out p95 ≤ 300 ms on `AF-HEAVY` through the agent; `REG-HEAVY-001`
   bounds the whole turn at 45 s only, and per-tool gateway latency is
   recorded on Langfuse TOOL observations without a recorded p95.
+- **Status note (2026-09-19):** `tools.php` now also accepts a batched
+  request (`{"calls": [{"tool", "params"}, ...]}` → `{"results": [...]}`,
+  `Gateway/BatchRunner.php`), so a turn's tool fan-out pays OpenEMR's
+  `globals.php` bootstrap (translation/ACL/layout lookups, ~1,045 SQL
+  statements measured per bootstrap, `docs/audit/performance.md`
+  PERF-MED-002) once or twice per turn instead of once per tool — driven by
+  `docs/audit/evidence/performance/droplet-tier-comparison-2026-09-18.md`
+  finding the co-pilot's own tool-gateway traffic, not just staff chart
+  opens, saturates OpenEMR CPU. The legacy single-tool `?tool=` request
+  stays supported unchanged. Every check this ADR and ADR-0002 require —
+  token verified once per request, context built once per request, and
+  per-tool section ACL, audit-before-data, and run — still happens once per
+  requested tool inside the batch loop; nothing is checked or audited once
+  for the whole batch. Two consequences for this ADR's Verification section:
+  the "six-tool fan-out p95 ≤ 300 ms" metric above is redefined as a batch
+  p95 (still unmeasured); and per-tool gateway latency in Langfuse TOOL
+  observations (`agent/app/graph/nodes.py`, `tool_observation`) now reports
+  each tool's *outer* latency as roughly the shared batch's round-trip time,
+  not that tool's own isolated network cost — each tool's own `latency_ms`
+  in its envelope, timed inside PHP around just its `fetch()`, stays
+  accurate. One accepted behavior change: a transport-level failure of the
+  batch request (timeout, connection error) now marks every tool in that
+  batch `unavailable` together, where previously only the one tool whose
+  independent request failed would be affected — judged acceptable since
+  the hop is internal-only (same docker network) and the actual common
+  failure mode under load, OpenEMR/MariaDB timing out, stays isolated
+  per-tool even inside a batch (`AbstractTool::run()`'s own catch).
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (project owner)
 - **Related requirements:** PRD "an AI agent embedded directly into OpenEMR";

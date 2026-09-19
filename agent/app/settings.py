@@ -16,7 +16,6 @@ class Settings(BaseSettings):
         "http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php"
     )
     gateway_timeout_seconds: float = 2.0
-    tool_concurrency: int = 6
 
     # Secrets are mounted as files; the service reports "not_configured" when absent.
     anthropic_api_key_file: Path = Path("/run/secrets/anthropic_api_key")

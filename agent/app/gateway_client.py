@@ -16,6 +16,7 @@ from .settings import settings
 
 class GatewayPort(Protocol):
     async def call(self, tool: str, params: dict, token: str, correlation_id: str) -> ToolResponse: ...
+    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str) -> list[ToolResponse]: ...
 
 
 def unavailable(tool: str, reason: str, correlation_id: str, latency_ms: float = 0.0) -> ToolResponse:
@@ -61,3 +62,41 @@ class HttpGateway:
             return ToolResponse.model_validate(response.json())
         except (ValueError, ValidationError):
             return unavailable(tool, "contract_violation", correlation_id, (time.perf_counter() - started) * 1000)
+
+    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str) -> list[ToolResponse]:
+        """One request serving every tool in `calls`: one gateway bootstrap
+        (globals.php translations/ACL/layout lookups, PERF-MED-002) instead of
+        one per tool. A transport-level failure marks every requested tool
+        unavailable with the same reasons `call()` uses; a malformed or
+        mismatched single result degrades only that tool, using the name we
+        asked for rather than whatever the gateway returned."""
+        started = time.perf_counter()
+        headers = {"X-Copilot-Token": token, "X-Correlation-Id": correlation_id, "Accept": "application/json"}
+        body = {"calls": [{"tool": tool, "params": params} for tool, params in calls]}
+        try:
+            response = await self._client.post(f"{self.base_url}/tools.php", json=body, headers=headers)
+        except httpx.TimeoutException:
+            elapsed = (time.perf_counter() - started) * 1000
+            return [unavailable(tool, "timeout", correlation_id, elapsed) for tool, _ in calls]
+        except httpx.HTTPError:
+            elapsed = (time.perf_counter() - started) * 1000
+            return [unavailable(tool, "transport_error", correlation_id, elapsed) for tool, _ in calls]
+        if response.status_code != 200:
+            elapsed = (time.perf_counter() - started) * 1000
+            reason = "forbidden" if response.status_code in (401, 403) else f"http_{response.status_code}"
+            return [unavailable(tool, reason, correlation_id, elapsed) for tool, _ in calls]
+        try:
+            payload = response.json()
+            results = payload["results"]
+            if not isinstance(results, list) or len(results) != len(calls):
+                raise ValueError("results length mismatch")
+        except (ValueError, KeyError, TypeError):
+            elapsed = (time.perf_counter() - started) * 1000
+            return [unavailable(tool, "contract_violation", correlation_id, elapsed) for tool, _ in calls]
+        responses: list[ToolResponse] = []
+        for (tool, _params), item in zip(calls, results):
+            try:
+                responses.append(ToolResponse.model_validate(item))
+            except ValidationError:
+                responses.append(unavailable(tool, "contract_violation", correlation_id))
+        return responses

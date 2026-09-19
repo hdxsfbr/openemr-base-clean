@@ -30,6 +30,9 @@ class FakeGateway:
         payload["correlation_id"] = correlation_id
         return ToolResponse.model_validate(payload)
 
+    async def call_batch(self, calls: list[tuple[str, dict]], token: str, correlation_id: str) -> list[ToolResponse]:
+        return [await self.call(tool, params, token, correlation_id) for tool, params in calls]
+
 
 class FakeModel:
     """Scripted model: returns the claims it is given; records calls."""

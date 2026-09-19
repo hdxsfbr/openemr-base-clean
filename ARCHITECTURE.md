@@ -624,9 +624,11 @@ full run, `evals/results/2026-09-17T024919Z-a4a5856.md` (45 cases, 40
 model-backed turns), measured p50 12.5 s, p95 24.1 s, p99 30.7 s, with UC-01
 first turns at p95 16.0 s and follow-ups at p95 29.7 s; earlier 2026-09-16
 runs sat between p95 23.3 and 27.6 s (`evals/results/`). Time to first
-evidence is still not measured by the runner (it uses non-streaming turns). Tools run in
-parallel from the agent (six concurrent gateway requests, bounded by a
-semaphore of 6, `COPILOT_TOOL_CONCURRENCY`). Prompt caching on the stable
+evidence is still not measured by the runner (it uses non-streaming turns). Tools are fetched
+via one or two batched gateway requests per turn (`agent/app/gateway_client.py`
+`call_batch`, `agent/app/graph/nodes.py` `retrieve`; PHP side
+`Gateway/BatchRunner.php`) rather than one request per tool — see the
+Droplet-tier capacity test subsection below for why. Prompt caching on the stable
 system prompt and the evidence pack prefix. Agent service: one uvicorn
 process (`agent/Dockerfile`) serving turns asynchronously. In-flight HTTP
 requests are exposed as `copilot_in_flight` (every request, the 30 s
@@ -749,6 +751,20 @@ regardless of Droplet size; no tier tested resolves it. Real measured
 throughput per tier (4.35-7.34 req/s, see that document's methodology)
 replaces the modeled "2.8 req/s working budget" figure that
 `docs/INTERVIEW_NOTES.md`'s clinic-size estimate used to rely on.
+
+**Follow-up, 2026-09-19: batched tool gateway.** The capacity test's root
+cause traced further, live: OpenEMR's `globals.php` bootstrap (translation,
+ACL, and layout lookups — ~1,045 SQL statements per bootstrap,
+`docs/audit/performance.md` PERF-MED-002) runs on *every* tool-gateway call,
+not just full page renders, because the gateway's `tools.php` entry point
+includes the same `globals.php` every chart page does. A turn's up-to-six
+tool calls therefore paid that bootstrap up to six times. Shipped: `tools.php`
+now also accepts a batched request serving a turn's whole tool fan-out in one
+or two requests instead of one per tool (`Gateway/BatchRunner.php`,
+`agent/app/gateway_client.py` `call_batch`); see ADR-0003's 2026-09-19 status
+note for the request/response shape and what each authorization/audit check
+still runs once per tool inside the batch. Not yet re-measured against a
+Droplet tier to confirm the CPU reduction this predicts.
 
 ## Observability
 

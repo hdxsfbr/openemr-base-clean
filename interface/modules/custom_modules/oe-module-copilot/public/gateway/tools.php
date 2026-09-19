@@ -2,13 +2,19 @@
 
 /**
  * Tool gateway (ADR-0003 step 4). Called by the agent service on the internal
- * network with a per-turn delegation token; unrouted at the edge. Every call
- * rebuilds the AuthorizedPatientContext (ADR-0002), checks the tool's section
- * ACLs for the bound user, writes an audit event before returning data, and
- * returns the typed envelope. Denials are generic to the caller, specific in
- * the audit log.
+ * network with a per-turn delegation token; unrouted at the edge. Every
+ * request rebuilds the AuthorizedPatientContext once (ADR-0002); each tool it
+ * serves gets its own section-ACL check, audit event before data returns, and
+ * typed envelope, so one tool's denial or failure never affects another's.
+ * Denials are generic to the caller, specific in the audit log.
  *
  * GET/POST ?tool=<name>   body: JSON params (since, until, limit, term, analyte)
+ * POST (no ?tool)         body: {"calls": [{"tool": <name>, "params": {...}}, ...]}
+ *                         -> {"results": [<envelope>, ...]}, one per call, in
+ *                         request order. Added to serve a turn's whole tool
+ *                         fan-out in one request instead of one bootstrap
+ *                         (globals.php: translations, ACL, layout lookups,
+ *                         PERF-MED-002) per tool call.
  *
  * @package   OpenEMR
  * @link      https://www.open-emr.org
@@ -22,6 +28,7 @@ require_once __DIR__ . '/../../../../../globals.php';
 
 use OpenEMR\Modules\Copilot\Conversation\ConversationRepository;
 use OpenEMR\Modules\Copilot\Gateway\Audit;
+use OpenEMR\Modules\Copilot\Gateway\BatchRunner;
 use OpenEMR\Modules\Copilot\Gateway\ContextBuilder;
 use OpenEMR\Modules\Copilot\Gateway\DelegationToken;
 use OpenEMR\Modules\Copilot\Gateway\GatewayDenied;
@@ -29,15 +36,10 @@ use OpenEMR\Modules\Copilot\Gateway\Tools\ToolRegistry;
 use OpenEMR\Modules\Copilot\Http\Json;
 
 $correlationId = Json::correlationId();
-$toolName = $_GET['tool'] ?? '';
-$tool = is_string($toolName) ? ToolRegistry::get($toolName) : null;
-if ($tool === null) {
-    Json::error(404, 'invalid_request', 'Unknown tool.', $correlationId);
-}
 
 $bearer = Json::bearer();
 if ($bearer === null) {
-    Audit::denied(null, null, null, 'missing_token', ['tool' => $tool->name(), 'correlation_id' => $correlationId]);
+    Audit::denied(null, null, null, 'missing_token', ['correlation_id' => $correlationId]);
     Json::error(401, 'unauthorized', 'A delegation token is required.', $correlationId);
 }
 
@@ -46,31 +48,50 @@ try {
     $payload = DelegationToken::verify($bearer);
     $ctx = (new ContextBuilder($conversations))->build($payload, $correlationId);
 } catch (GatewayDenied $denied) {
-    Audit::denied(null, null, null, $denied->reason, ['tool' => $tool->name(), 'correlation_id' => $correlationId]);
+    Audit::denied(null, null, null, $denied->reason, ['correlation_id' => $correlationId]);
     $code = in_array($denied->reason, ['conversation_closed', 'user_inactive', 'breakglass', 'squad'], true) ? 'conversation_closed' : 'unauthorized';
     Json::error($denied->httpStatus, $code, 'Request denied.', $correlationId);
 }
 
-try {
-    $params = ToolRegistry::params($tool, $_SERVER['REQUEST_METHOD'] === 'POST' ? Json::body() : array_diff_key($_GET, ['tool' => true]));
-} catch (\InvalidArgumentException $e) {
-    Audit::denied($ctx->username, $ctx->groupName, $ctx->pid, 'invalid_params', ['tool' => $tool->name(), 'correlation_id' => $correlationId, 'detail' => $e->getMessage()]);
-    Json::error(400, 'invalid_request', 'Invalid tool parameters.', $correlationId);
+$toolName = $_GET['tool'] ?? '';
+if (is_string($toolName) && $toolName !== '') {
+    // Legacy single-tool request; kept working unchanged as the rollback path.
+    $tool = ToolRegistry::get($toolName);
+    if ($tool === null) {
+        Audit::denied($ctx->username, $ctx->groupName, $ctx->pid, 'unknown_tool', ['tool' => $toolName, 'correlation_id' => $correlationId]);
+        Json::error(404, 'invalid_request', 'Unknown tool.', $correlationId);
+    }
+    $raw = $_SERVER['REQUEST_METHOD'] === 'POST' ? Json::body() : array_diff_key($_GET, ['tool' => true]);
+    Json::send(200, BatchRunner::runOne($tool, $ctx, $raw), $correlationId);
 }
 
-// Section ACL per tool, the same checks the chart pages make (ADR-0002 section 1).
-$missing = array_values(array_filter($tool->sections(), static fn(string $s): bool => !$ctx->allows($s)));
-if ($missing !== []) {
-    Audit::denied($ctx->username, $ctx->groupName, $ctx->pid, 'forbidden', ['tool' => $tool->name(), 'sections' => implode(',', $missing), 'conversation_id' => $ctx->conversationId, 'turn_id' => $ctx->turnId, 'correlation_id' => $correlationId]);
-    // The tool answers "unavailable/forbidden" so the turn continues for other sections (ADR-0002 section 3).
-    Json::send(200, $tool->unavailable($ctx, $params, 'forbidden'), $correlationId);
+// Batch request: one context build serves every tool the turn needs.
+$body = Json::body();
+$calls = $body['calls'] ?? null;
+if (!is_array($calls) || $calls === []) {
+    Json::error(400, 'invalid_request', 'A non-empty "calls" list is required.', $correlationId);
 }
 
-// Audit before data leaves (COMP-HIGH-004). If this insert fails the tool is unavailable.
-try {
-    Audit::toolRead($ctx, $tool->name(), ['since' => $params['since'], 'until' => $params['until'], 'term' => $params['term'] !== null ? 'yes' : null, 'analyte' => $params['analyte'] !== null ? 'yes' : null]);
-} catch (\Throwable) {
-    Json::send(200, $tool->unavailable($ctx, $params, 'audit_unavailable'), $correlationId);
+$results = [];
+foreach ($calls as $call) {
+    $requestedName = is_array($call) && is_string($call['tool'] ?? null) ? $call['tool'] : null;
+    if ($requestedName === null) {
+        Json::error(400, 'invalid_request', 'Each call needs a "tool" name.', $correlationId);
+    }
+    try {
+        $tool = ToolRegistry::get($requestedName);
+        if ($tool === null) {
+            Audit::denied($ctx->username, $ctx->groupName, $ctx->pid, 'unknown_tool', ['tool' => $requestedName, 'correlation_id' => $correlationId]);
+            $results[] = BatchRunner::rawUnavailable($requestedName, $ctx, 'unknown_tool');
+            continue;
+        }
+        $rawParams = is_array($call['params'] ?? null) ? $call['params'] : [];
+        $results[] = BatchRunner::runOne($tool, $ctx, $rawParams);
+    } catch (\Throwable $e) {
+        // One item's unexpected failure must never orphan the rest of the batch's response.
+        error_log('oe-module-copilot tools.php batch item failed: ' . $requestedName . ': ' . $e::class);
+        $results[] = BatchRunner::rawUnavailable($requestedName, $ctx, 'service_error');
+    }
 }
 
-Json::send(200, $tool->run($ctx, $params), $correlationId);
+Json::send(200, ['results' => $results], $correlationId);
