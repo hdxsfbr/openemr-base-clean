@@ -28,11 +28,23 @@
     var status = document.getElementById('copilot-status');
     var transcript = document.getElementById('copilot-transcript');
     var composer = document.getElementById('copilot-composer');
-    var state = { csrf: null, conversationId: null, correlationId: null, busy: false };
+    var closeButton = document.getElementById('copilot-close');
+    var menuItem = document.getElementById('copilot_menu');
+    var menuTrigger = menuItem ? menuItem.querySelector('a') : null;
+    var state = {
+        csrf: null,
+        conversationId: null,
+        correlationId: null,
+        renderedConversationId: undefined,
+        syncPromise: null,
+        busy: false
+    };
+    var lastTrigger = null;
 
-    // The conversation id survives a page reload within the tab; the ticket
-    // endpoint re-checks the open chart before any history is shown.
-    var STORAGE_KEY = 'copilot.conversation';
+    // Versions before 0.4.1 kept one global conversation id in sessionStorage,
+    // which could be reused after a patient switch. Remove it; recent history
+    // is now resolved server-side from the authenticated open chart.
+    try { sessionStorage.removeItem('copilot.conversation'); } catch (e) { /* storage unavailable */ }
     // A turn may take up to the agent's 45 s wall clock; the panel waits a little longer than that.
     var TURN_TIMEOUT_MS = 60000;
     // Starter questions (UC-01, UC-02, UC-03). After each turn the agent returns
@@ -52,14 +64,61 @@
     }
     function setStatus(text, tone) {
         status.textContent = text;
-        status.className = 'small ' + (tone || 'text-muted');
+        status.className = text ? 'small ' + (tone || 'text-muted') : 'd-none';
     }
-    function remember(id) {
-        try { if (id) { sessionStorage.setItem(STORAGE_KEY, id); } else { sessionStorage.removeItem(STORAGE_KEY); } } catch (e) { /* storage unavailable */ }
+
+    // ---- drawer ----
+    function setExpanded(expanded) {
+        if (menuTrigger) { menuTrigger.setAttribute('aria-expanded', expanded ? 'true' : 'false'); }
     }
-    function recall() {
-        try { return sessionStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+    function openDrawer(event) {
+        if (event && event.preventDefault) { event.preventDefault(); }
+        lastTrigger = event && event.currentTarget ? event.currentTarget : menuTrigger;
+        panel.classList.add('is-open');
+        panel.setAttribute('aria-hidden', 'false');
+        setExpanded(true);
+        if (!state.busy) {
+            setBusy(true);
+            setStatus('Loading this chart’s conversation…', 'text-muted');
+            synchronizeChart().then(function () {
+                setStatus('', 'text-muted');
+            }).catch(function (error) {
+                var code = error && error.message ? error.message : 'error';
+                appendNote(ERROR_MESSAGES[code] || 'This chart’s conversation could not be loaded.', 'text-danger');
+                setStatus('', 'text-muted');
+            }).finally(function () {
+                setBusy(false);
+                input.focus();
+            });
+        }
+        return false;
     }
+    function closeDrawer(event) {
+        if (event && event.preventDefault) { event.preventDefault(); }
+        panel.classList.remove('is-open');
+        panel.setAttribute('aria-hidden', 'true');
+        setExpanded(false);
+        if (lastTrigger && typeof lastTrigger.focus === 'function') { lastTrigger.focus(); }
+        return false;
+    }
+    function toggleDrawer(event) {
+        return panel.classList.contains('is-open') ? closeDrawer(event) : openDrawer(event);
+    }
+    window.AgentForgeCopilot = { open: openDrawer, close: closeDrawer, toggle: toggleDrawer };
+
+    if (menuTrigger) {
+        menuTrigger.setAttribute('aria-controls', 'copilot-panel');
+        menuTrigger.setAttribute('aria-expanded', 'false');
+        if (!menuTrigger.querySelector('.copilot-new-badge')) {
+            var newBadge = el('span', 'badge badge-info ml-1 copilot-new-badge', 'New');
+            newBadge.setAttribute('aria-hidden', 'true');
+            menuTrigger.appendChild(newBadge);
+        }
+    }
+    if (closeButton) { closeButton.addEventListener('click', closeDrawer); }
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && panel.classList.contains('is-open')) { closeDrawer(event); }
+    });
 
     // ---- HTTP ----
     function fetchJson(url, options, timeoutMs) {
@@ -173,9 +232,18 @@
         var hint = transcript.querySelector('.copilot-hint');
         if (hint) { hint.remove(); }
     }
-    function appendUser(question) {
+    function appendMessageTime(container, iso, alignment) {
+        var formatted = clockTime(iso);
+        if (!formatted) { return; }
+        var timestamp = el('time', 'copilot-message-time copilot-message-time-' + alignment, formatted);
+        timestamp.dateTime = iso;
+        container.appendChild(timestamp);
+    }
+    function appendUser(question, sentAt) {
         clearPlaceholder();
-        var msg = el('div', 'copilot-msg copilot-msg-user', question);
+        var msg = el('div', 'copilot-msg copilot-msg-user');
+        msg.appendChild(el('div', 'copilot-message-text', question));
+        appendMessageTime(msg, sentAt, 'user');
         transcript.appendChild(msg);
         scrollToEnd();
         return msg;
@@ -200,9 +268,11 @@
         var fresh = el('span', 'copilot-progress-text', text);
         line.parentNode.replaceChild(fresh, line);
     }
-    function appendNote(text, tone) {
+    function appendNote(text, tone, createdAt) {
         clearPlaceholder();
-        var msg = el('div', 'copilot-msg copilot-msg-assistant ' + (tone || 'text-muted'), text);
+        var msg = el('div', 'copilot-msg copilot-msg-assistant ' + (tone || 'text-muted'));
+        msg.appendChild(el('div', 'copilot-message-text', text));
+        appendMessageTime(msg, createdAt || new Date().toISOString(), 'assistant');
         transcript.appendChild(msg);
         scrollToEnd();
         return msg;
@@ -228,43 +298,43 @@
         }
         return bits.join(' · ');
     }
-    function citationCell(claim, sources) {
-        var cell = el('td', 'copilot-cites text-nowrap');
+    function citationLinks(claim, sources) {
+        var citations = el('div', 'copilot-cites');
         (claim.source_ids || []).forEach(function (sid, i) {
             var source = sources[sid];
             var href = source ? chartUrl(source) : null;
             var link = el(href ? 'a' : 'span', 'copilot-cite', '[' + (i + 1) + ']');
             link.title = source ? source.label : sid;
             if (href) { link.href = href; link.target = '_blank'; link.rel = 'noopener'; }
-            cell.appendChild(link);
-            cell.appendChild(document.createTextNode(' '));
+            citations.appendChild(link);
+            citations.appendChild(document.createTextNode(' '));
         });
-        return cell;
+        return citations;
     }
-    function claimsTable(claims, sources) {
-        var wrap = el('div', 'table-responsive');
-        var table = el('table', 'table table-sm table-borderless copilot-claims mb-1');
-        var head = el('thead');
-        var hr = el('tr');
-        ['Kind', 'Statement', 'Date', 'Chart'].forEach(function (h) { hr.appendChild(el('th', null, h)); });
-        head.appendChild(hr);
-        table.appendChild(head);
-        var tbody = el('tbody');
+    function claimsList(claims, sources) {
+        var list = el('div', 'copilot-sources-list');
         claims.forEach(function (claim) {
-            var row = el('tr', 'copilot-claim-' + claim.type);
-            row.appendChild(el('td', 'copilot-kind', CLAIM_LABELS[claim.type] || claim.type));
-            var text = el('td', 'copilot-text');
-            text.appendChild(document.createTextNode(claim.text));
+            var item = el('div', 'copilot-source copilot-claim-' + claim.type);
+            var heading = el('div', 'copilot-source-head');
+            heading.appendChild(el('span', 'copilot-kind', CLAIM_LABELS[claim.type] || claim.type));
+            var date = (claim.facts && claim.facts.date) || '';
+            if (date) { heading.appendChild(el('span', 'copilot-date', date)); }
+            item.appendChild(heading);
+            item.appendChild(el('div', 'copilot-text', claim.text));
             var detail = claimDetail(claim);
-            if (detail) { text.appendChild(el('div', 'small text-muted', detail)); }
-            row.appendChild(text);
-            row.appendChild(el('td', 'copilot-date text-nowrap', (claim.facts && claim.facts.date) || ''));
-            row.appendChild(citationCell(claim, sources));
-            tbody.appendChild(row);
+            if (detail) { item.appendChild(el('div', 'small text-muted', detail)); }
+            item.appendChild(citationLinks(claim, sources));
+            list.appendChild(item);
         });
-        table.appendChild(tbody);
-        wrap.appendChild(table);
-        return wrap;
+        return list;
+    }
+    function disclosure(label, count, hint) {
+        var details = el('details', 'copilot-disclosure');
+        var summary = el('summary', 'copilot-disclosure-summary');
+        summary.appendChild(el('span', 'copilot-disclosure-label', label + (count ? ' (' + count + ')' : '')));
+        if (hint) { summary.appendChild(el('span', 'copilot-disclosure-hint', hint)); }
+        details.appendChild(summary);
+        return details;
     }
     function clockTime(iso) {
         if (!iso) { return null; }
@@ -276,8 +346,6 @@
     }
     function evidenceLine(turn) {
         var parts = [];
-        var when = clockTime(turn.answered_at);
-        if (when) { parts.push('Answered ' + when); }
         if (turn.window_since) { parts.push('Window since ' + turn.window_since); }
         (turn.evidence || []).forEach(function (e) {
             parts.push(e.tool.replace(/_/g, ' ') + ': ' + (e.status === 'ok' || e.status === 'empty' ? e.record_count : e.status));
@@ -303,54 +371,103 @@
             container.appendChild(el('p', 'copilot-summary', turn.summary));
         }
         var claims = turn.claims || [];
+        var limitations = turn.limitations || [];
         if (claims.length === 0) {
             container.appendChild(el('p', 'mb-1 text-muted', 'No verified statements for this question.'));
-        } else {
-            container.appendChild(claimsTable(claims, sources));
         }
-        if (turn.limitations && turn.limitations.length) {
-            var lim = el('ul', 'copilot-limits small text-muted mb-1');
-            turn.limitations.forEach(function (l) {
+
+        var sourceCount = Object.keys(sources).length || claims.length;
+        var detailCounts = [];
+        if (sourceCount) { detailCounts.push(sourceCount + (sourceCount === 1 ? ' source' : ' sources')); }
+        if (limitations.length) { detailCounts.push(limitations.length + (limitations.length === 1 ? ' limitation' : ' limitations')); }
+        var answerDetails = disclosure('Sources & details', 0, detailCounts.join(' · ') || 'Turn details');
+        var detailBody = el('div', 'copilot-disclosure-body');
+        if (claims.length) { detailBody.appendChild(claimsList(claims, sources)); }
+        if (limitations.length) {
+            detailBody.appendChild(el('div', 'copilot-detail-heading', 'Limitations'));
+            var lim = el('ul', 'copilot-limits small text-muted mb-0');
+            limitations.forEach(function (l) {
                 var item = el('li', l.kind === 'withheld' ? 'text-warning' : null, l.detail);
                 lim.appendChild(item);
             });
-            container.appendChild(lim);
+            detailBody.appendChild(lim);
         }
         var meta = evidenceLine(turn);
-        if (meta) { container.appendChild(el('div', 'copilot-meta small text-muted', meta)); }
+        if (meta) { detailBody.appendChild(el('div', 'copilot-meta small text-muted', meta)); }
+        answerDetails.appendChild(detailBody);
+        container.appendChild(answerDetails);
+        appendMessageTime(container, turn.answered_at, 'assistant');
         scrollToEnd();
     }
 
     // ---- conversation flow ----
-    function ensureSession() {
-        if (state.csrf) { return Promise.resolve(); }
+    function refreshSession() {
         return fetchJson(modulePath + '/public/api/session.php').then(function (r) {
             if (!r.ok || !r.data || !r.data.csrf_token) { throw new Error('session'); }
             if (!r.data.chart_open) { throw new Error('no_chart'); }
             state.csrf = r.data.csrf_token;
         });
     }
+    function resumeConversation() {
+        return postJson(modulePath + '/public/api/conversation.php', {
+            action: 'resume',
+            csrf_token: state.csrf
+        }).then(function (r) {
+            if (!r.ok || !r.data) { throw new Error(r.data && r.data.code ? r.data.code : 'resume'); }
+            return r.data.conversation_id || null;
+        });
+    }
+    function resetTranscript() {
+        asked = [];
+        transcript.textContent = '';
+        renderSuggestions([]);
+        transcript.appendChild(el('div', 'copilot-hint small text-muted', 'Nothing is retrieved until you ask. Pick a question or type your own.'));
+    }
+    function synchronizeChart() {
+        if (state.syncPromise) { return state.syncPromise; }
+        state.syncPromise = refreshSession().then(resumeConversation).then(function (conversationId) {
+            state.conversationId = conversationId;
+            if (conversationId === state.renderedConversationId) { return false; }
+            state.correlationId = null;
+            resetTranscript();
+            state.renderedConversationId = conversationId;
+            return conversationId ? restoreHistory() : false;
+        }).finally(function () {
+            state.syncPromise = null;
+        });
+        return state.syncPromise;
+    }
+    /**
+     * Keep an active drawer pinned to its current conversation. Re-resolving
+     * the newest conversation before every turn can replace the transcript
+     * when another browser tab starts a chat for the same patient. The ticket
+     * endpoint still rechecks the live patient and authorization every turn.
+     */
+    function prepareTurn() {
+        if (state.syncPromise) { return state.syncPromise; }
+        return state.renderedConversationId === undefined ? synchronizeChart() : refreshSession();
+    }
     function ensureConversation() {
         if (state.conversationId) { return Promise.resolve(); }
         return postJson(modulePath + '/public/api/conversation.php', { action: 'start', csrf_token: state.csrf }).then(function (r) {
             if (!r.ok || !r.data || !r.data.conversation_id) { throw new Error(r.data && r.data.code ? r.data.code : 'start'); }
             state.conversationId = r.data.conversation_id;
+            state.renderedConversationId = state.conversationId;
             state.correlationId = r.data.correlation_id;
-            remember(state.conversationId);
         });
     }
-    function dropConversation() {
+    function dropConversation(resynchronize) {
         state.conversationId = null;
-        remember(null);
+        if (resynchronize) { state.renderedConversationId = undefined; }
     }
     function ticket() {
         return postJson(modulePath + '/public/api/ticket.php', { csrf_token: state.csrf, conversation_id: state.conversationId }).then(function (r) {
             if (r.status === 409 && r.data && (r.data.code === 'patient_context_changed' || r.data.code === 'conversation_closed')) {
-                dropConversation();
+                dropConversation(true);
                 throw new Error(r.data.code);
             }
             if (!r.ok || !r.data || !r.data.token) {
-                if (r.status === 404 || r.status === 403) { dropConversation(); }
+                if (r.status === 404 || r.status === 403) { dropConversation(true); }
                 throw new Error(r.data && r.data.code ? r.data.code : 'ticket');
             }
             return r.data;
@@ -397,6 +514,7 @@
         items.forEach(function (q) {
             var chip = el('button', 'btn btn-sm btn-outline-primary copilot-chip', q);
             chip.type = 'button';
+            chip.disabled = state.busy;
             chip.addEventListener('click', function () { ask(q); });
             suggestions.appendChild(chip);
         });
@@ -404,11 +522,15 @@
     function ask(question) {
         if (state.busy) { return; }
         setBusy(true);
-        asked.push(question);
-        appendUser(question);
-        var pending = appendPending();
-        setStatus('Working…', 'text-muted');
-        ensureSession().then(ensureConversation).then(ticket).then(function (t) {
+        var pending = null;
+        setStatus('Checking the open chart…', 'text-muted');
+        prepareTurn().then(function () {
+            asked.push(question);
+            appendUser(question, new Date().toISOString());
+            pending = appendPending();
+            setStatus('Working…', 'text-muted');
+            return ensureConversation();
+        }).then(ticket).then(function (t) {
             setProgress(pending, 'Retrieving chart records…');
             return postStream(apiBase + '/v1/conversations/' + state.conversationId + '/turns',
                 { message: question, correlation_id: t.correlation_id, stream: true },
@@ -418,27 +540,31 @@
                     if (text) { setProgress(pending, text); }
                 });
         }).then(function (turn) {
-            if (turn.status === 'denied') { dropConversation(); }
+            if (turn.status === 'denied') { dropConversation(true); }
             renderTurn(turn, pending);
             renderSuggestions(turn.suggestions);
-            setStatus(turn.status === 'complete' ? 'Verified against the chart.' : turn.status === 'fallback' ? 'Records only; narrative unavailable.' : 'Partially verified; see limitations.', turn.status === 'complete' ? 'text-success' : 'text-warning');
+            setStatus('', 'text-muted');
         }).catch(function (error) {
             var code = error && error.name === 'AbortError' ? 'AbortError' : (error && error.message ? error.message : 'error');
-            if (error && error.status === 403 && error.data && error.data.status === 'denied') { dropConversation(); }
+            if (error && error.status === 403 && error.data && error.data.status === 'denied') { dropConversation(true); }
             var soft = code === 'patient_context_changed' || code === 'conversation_closed' || code === 'rate_limited';
-            pending.textContent = '';
-            pending.className = 'copilot-msg copilot-msg-assistant ' + (soft ? 'text-warning' : 'text-danger');
-            pending.textContent = ERROR_MESSAGES[code] || ('Co-Pilot unavailable (' + code + '). The chart is unaffected.');
-            setStatus(soft ? 'Ask again.' : 'Co-Pilot unavailable.', soft ? 'text-warning' : 'text-danger');
+            var message = ERROR_MESSAGES[code] || ('Co-Pilot unavailable (' + code + '). The chart is unaffected.');
+            if (pending) {
+                pending.textContent = '';
+                pending.className = 'copilot-msg copilot-msg-assistant ' + (soft ? 'text-warning' : 'text-danger');
+                pending.appendChild(el('div', 'copilot-message-text', message));
+                appendMessageTime(pending, new Date().toISOString(), 'assistant');
+            } else {
+                appendNote(message, soft ? 'text-warning' : 'text-danger');
+            }
+            setStatus('', 'text-muted');
         }).finally(function () { setBusy(false); scrollToEnd(); input.focus(); });
     }
 
-    /** Re-render the transcript of a conversation remembered in this tab, if the open chart still matches. */
+    /** Re-render the transcript selected server-side for the current open chart. */
     function restoreHistory() {
-        var remembered = recall();
-        if (!remembered) { return Promise.resolve(false); }
-        state.conversationId = remembered;
-        return ensureSession().then(ticket).then(function (t) {
+        if (!state.conversationId) { return Promise.resolve(false); }
+        return ticket().then(function (t) {
             return fetchJson(apiBase + '/v1/conversations/' + state.conversationId, { headers: { 'X-Copilot-Token': t.token, 'X-Correlation-Id': t.correlation_id } }, 8000);
         }).then(function (r) {
             if (!r.ok || !r.data || !Array.isArray(r.data.turns)) { dropConversation(); return false; }
@@ -449,14 +575,20 @@
             }
             r.data.turns.forEach(function (past) {
                 asked.push(past.question || '');
-                appendUser(past.question || '');
+                // The current API records when an answer completed, not when a
+                // historical question was sent, so do not invent a timestamp.
+                appendUser(past.question || '', null);
                 var msg = el('div', 'copilot-msg copilot-msg-assistant');
                 transcript.appendChild(msg);
                 renderTurn(past, msg);
             });
             if (r.data.turns.length) { renderSuggestions(r.data.turns[r.data.turns.length - 1].suggestions); }
             return r.data.turns.length > 0;
-        }).catch(function () { dropConversation(); return false; });
+        }).catch(function () {
+            dropConversation();
+            state.renderedConversationId = undefined;
+            return false;
+        });
     }
 
     // ---- composer (fixed below the transcript) ----
@@ -478,14 +610,21 @@
     });
     composer.appendChild(suggestions);
     composer.appendChild(form);
-    renderSuggestions([]);
-    transcript.appendChild(el('div', 'copilot-hint small text-muted', 'Nothing is retrieved until you ask. Pick a question or type your own.'));
+    resetTranscript();
+
+    var launchParams = new URLSearchParams(window.location.search);
+    if (launchParams.get('copilot') === 'open') {
+        openDrawer();
+        launchParams.delete('copilot');
+        var query = launchParams.toString();
+        window.history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+    }
 
     // Agent reachability through the edge; the chart does not depend on it.
     fetchJson(apiBase + '/health', {}, 4000).then(function (r) {
         if (r.ok && r.data) {
-            setStatus('Ready', 'text-muted');
-            return restoreHistory();
+            setStatus('', 'text-muted');
+            return synchronizeChart();
         }
         setStatus('Unavailable: agent service not reachable. The chart is unaffected.', 'text-danger');
         return false;

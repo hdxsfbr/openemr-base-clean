@@ -17,6 +17,7 @@
 
 require_once __DIR__ . '/../../../../../globals.php';
 
+use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Database\QueryUtils;
 use OpenEMR\Common\Session\SessionWrapperFactory;
@@ -64,19 +65,47 @@ if ($conversations->isIdle($conversation, new DateTimeImmutable())) {
 $user = QueryUtils::fetchRecords('SELECT active FROM users WHERE id = ?', [$userId]);
 if ((int) ($user[0]['active'] ?? 0) !== 1) {
     $conversations->close($conversation['id'], 'user_inactive');
-    Audit::denied($username, $groupName, $pid, 'user_inactive', ['stage' => 'ticket', 'conversation_id' => $conversation['id'], 'correlation_id' => $baseCorrelation]);
+    Audit::denied($username, $groupName, $pid, 'user_inactive', [
+        'stage' => 'ticket',
+        'conversation_id' => $conversation['id'],
+        'correlation_id' => $baseCorrelation,
+    ]);
     Json::error(403, 'conversation_closed', 'Request denied.', $baseCorrelation);
 }
 if (ContextBuilder::isBreakGlass($username)) {
     $conversations->close($conversation['id'], 'breakglass');
-    Audit::denied($username, $groupName, $pid, 'breakglass', ['stage' => 'ticket', 'conversation_id' => $conversation['id'], 'correlation_id' => $baseCorrelation]);
+    Audit::denied($username, $groupName, $pid, 'breakglass', [
+        'stage' => 'ticket',
+        'conversation_id' => $conversation['id'],
+        'correlation_id' => $baseCorrelation,
+    ]);
     Json::error(403, 'conversation_closed', 'Request denied.', $baseCorrelation);
 }
 if (Compat::openPid() !== $pid) {
     // SEC-HIGH-002 / ARCH-HIGH-001: the session pid is a request, not a grant.
     $conversations->close($conversation['id'], 'patient_context_changed');
-    Audit::denied($username, $groupName, $pid, 'patient_context_changed', ['stage' => 'ticket', 'conversation_id' => $conversation['id'], 'correlation_id' => $baseCorrelation]);
-    Json::error(409, 'patient_context_changed', 'The open chart changed; start a new conversation for it.', $baseCorrelation);
+    Audit::denied($username, $groupName, $pid, 'patient_context_changed', [
+        'stage' => 'ticket',
+        'conversation_id' => $conversation['id'],
+        'correlation_id' => $baseCorrelation,
+    ]);
+    Json::error(
+        409,
+        'patient_context_changed',
+        'The open chart changed; start a new conversation for it.',
+        $baseCorrelation
+    );
+}
+$patient = QueryUtils::fetchRecords('SELECT squad FROM patient_data WHERE pid = ?', [$pid]);
+$squad = (string) ($patient[0]['squad'] ?? '');
+if (count($patient) !== 1 || ($squad !== '' && !AclMain::aclCheckCore('squads', $squad))) {
+    $conversations->close($conversation['id'], 'squad');
+    Audit::denied($username, $groupName, $pid, 'squad', [
+        'stage' => 'ticket',
+        'conversation_id' => $conversation['id'],
+        'correlation_id' => $baseCorrelation,
+    ]);
+    Json::error(403, 'conversation_closed', 'Request denied.', $baseCorrelation);
 }
 
 $turn = $conversations->nextTurn($conversation['id']);

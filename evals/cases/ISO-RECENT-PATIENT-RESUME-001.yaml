@@ -1,0 +1,34 @@
+id: ISO-RECENT-PATIENT-RESUME-001
+tier: coverage
+name: Recent conversations resume only for their bound open patient
+category: isolation
+use_case: UC-01
+risk: Browser navigation reuses one patient's conversation in another chart
+mode: live
+user: audit-physician
+patient: AF-DQ-A2
+steps:
+- open_chart: AF-DQ-A2
+- start: {}
+- remember_conversation: patient_a
+- ticket: {}
+- open_chart: AF-DQ-B
+- start: {}
+- remember_conversation: patient_b
+- ticket: {}
+- open_chart: AF-DQ-A2
+- resume:
+    same_as: patient_a
+    expect:
+      http_status: 200
+- ticket:
+    expect:
+      http_status: 200
+- open_chart: AF-DQ-B
+- resume:
+    same_as: patient_b
+    expect:
+      http_status: 200
+- ticket:
+    expect:
+      http_status: 200

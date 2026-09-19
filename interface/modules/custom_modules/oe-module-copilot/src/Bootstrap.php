@@ -3,9 +3,9 @@
 /**
  * AgentForge Clinical Co-Pilot module bootstrap class.
  *
- * Renders the co-pilot panel at the top of the patient dashboard through the
- * patient-scoped render event (ADR-0003). The panel is inert until the user
- * clicks a question: no retrieval, no model call, no audit row before that.
+ * Adds a patient-menu launcher and renders its drawer through supported
+ * patient-scoped events (ADR-0003). The drawer is inert until the user clicks
+ * a question: no retrieval, no model call, no audit row before that.
  *
  * @package   OpenEMR
  * @link      https://www.open-emr.org
@@ -20,13 +20,14 @@ namespace OpenEMR\Modules\Copilot;
 
 use OpenEMR\Core\OEGlobalsBag;
 use OpenEMR\Events\PatientDemographics\RenderEvent;
+use OpenEMR\Menu\PatientMenuEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 final class Bootstrap
 {
     public const MODULE_DIRECTORY = 'oe-module-copilot';
     public const MODULE_PATH = '/interface/modules/custom_modules/' . self::MODULE_DIRECTORY;
-    public const VERSION = '0.3.4';
+    public const VERSION = '0.4.3';
 
     /** Path prefix, relative to the site root, where the agent API is published by the edge. */
     public const API_BASE = '/copilot-api';
@@ -37,7 +38,47 @@ final class Bootstrap
 
     public function subscribeToEvents(): void
     {
+        $this->eventDispatcher->addListener(PatientMenuEvent::MENU_UPDATE, $this->addPatientMenuItem(...));
         $this->eventDispatcher->addListener(RenderEvent::EVENT_SECTION_LIST_RENDER_TOP, $this->renderPanel(...));
+    }
+
+    /**
+     * Add the launcher after External Data without changing OpenEMR core menu files.
+     */
+    public function addPatientMenuItem(PatientMenuEvent $event): PatientMenuEvent
+    {
+        $menu = $event->getMenu();
+        foreach ($menu as $item) {
+            if (($item->menu_id ?? '') === 'copilot_menu') {
+                return $event;
+            }
+        }
+
+        $webRoot = OEGlobalsBag::getInstance()->getWebRoot();
+        $menuItem = new \stdClass();
+        $menuItem->label = 'Clinical Copilot';
+        $menuItem->url = $webRoot . '/interface/patient_file/summary/demographics.php?copilot=open';
+        $menuItem->menu_id = 'copilot_menu';
+        $menuItem->target = 'main';
+        $menuItem->on_click = 'if (window.AgentForgeCopilot) {'
+            . ' return window.AgentForgeCopilot.open(event);'
+            . ' } top.restoreSession(); return true;';
+        $menuItem->pid = 'false';
+        $menuItem->children = [];
+        $menuItem->requirement = 0;
+        $menuItem->class = 'copilot-menu-item';
+
+        $insertAt = count($menu);
+        foreach ($menu as $index => $item) {
+            if (($item->menu_id ?? '') === 'external_data') {
+                $insertAt = $index + 1;
+                break;
+            }
+        }
+        array_splice($menu, $insertAt, 0, [$menuItem]);
+        $event->setMenu($menu);
+
+        return $event;
     }
 
     public function renderPanel(RenderEvent $event): void
@@ -52,8 +93,8 @@ final class Bootstrap
         } catch (\Throwable $e) {
             // ARCH-MEDIUM-007: a module failure must be visible, not silent.
             error_log('oe-module-copilot: panel render failed: ' . $e::class);
-            echo '<div class="card mb-2" id="copilot-panel"><div class="card-body text-danger">'
-                . xlt('Co-Pilot unavailable: the panel failed to render.') . '</div></div>';
+            echo '<div class="copilot-drawer is-open" id="copilot-panel"><div class="card-body text-danger">'
+                . xlt('Co-Pilot unavailable: the drawer failed to render.') . '</div></div>';
         }
     }
 
@@ -66,23 +107,26 @@ final class Bootstrap
         $correlationId = bin2hex(random_bytes(8));
 
         return '<link rel="stylesheet" href="' . attr($assets . '/css/copilot.css?v=' . $version) . '">'
-            . '<div id="copilot-panel" class="card mb-2" role="region" aria-label="' . attr(xl('Clinical Co-Pilot')) . '"'
+            . '<aside id="copilot-panel" class="copilot-drawer" role="complementary"'
+            . ' aria-label="' . attr(xl('Clinical Co-Pilot')) . '" aria-hidden="true"'
             . ' data-api-base="' . attr($webRoot . self::API_BASE) . '"'
             . ' data-module-path="' . attr($webRoot . self::MODULE_PATH) . '"'
             . ' data-web-root="' . attr($webRoot) . '"'
             . ' data-correlation-id="' . attr($correlationId) . '"'
             . ' data-version="' . attr($version) . '">'
-            . '<div class="card-header py-2 d-flex justify-content-between align-items-center">'
-            . '<h6 class="mb-0">' . xlt('Clinical Co-Pilot') . '</h6>'
-            . '<span id="copilot-status" class="small text-muted">' . xlt('Checking the co-pilot service...') . '</span>'
+            . '<div class="copilot-drawer-header">'
+            . '<div><h6 class="mb-0">' . xlt('Clinical Co-Pilot') . '</h6>'
+            . '<span id="copilot-status" class="small text-muted">'
+            . xlt('Checking the co-pilot service...') . '</span></div>'
+            . '<button type="button" id="copilot-close" class="close copilot-close"'
+            . ' aria-label="' . attr(xl('Close Clinical Co-Pilot')) . '">'
+            . '<span aria-hidden="true">&times;</span></button>'
             . '</div>'
-            . '<div class="card-body py-2">'
-            . '<div id="copilot-transcript" class="copilot-transcript" role="log" aria-live="polite" aria-label="' . attr(xl('Co-Pilot conversation')) . '"></div>'
+            . '<div class="copilot-drawer-body">'
+            . '<div id="copilot-transcript" class="copilot-transcript" role="log" aria-live="polite"'
+            . ' aria-label="' . attr(xl('Co-Pilot conversation')) . '"></div>'
             . '<div id="copilot-composer" class="copilot-composer"></div>'
-            . '<p class="small text-muted mb-0 mt-1">'
-            . xlt('Read-only. Every statement cites a chart record. It does not diagnose, recommend, or write to the chart. Access equals what you can open in this chart.')
-            . '</p>'
-            . '</div></div>'
+            . '</div></aside>'
             . '<script src="' . attr($assets . '/js/copilot.js?v=' . $version) . '" defer></script>';
     }
 }

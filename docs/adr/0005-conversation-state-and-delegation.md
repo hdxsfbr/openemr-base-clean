@@ -19,6 +19,19 @@
   `jti`, ticket after logout, the 24 h TTL sweeper (no sweeper found in
   `agent/app/` as of this note). The checkpoint-content test
   (`ARCHITECTURE.md` open item 6) was added 2026-09-17 (see Verification).
+- **Status note (2026-09-18):** the UI no longer keeps one global conversation
+  id in `sessionStorage`. On dashboard load or drawer open, it asks the
+  authenticated module to resume the newest non-idle conversation bound to
+  the server-side `(site, user, open patient)` context. Once loaded, follow-up
+  turns stay pinned to that conversation instead of resolving "newest" again;
+  this prevents another tab from replacing the visible transcript. Every turn
+  still refreshes the session and obtains a fresh ticket, and a rejected ticket
+  invalidates the pinned conversation so the next action resynchronizes.
+  The 30-minute idle window is the user-visible recent-history window. The
+  browser never sends or receives a patient identifier. A mismatched ticket
+  still closes and denies as before; normal patient navigation no longer
+  probes one patient's conversation while another chart is open. Covered by
+  `ISO-RECENT-PATIENT-RESUME-001` and `ConversationRepositoryTest`.
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (module and agent service)
 - **Related requirements:** PRD "multi-turn AI agent that can maintain
@@ -67,10 +80,10 @@ memory.
    deleted when the binding closes.
 4. **Isolation by construction.** State is keyed by conversation id only
    reachable with a valid token for that conversation; no process-global
-   state, no model-side memory, no conversation content in browser storage
-   (the panel keeps only the opaque conversation id in `sessionStorage` so
-   a page reload can re-fetch the transcript behind a fresh ticket); a new
-   conversation starts empty.
+   state, no model-side memory, and no conversation content or identifier in
+   browser storage. The module resolves the newest non-idle conversation from
+   the authenticated open chart, then a fresh ticket authorizes history access.
+   A new conversation starts empty.
 
 ## Alternatives Considered
 
@@ -135,9 +148,11 @@ memory.
 
 ## Verification
 
-- Isolation evals: new conversation carries nothing; patient switch closes;
-  same question across fresh conversations yields the same facts; two users
-  on one patient never see each other's history; token for A cannot read B.
+- Isolation evals: new conversation carries nothing; patient switch closes a
+  mismatched request; recent conversations for A and B resume only when their
+  respective chart is open; same question across fresh conversations yields
+  the same facts; two users on one patient never see each other's history;
+  token for A cannot read B.
 - Ticket evals: expired, reused `jti`, tampered signature, ticket after
   `end`, ticket after logout: all 403 with a denial event and no tool call.
 - TTL sweeper test: **not written, and there is nothing to test yet.**

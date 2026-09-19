@@ -12,8 +12,10 @@ what is missing, conflicting, undated, or unavailable. It never diagnoses,
 recommends, doses, or writes. Every capability traces to CAP-01..08 in
 `USERS.md`; nothing else is built.
 
-**Where it lives.** A custom OpenEMR module renders the panel on the patient
-dashboard. A separate agent service, outside PHP because Apache prefork and
+**Where it lives.** A custom OpenEMR module adds a launcher after External Data
+through `PatientMenuEvent` and renders a non-modal right drawer on the patient
+dashboard through `PatientDemographics\RenderEvent`. A separate agent service,
+outside PHP because Apache prefork and
 the 60-second limit cannot hold model calls (ARCH-MEDIUM-006), exposes the
 co-pilot HTTP API that the panel, the graders' Bruno collection, and the
 dashboard all use. The agent reaches clinical data only through the module's
@@ -115,7 +117,7 @@ its revisit trigger in `docs/adr/`.
 
 ```mermaid
 flowchart LR
-  B[Browser: chart page + co-pilot panel] -->|session cookie + CSRF| M[OpenEMR custom module<br/>panel, conversation binding,<br/>delegation, tool gateway]
+  B[Browser: chart page + co-pilot drawer] -->|session cookie + CSRF| M[OpenEMR custom module<br/>menu launcher, drawer, conversation binding,<br/>delegation, tool gateway]
   B -->|delegation token| A[Agent service<br/>orchestration, model calls,<br/>verifier, state, telemetry]
   A -->|delegation token| M
   M -->|in-process| S[OpenEMR services + ACL + audit log]
@@ -127,7 +129,7 @@ flowchart LR
 
 | Component | Runs in | Owns | Never does |
 | --- | --- | --- | --- |
-| **Module UI** (`interface/modules/custom_modules/oe-module-copilot/`) | OpenEMR PHP, user session | Panel markup and JS injected by `PatientDemographics\RenderEvent`; a chat transcript per conversation with a fixed composer and follow-up chips; rendering of the summary, claims table, citations, limitation states as text, with each answer's time and an "Earlier in this session" divider on a restored transcript; live progress from the turn's node events; opening citations in the chart | Compute anything clinical; store conversation content in browser storage (only the opaque conversation id is kept in `sessionStorage` so the transcript can be re-fetched after a page reload, behind a fresh ticket) |
+| **Module UI** (`interface/modules/custom_modules/oe-module-copilot/`) | OpenEMR PHP, user session | Launcher injected by `PatientMenuEvent`; drawer markup and JS injected by `PatientDemographics\RenderEvent`; a chat transcript per conversation with a fixed composer and follow-up chips; narrative-first rendering with citations, evidence metadata, and limitation states in one collapsed disclosure, with each answer's time and an "Earlier in this session" divider on a restored transcript; the loaded conversation stays pinned during follow-ups so only the new turn updates; live progress from the turn's node events; opening citations in the chart | Compute anything clinical; store conversation content or identifiers in browser storage (the authenticated module resolves recent history from the server-side open chart, and any restore goes through a fresh ticket) |
 | **Conversation and delegation endpoints** (module, `public/api/*.php`) | OpenEMR PHP, user session + CSRF | `conversation.start` (bind to site, user, pid; mint correlation ID), `turn.ticket` (re-check session and pid; mint delegation token), `conversation.end` | Accept a `pid` from the client; extend the OpenEMR session |
 | **Tool gateway** (module, `public/gateway/*.php`, `$ignoreAuth` with its own token check) | OpenEMR PHP, server-to-server from the agent | Validate the delegation token; build `AuthorizedPatientContext`; per-tool section ACL, squad, break-glass; audit event; call services in process; normalize; return typed records | Trust a patient identifier from the request; return raw service rows; run without an audit row |
 | **Agent service** (`agent/`, own container) | Python, FastAPI, Pydantic, LangGraph (ADR-0004) | Co-pilot HTTP API; the turn graph; evidence pack; model calls; verifier; checkpointed conversation state; budgets; telemetry; `/health`, `/ready` | Hold database credentials or the OpenEMR session; see a `pid`; render unverified text |
@@ -233,7 +235,8 @@ can be fed from a SMART token later.
 
 Adversarial evals per role and fixture (ADR-0002 §5): denial precedes any
 tool or model call, asserted on audit-event order and the absence of model
-spans; two-tab patient switch closes the conversation; a tool call carrying
+spans; a stale ticket after a two-tab patient switch closes and denies, while
+recent conversations resume only for their bound chart; a tool call carrying
 any patient argument is rejected by schema; `audit-frontdesk` gets
 `forbidden` on every clinical tool; `AF-ACL-OTHER` is allowed, audited, and
 cited. The parity limitation itself is **not** emitted in the response: there
@@ -249,7 +252,7 @@ the eval that proves it. Nothing outside this table is built.
 
 | Capability (`USERS.md`) | Use cases | Provided by | Proven by |
 | --- | --- | --- | --- |
-| CAP-01 Chart-bound multi-turn conversation | UC-01..03 | Conversation binding; agent state store (turns, claims, tool log); per-turn delegation | Isolation evals (new conversation carries nothing; patient switch closes; two users, same patient) |
+| CAP-01 Chart-bound multi-turn conversation | UC-01..03 | Conversation binding; 30-minute server-side recent-history lookup; agent state store (turns, claims, tool log); per-turn delegation | Isolation evals (new conversation carries nothing; mismatched patient ticket closes; recent A/B conversations resume only with their bound chart; two users, same patient) |
 | CAP-02 Dynamic tool selection and chaining | UC-01..03 | Orchestration loop: fixed plan for the UC-01 first turn, model-selected tools on follow-ups, at most 3 rounds and 8 calls per turn | Trace shows tool order per turn; UC-02 chain (labs, same-analyte, notes); UC-03 chain (meds, problems, notes) |
 | CAP-03 Reference encounter and window across turns | UC-01, UC-02 | Turn context: `reference_encounter`, `window_start`, carried in conversation state and injected as data, changed only by an explicit user request | Follow-up eval on `AF-DQ-A2` keeps the −90 d window |
 | CAP-04 Reference resolution within retrieved records | UC-02, UC-03 | Resolver over this conversation's retrieved medication and result names; ambiguity produces a question, never a lookup | "That medication" evals on `AF-DQ-B`, `AF-DQ-C2` |
@@ -489,15 +492,16 @@ is dropped when the turn ends) and each turn re-fetches, so the model's
 context is rebuilt from fresh tool output and stale data cannot outlive a
 minute. PHI at rest in the agent is therefore limited
 to claim text, and the volume is deleted with the deployment. No
-process-global state, no model-side memory, no conversation content in
-browser storage (the panel keeps only the opaque conversation id in
-`sessionStorage`, and any restore goes through a fresh ticket that
-re-checks the open chart).
+process-global state, no model-side memory, and no conversation content or
+identifier in browser storage. The module resolves recent history only from
+the authenticated server-side open chart, and every restore goes through a
+fresh ticket that re-checks that chart.
 
 **Isolation invariants.** Three have cases and pass in every recorded run: a
 new conversation for the same patient carries no prior turns
-(`ISO-NEW-CONVERSATION-001`); a patient switch closes the conversation
-(`AUTH-SWITCH-001`); a token for conversation A cannot read conversation B
+(`ISO-NEW-CONVERSATION-001`); a ticket used after a patient switch closes
+and denies (`AUTH-SWITCH-001`); recent conversations resume only for their
+bound open chart (`ISO-RECENT-PATIENT-RESUME-001`); a token for conversation A cannot read conversation B
 (`agent/tests/test_api.py::test_turn_requires_token_and_matching_conversation`,
 `conversation_mismatch`). A fourth is automated since 2026-09-17: no
 checkpoint contains a raw record key, a verbatim note body, or the
@@ -575,14 +579,15 @@ the narrative sentence is a fair reading of them; two verified claims can
 still be juxtaposed misleadingly. Semantic drift inside a verified sentence
 ("stopped" versus "not refilled") is caught only where the claim type
 carries the fact. Note text is matched by string, so paraphrase is missed
-both ways. These are stated in the panel's help text and in `USERS.md`.
+both ways. These are stated in `USERS.md`; the production drawer does not
+repeat demo-oriented safety copy on every turn.
 
 ## Failure and Degradation Matrix
 
 | Failure | Behavior | Never |
 | --- | --- | --- |
 | Session expired, user inactive, break-glass, squad | Denial from `turn.ticket` or the gateway; conversation closed; generic message; `copilot-denied` | Any tool or model call |
-| Patient switched in another tab | Next `turn.ticket` denies `patient_context_changed`; panel offers a new conversation for the open chart | Mixing two patients in one conversation |
+| Patient switched in another tab | On drawer load/open, the module resolves recent history for the server-side open chart. Follow-ups keep the displayed conversation pinned, refresh the session, and obtain a fresh `turn.ticket`; a stale ticket denies `patient_context_changed`, invalidates the pinned conversation, and forces the next action to resynchronize | Mixing two patients in one conversation |
 | One tool `unavailable` (timeout, service exception, audit insert failure) | Turn continues; response lists the section as unavailable; absence claims for that section are rejected | Presenting a failed retrieval as "none documented" |
 | Gateway unreachable | Every tool call of the turn returns `unavailable` with reason `transport_error` (or `timeout`), so no clinical section is retrievable and the turn completes with every section marked unavailable; the narration model call is skipped (`agent/app/gateway_client.py`; `narrate` in `agent/app/graph/nodes.py`). A follow-up's planning call still runs before retrieval (`classify` routes it to `plan`, which calls `rt.model.plan(...)` unconditionally; `agent/app/graph/nodes.py`), so only a UC-01 first turn (routed straight to `retrieve`) skips the model entirely. `/ready` fails on the gateway ping. `dependency_unavailable` (504) is emitted only when a turn exceeds its 45 s wall clock (`agent/app/api.py`) | Answering from cache or memory |
 | Model timeout, 5xx, refusal, malformed output | UC-01 first turn: render the deterministic brief marked "narrative unavailable"; other turns: explicit unavailable with the evidence list. Until 2026-09-17 a real provider failure raised inside a generation span was converted to `RuntimeError` by the telemetry context managers (`generator didn't stop after throw()`) and bypassed the graph's `except ModelError`, so it would have surfaced as a 500; `MODEL-OUTAGE-001` did not catch it because `X-Copilot-Fault: model` short-circuits before the SDK. Fixed in `agent/app/telemetry.py` with `agent/tests/test_telemetry.py::test_exception_inside_an_observation_propagates_unchanged` | Rendering unvalidated text |
@@ -590,7 +595,7 @@ both ways. These are stated in the panel's help text and in `USERS.md`.
 | Tracer unavailable | Spans buffered then dropped; response unaffected; local JSON logs keep the correlation ID | Blocking a turn on telemetry |
 | Rate limit (10 turns per minute per conversation) | 429 with `rate_limited` | Queuing beyond 12 s |
 | Token budget exhausted (turn, conversation, or daily halt) | `authorize` routes to the deterministic fallback with `model_budget_exhausted`; tools still run for UC-01 first turns | Unbounded model spend from one conversation or one day |
-| OpenEMR or database down | Panel shows "Co-Pilot unavailable"; note that the panel probes the agent's `/health`, not `/ready` (`public/assets/js/copilot.js:485`), so it reports process liveness rather than dependency readiness. Module bootstrap failures are surfaced in the panel, not swallowed (ARCH-MEDIUM-007) | A blank space where the panel should be |
+| OpenEMR or database down | Drawer shows "Co-Pilot unavailable"; note that the drawer probes the agent's `/health`, not `/ready`, so it reports process liveness rather than dependency readiness. Module bootstrap failures are surfaced in the drawer, not swallowed (ARCH-MEDIUM-007) | A blank space where the drawer should be |
 
 Automated coverage today (2026-09-17): nine of these ten rows have an
 automated case. Six have an eval case — denial (`AUTH-STALE-TICKET-001`,
@@ -863,8 +868,9 @@ the OpenEMR session, because that is where the authorization facts live:
 | Module endpoint | Auth | Purpose |
 | --- | --- | --- |
 | `GET  .../public/api/session.php` | session | Returns the CSRF token for the co-pilot subject and whether a chart is open (no pid value) |
+| `POST .../public/api/conversation.php` (`resume`) | session + CSRF | Returns the newest non-idle conversation bound to the authenticated user and server-side open chart; accepts and returns no patient identifier |
 | `POST .../public/api/conversation.php` (`start`) | session + CSRF | Binds a conversation to the open chart; returns conversation id and correlation id |
-| `POST .../public/api/ticket.php` | session + CSRF | Re-checks session, user, pid, break-glass; returns a 90 s delegation token |
+| `POST .../public/api/ticket.php` | session + CSRF | Re-checks session, user, pid, squad, and break-glass; returns a 90 s delegation token |
 | `POST .../public/api/conversation.php` (`end`) | session + CSRF | Closes the conversation |
 | `GET  .../public/gateway/ping.php` | none, internal only | Readiness probe for the gateway (bootstraps OpenEMR, checks DB) |
 | `POST .../public/gateway/tools.php?tool={tool}` (GET also accepted) | delegation token | Tool calls from the agent; JSON body `since`, `until`, `limit`, `term` (notes), `analyte` (labs); unknown keys such as `pid` are rejected |

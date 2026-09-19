@@ -29,7 +29,8 @@ final class ConversationRepository
         $id = bin2hex(random_bytes(16));
         $correlationId = bin2hex(random_bytes(8));
         QueryUtils::sqlInsert(
-            'INSERT INTO copilot_conversation (id, site_id, user_id, username, pid, correlation_id, created_at, last_turn_at, turn_count) '
+            'INSERT INTO copilot_conversation '
+            . '(id, site_id, user_id, username, pid, correlation_id, created_at, last_turn_at, turn_count) '
             . 'VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), 0)',
             [$id, $siteId, $userId, $username, $pid, $correlationId]
         );
@@ -46,11 +47,42 @@ final class ConversationRepository
         return $rows[0] ?? null;
     }
 
+    /**
+     * Return the newest still-active conversation for the current server-side
+     * chart binding. The browser never supplies or receives a patient id.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findResumable(
+        string $siteId,
+        int $userId,
+        string $username,
+        int $pid,
+        \DateTimeImmutable $now
+    ): ?array {
+        $rows = QueryUtils::fetchRecords(
+            'SELECT * FROM copilot_conversation '
+            . 'WHERE site_id = ? AND user_id = ? AND username = ? AND pid = ? AND closed_at IS NULL '
+            . 'ORDER BY last_turn_at DESC, created_at DESC LIMIT 1',
+            [$siteId, $userId, $username, $pid]
+        );
+        $conversation = $rows[0] ?? null;
+        if ($conversation === null) {
+            return null;
+        }
+        if ($this->isIdle($conversation, $now)) {
+            $this->close((string) $conversation['id'], 'idle');
+            return null;
+        }
+        return $conversation;
+    }
+
     /** Records a new turn and returns its sequence number. */
     public function nextTurn(string $id): int
     {
         QueryUtils::sqlStatementThrowException(
-            'UPDATE copilot_conversation SET turn_count = turn_count + 1, last_turn_at = NOW() WHERE id = ? AND closed_at IS NULL',
+            'UPDATE copilot_conversation SET turn_count = turn_count + 1, last_turn_at = NOW() '
+            . 'WHERE id = ? AND closed_at IS NULL',
             [$id]
         );
         $rows = QueryUtils::fetchRecords('SELECT turn_count FROM copilot_conversation WHERE id = ?', [$id]);
@@ -83,7 +115,8 @@ final class ConversationRepository
     public function sweep(): int
     {
         return QueryUtils::sqlStatementThrowException(
-            'DELETE FROM copilot_conversation WHERE closed_at IS NOT NULL AND closed_at < DATE_SUB(NOW(), INTERVAL ? HOUR)',
+            'DELETE FROM copilot_conversation WHERE closed_at IS NOT NULL '
+            . 'AND closed_at < DATE_SUB(NOW(), INTERVAL ? HOUR)',
             [self::RETENTION_HOURS_AFTER_CLOSE]
         ) ? 1 : 0;
     }

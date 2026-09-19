@@ -185,7 +185,7 @@ public probe (`docs/audit/evidence/security/cloud-probe-2026-09-14.txt`).
       chips, history restored behind a fresh ticket, 30-minute idle close;
       `ISO-FOLLOWUP-CHAIN-001` chains three turns on the deployment).
 - [x] Add authorization, missing-data, malformed-output, and tool-failure
-      evals (`evals/cases/`: 46 cases, 9 authorization, 12 missing data, 5
+      evals (`evals/cases/`: 47 cases, 9 authorization, 12 missing data, 5
       citation including altered facts and paraphrased advice, 2 tool
       failure, 3 model failure; eleven result reports in `evals/results/`).
 - [x] Confirm tokens, cost, latency, tool order, retries, and verification

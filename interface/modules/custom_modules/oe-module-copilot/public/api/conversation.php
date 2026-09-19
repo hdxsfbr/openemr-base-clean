@@ -2,7 +2,9 @@
 
 /**
  * Conversation binding under the user's session (ADR-0002 section 1).
- * POST {action: "start"|"end", csrf_token, conversation_id?}
+ * POST {action: "resume"|"start"|"end", csrf_token, conversation_id?}
+ * resume: finds the recent conversation bound to the current server-side
+ * chart and user without accepting or returning a patient identifier.
  * start: binds a new conversation to (site, user, open patient); the client
  * never supplies a pid. end: closes it.
  *
@@ -45,19 +47,44 @@ if (!CsrfUtils::verifyCsrfToken((string) ($body['csrf_token'] ?? ''), $session, 
 $conversations = new ConversationRepository();
 $action = $body['action'] ?? '';
 
+if ($action === 'resume') {
+    $pid = Compat::openPid();
+    if ($pid <= 0) {
+        Json::error(409, 'invalid_request', 'No chart is open.', $correlationId);
+    }
+    $conversation = $conversations->findResumable(
+        $siteId,
+        $userId,
+        $username,
+        $pid,
+        new DateTimeImmutable()
+    );
+    Json::send(200, [
+        'conversation_id' => $conversation['id'] ?? null,
+        'idle_timeout_minutes' => ConversationRepository::IDLE_MINUTES,
+        'correlation_id' => $correlationId,
+    ], $correlationId);
+}
+
 if ($action === 'start') {
     $pid = Compat::openPid();
     if ($pid <= 0) {
         Json::error(409, 'invalid_request', 'No chart is open.', $correlationId);
     }
     if (ContextBuilder::isBreakGlass($username)) {
-        Audit::denied($username, $groupName, $pid, 'breakglass', ['stage' => 'start', 'correlation_id' => $correlationId]);
+        Audit::denied($username, $groupName, $pid, 'breakglass', [
+            'stage' => 'start',
+            'correlation_id' => $correlationId,
+        ]);
         Json::error(403, 'unauthorized', 'The co-pilot is not available under emergency access.', $correlationId);
     }
     $patient = QueryUtils::fetchRecords('SELECT squad FROM patient_data WHERE pid = ?', [$pid]);
     $squad = (string) ($patient[0]['squad'] ?? '');
     if (count($patient) !== 1 || ($squad !== '' && !AclMain::aclCheckCore('squads', $squad))) {
-        Audit::denied($username, $groupName, $pid, 'squad', ['stage' => 'start', 'correlation_id' => $correlationId]);
+        Audit::denied($username, $groupName, $pid, 'squad', [
+            'stage' => 'start',
+            'correlation_id' => $correlationId,
+        ]);
         Json::error(403, 'unauthorized', 'Request denied.', $correlationId);
     }
     $created = $conversations->start($siteId, $userId, $username, $pid);
@@ -67,7 +94,10 @@ if ($action === 'start') {
         'module_version' => '0.1.0',
         'policy' => 'parity-1',
     ]);
-    Json::send(200, ['conversation_id' => $created['id'], 'correlation_id' => $created['correlation_id']], $created['correlation_id']);
+    Json::send(200, [
+        'conversation_id' => $created['id'],
+        'correlation_id' => $created['correlation_id'],
+    ], $created['correlation_id']);
 }
 
 if ($action === 'end') {

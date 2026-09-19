@@ -95,6 +95,12 @@ class Session:
             self.conversation_id = r.json()["conversation_id"]
         return r
 
+    def resume(self) -> httpx.Response:
+        r = self.client.post(f"{self.base}{MODULE_PATH}/api/conversation.php", json={"action": "resume", "csrf_token": self.csrf})
+        if r.status_code == 200:
+            self.conversation_id = r.json().get("conversation_id")
+        return r
+
     def mint(self) -> httpx.Response:
         r = self.client.post(f"{self.base}{MODULE_PATH}/api/ticket.php", json={"csrf_token": self.csrf, "conversation_id": self.conversation_id})
         self.ticket = r.json() if r.status_code == 200 else None
@@ -414,6 +420,7 @@ def turn_record(body: dict[str, Any], message: str, fault: str | None, latency_m
 def run_live(case: dict[str, Any], base_url: str, password: str, cohort: dict[str, int], attempt: int = 1) -> CaseResult:
     result = CaseResult(case["id"], case["name"], case["category"], "live", True, attempt=attempt, gates=_as_list(case.get("gates") or []), user=case.get("user", "audit-physician"), patient=case.get("patient", ""), tier=case.get("tier", "coverage"), holdout=bool(case.get("holdout", False)))
     session: Session | None = None
+    conversation_aliases: dict[str, str] = {}
     try:
         session = Session(base_url, case.get("user", "audit-physician"), password, cohort)
         for step in case["steps"]:
@@ -427,6 +434,18 @@ def run_live(case: dict[str, Any], base_url: str, password: str, cohort: dict[st
             elif kind == "start":
                 r = session.start()
                 result.failures += check(spec.get("expect", {"http_status": 200}), r, 0.0)
+            elif kind == "remember_conversation":
+                alias = spec if isinstance(spec, str) else spec.get("name")
+                if not alias or not session.conversation_id:
+                    result.failures.append("cannot remember a missing conversation")
+                else:
+                    conversation_aliases[alias] = session.conversation_id
+            elif kind == "resume":
+                r = session.resume()
+                result.failures += check(spec.get("expect", {"http_status": 200}), r, 0.0)
+                same_as = spec.get("same_as")
+                if same_as and session.conversation_id != conversation_aliases.get(same_as):
+                    result.failures.append(f"resumed conversation did not match {same_as}")
             elif kind == "ticket":
                 r = session.mint()
                 result.failures += check(spec.get("expect", {"http_status": 200}), r, 0.0)
