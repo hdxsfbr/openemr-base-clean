@@ -43,7 +43,11 @@ class Settings(BaseSettings):
     # model outside that family.
     plan_model_supports_effort: bool = True
     effort_first_turn: str = "low"
-    effort_followup: str = "medium"
+    # medium -> low on 2026-09-19: 18.1 s -> 11.9 s and 1,788 -> 1,231 output tokens per follow-up on
+    # the fixture A/B with rejections and kept summaries level; it writes fewer claims, so the live
+    # suite's recall gate is the check (docs/audit/evidence/performance/followup-effort-2026-09-19.md).
+    # Also the effort of the plan call and of a follow-up's repair round.
+    effort_followup: str = "low"
     model_timeout_seconds: float = 30.0
     # Adaptive-thinking tokens count toward this cap. At 1,800, 10% of first-turn narrate
     # calls stopped on `max_tokens` (Langfuse, 2026-09-18/19): the JSON was cut off, the
