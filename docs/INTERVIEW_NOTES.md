@@ -427,13 +427,22 @@ through 2026-09-17.
     OpenEMR's Apache/PHP and MariaDB layer saturating CPU — both peak at or
     above 100% of a full vCPU core well before any worker-pool limit is
     reached, on every Droplet tier tested (see below).
-    - **Today, prod `s-2vcpu-4gb`, unfixed.** No config-tunable worker pool
-      to raise — the constraint is raw CPU. M4's own bracket data: clean
-      through roughly 5-10 concurrent users, hard degradation by 50 (31/50
-      VUs completed, 90% of tool-gateway calls unavailable). Estimated safe
-      zone: **roughly a 1-2 provider practice**, consistent with the
-      operator-observed failure between 5 and 10 concurrent users — this
-      number hasn't changed, because it was never actually about FPM.
+    - **Today, prod `s-2vcpu-4gb`, partly fixed 2026-09-19
+      (`docs/audit/evidence/performance/batched-gateway-2026-09-19.md`).** No
+      config-tunable worker pool to raise — the constraint is raw CPU. The
+      co-pilot's own tool-gateway traffic turned out to be a meaningful part
+      of that CPU load (each of a turn's up-to-six tool calls repeated
+      OpenEMR's ~1,045-query bootstrap); batching those into one or two
+      gateway requests per turn measurably helped *at* the previously-tested
+      10-user level (status share 85% -> 100% clean, both `openemr` and
+      `database` CPU peaks dropped from over one full vCPU core to under it)
+      but did **not** raise the ceiling itself — re-measured onset is between
+      10 and 15 concurrent users, CPU pegged around 125-136% per container
+      from 15 through 50. Estimated safe zone: still **roughly a 1-2 provider
+      practice** — this number hasn't materially changed, because batching
+      removes redundant bootstrap work, not the real per-tool SQL fetch work
+      that two vCPUs were always going to struggle to serve past low double
+      digits of concurrent turns.
     - **Measured, three bigger/different Droplet tiers, 2026-09-18.** Real
       load tests (not modeled) against `s-4vcpu-8gb` ($48/mo, 4 shared vCPU),
       `c-2` ($42/mo, 2 **dedicated** vCPU — prod's own core count, no

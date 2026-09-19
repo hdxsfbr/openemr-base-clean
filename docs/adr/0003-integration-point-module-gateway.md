@@ -44,6 +44,22 @@
   the hop is internal-only (same docker network) and the actual common
   failure mode under load, OpenEMR/MariaDB timing out, stays isolated
   per-tool even inside a batch (`AbstractTool::run()`'s own catch).
+- **Status note (2026-09-19, load-tested):** the accepted behavior change
+  above was confirmed as the *dominant* real-world failure mode, not a
+  theoretical edge case. Same-tier real-model load test at 15 concurrent
+  users (`docs/audit/evidence/performance/batched-gateway-2026-09-19.md`):
+  unavailable-tool counts by tool were `allergies`=8, `clinical_notes`=8,
+  `lab_results`=8, `medications`=8, `problems`=8, `encounters`=2,
+  `patient_context`=2 — an exact match to the two batch groups a first turn
+  sends, meaning every failure was a whole-batch transport timeout, none an
+  isolated per-tool fetch failure. The prediction two paragraphs up, that
+  the common failure mode "stays isolated per-tool even inside a batch," did
+  not hold at load; correlated within-batch failure is the actual common
+  case once the Droplet's CPU is saturated (a batch takes long enough
+  end-to-end to blow the client timeout before any individual tool's own
+  exception path is ever reached). Still judged acceptable per the original
+  reasoning — internal-only hop, tradeoff already named in Consequences —
+  but the risk is real under load, not hypothetical.
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (project owner)
 - **Related requirements:** PRD "an AI agent embedded directly into OpenEMR";

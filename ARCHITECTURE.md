@@ -763,8 +763,26 @@ now also accepts a batched request serving a turn's whole tool fan-out in one
 or two requests instead of one per tool (`Gateway/BatchRunner.php`,
 `agent/app/gateway_client.py` `call_batch`); see ADR-0003's 2026-09-19 status
 note for the request/response shape and what each authorization/audit check
-still runs once per tool inside the batch. Not yet re-measured against a
-Droplet tier to confirm the CPU reduction this predicts.
+still runs once per tool inside the batch. **Re-measured, same day
+(`docs/audit/evidence/performance/batched-gateway-2026-09-19.md`).**
+Same-Droplet before/after at 10 users confirms the fix: status share 85% ->
+100% clean, `openemr` CPU peak 103% -> 82%, `database` CPU peak 98% -> 83% —
+both now under one full core instead of over it. It does **not** raise the
+concurrent-user ceiling: real-model confirmation at 15/20/35/50 users on the
+same tier shows onset between 10 and 15 (CPU exceeds one core at 15, then
+sits pegged around 125-136% through 50), the same order of magnitude as the
+pre-batch M4 baseline — batching removes redundant bootstrap work, not the
+real per-tool SQL fetch work underneath it, and two vCPUs still can't carry
+much more than ~10-15 concurrent turns of that. The failure mode past that
+point also changed shape exactly as ADR-0003 anticipated: unavailable-tool
+counts at 15 users cluster in two groups matching the two batch calls a
+first turn sends (five tools at count 8, two tools at count 2), confirming
+whole-batch transport timeouts, not isolated per-tool failures, are the
+dominant failure mode under load. A free `--fault model` bracket sweep run
+first was not usable for finding this ceiling — removing the model call also
+removes the inter-request pacing model latency provides, concentrating the
+same load into a tighter burst than real traffic produces; see the evidence
+doc's Experiment 2 for the methodology note.
 
 ## Observability
 
