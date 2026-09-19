@@ -1,0 +1,55 @@
+# TYPE copilot_requests_total counter
+copilot_requests_total{path="health",status="2xx"} 24
+copilot_requests_total{path="ready",status="2xx"} 3
+copilot_requests_total{path="metrics",status="2xx"} 25
+copilot_requests_total{path="turn",status="2xx"} 997
+copilot_requests_total{path="v1",status="2xx"} 474
+copilot_requests_total{path="ready",status="5xx"} 1
+# TYPE copilot_turns_total counter
+copilot_turns_total{status="fallback"} 885
+copilot_turns_total{status="complete"} 108
+copilot_turns_total{status="partial"} 4
+# TYPE copilot_denials_total counter
+# TYPE copilot_tool_calls_total counter
+copilot_tool_calls_total{tool="encounters",status="ok",reason="none"} 464
+copilot_tool_calls_total{tool="patient_context",status="ok",reason="none"} 423
+copilot_tool_calls_total{tool="problems",status="ok",reason="none"} 278
+copilot_tool_calls_total{tool="allergies",status="empty",reason="none"} 399
+copilot_tool_calls_total{tool="lab_results",status="ok",reason="none"} 312
+copilot_tool_calls_total{tool="medications",status="ok",reason="none"} 402
+copilot_tool_calls_total{tool="clinical_notes",status="ok",reason="none"} 400
+copilot_tool_calls_total{tool="lab_results",status="empty",reason="none"} 155
+copilot_tool_calls_total{tool="problems",status="empty",reason="none"} 137
+copilot_tool_calls_total{tool="lab_results",status="unavailable",reason="timeout"} 2
+copilot_tool_calls_total{tool="clinical_notes",status="unavailable",reason="timeout"} 5
+copilot_tool_calls_total{tool="allergies",status="unavailable",reason="http_5xx"} 105
+copilot_tool_calls_total{tool="clinical_notes",status="unavailable",reason="http_5xx"} 103
+copilot_tool_calls_total{tool="encounters",status="unavailable",reason="http_5xx"} 43
+copilot_tool_calls_total{tool="lab_results",status="unavailable",reason="http_5xx"} 99
+copilot_tool_calls_total{tool="patient_context",status="unavailable",reason="http_5xx"} 85
+copilot_tool_calls_total{tool="medications",status="unavailable",reason="http_5xx"} 106
+copilot_tool_calls_total{tool="problems",status="unavailable",reason="http_5xx"} 93
+copilot_tool_calls_total{tool="allergies",status="ok",reason="none"} 3
+copilot_tool_calls_total{tool="allergies",status="unavailable",reason="timeout"} 1
+copilot_tool_calls_total{tool="encounters",status="unavailable",reason="timeout"} 1
+# TYPE copilot_verifier_rejections_total counter
+copilot_verifier_rejections_total{rule="lexicon:causal"} 1
+copilot_verifier_rejections_total{rule="lab_rules"} 3
+copilot_verifier_rejections_total{rule="lexicon:inference"} 1
+# TYPE copilot_verification_total counter
+copilot_verification_total{outcome="passed"} 556
+copilot_verification_total{outcome="failed_closed"} 437
+copilot_verification_total{outcome="partial"} 4
+# TYPE copilot_tokens_total counter
+copilot_tokens_total{kind="input_tokens"} 76997
+copilot_tokens_total{kind="output_tokens"} 193393
+copilot_tokens_total{kind="cache_read_tokens"} 740538
+copilot_tokens_total{kind="model_calls"} 221
+copilot_in_flight 1
+# TYPE copilot_turns_in_flight gauge
+copilot_turns_in_flight 0
+# TYPE copilot_turn_latency_ms gauge
+copilot_turn_latency_ms{quantile="p50",window="5m"} 1319.4
+copilot_turn_latency_ms{quantile="p95",window="5m"} 19128.7
+copilot_turn_latency_ms{quantile="p99",window="5m"} 32221.8
+copilot_turn_latency_count_5m 547

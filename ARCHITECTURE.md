@@ -726,6 +726,30 @@ reliably, independent of the caching cost. `plan_model_id` /
 `plan_model_supports_effort` (`agent/app/settings.py`) stay in the code as
 tested, no-op-by-default infrastructure for a future revisit.
 
+**Droplet-tier capacity test, 2026-09-18
+(`docs/audit/evidence/performance/droplet-tier-comparison-2026-09-18.md`).**
+Measured (not modeled) how much three bigger/differently-provisioned Droplets
+actually buy over prod's `s-2vcpu-4gb`, via three throwaway rehearsal-workspace
+deploys at commit `a151d24` — production was never touched. Real-model VU
+completion at 50 users: `s-4vcpu-8gb` ($48/mo, 4 shared vCPU) 72%,
+`c-2` ($42/mo, 2 **dedicated** vCPU — same core count as prod) 86%, `c-4`
+($84/mo, 4 dedicated vCPU) held 100% completion through 60 users, degrading
+only at 70-100. `openemr` and `database` CPU each independently exceed 100%
+of a core on every tier tested, including the two 4-vCPU ones — bigger
+Droplets raise the onset point, they don't eliminate saturation. The standout
+finding: `c-2`, at prod's own core count but dedicated (non-burstable) CPU,
+matched or beat the 4-vCPU shared-core tier — strong evidence that
+CPU-credit throttling on the Basic/shared-CPU family, not just core count,
+is part of what hurts prod specifically; a same-cost-class dedicated-CPU
+resize is worth more than a naive 2x size-up. **Turn p95 still busts the
+30 s budget on every tier, including `c-4` at 60 users where VU completion
+and tool-availability are both excellent (100% / 0% unavailable, p95
+32.2 s)** — the 30 s threshold decision two paragraphs up remains open
+regardless of Droplet size; no tier tested resolves it. Real measured
+throughput per tier (4.35-7.34 req/s, see that document's methodology)
+replaces the modeled "2.8 req/s working budget" figure that
+`docs/INTERVIEW_NOTES.md`'s clinic-size estimate used to rely on.
+
 ## Observability
 
 **Decided (ADR-0007).** Langfuse's native LangGraph callback handler in

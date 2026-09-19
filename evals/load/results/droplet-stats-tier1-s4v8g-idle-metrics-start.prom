@@ -1,0 +1,17 @@
+# TYPE copilot_requests_total counter
+copilot_requests_total{path="health",status="2xx"} 2
+copilot_requests_total{path="ready",status="2xx"} 2
+# TYPE copilot_turns_total counter
+# TYPE copilot_denials_total counter
+# TYPE copilot_tool_calls_total counter
+# TYPE copilot_verifier_rejections_total counter
+# TYPE copilot_verification_total counter
+# TYPE copilot_tokens_total counter
+copilot_in_flight 1
+# TYPE copilot_turns_in_flight gauge
+copilot_turns_in_flight 0
+# TYPE copilot_turn_latency_ms gauge
+copilot_turn_latency_ms{quantile="p50",window="5m"} 0.0
+copilot_turn_latency_ms{quantile="p95",window="5m"} 0.0
+copilot_turn_latency_ms{quantile="p99",window="5m"} 0.0
+copilot_turn_latency_count_5m 0

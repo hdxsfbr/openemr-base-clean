@@ -411,43 +411,63 @@ through 2026-09-17.
     outbound transfer per Droplet than the per-GB charges the other three
     apply past a small free tier. Same status as the DigitalOcean figures
     above: not implemented, not load-tested, no ADR.
-  - **Clinic-size back-of-envelope, modeled, not measured.** Translates the
-    FPM ceiling above into "how big a clinic" using Little's Law
+  - **Clinic-size back-of-envelope, now partly measured
+    (`docs/audit/evidence/performance/droplet-tier-comparison-2026-09-18.md`).**
+    Translates measured throughput into "how big a clinic" using Little's Law
     (`L = λ × W`) plus a peak/busy-hour concentration factor — the same
     reasoning Q10 already applies to the agent (appointments compress into
-    slot-aligned bursts), applied here to raw OpenEMR page requests. Three
-    different numbers answer three different questions: concurrent logged-in
-    staff (free), concurrent in-flight requests (capped by the FPM pool —
-    what fails today), and sustained throughput (capped by CPU — what
-    actually limits clinic size once the pool isn't the wall).
-    - **Today, unfixed.** A ~5-worker pool caps simultaneity at 5 in-flight
-      requests outright. Appointment-slot alignment clusters staff clicks
-      (check-in, rooming, chart-open) into the same few seconds, so it takes
-      very few logged-in staff before a burst exceeds 5. Estimated safe zone:
-      **roughly a 1-2 provider practice** — consistent with the
-      operator-observed failure between 5 and 10 concurrent users.
-    - **Same box, FPM tuned, no other change.** Assumptions: ~0.25 s blended
-      request time (between the audit's measured 127 ms and 360 ms pages,
-      `docs/audit/performance.md:230-234`); 2 vCPU derated ~50% for
-      MariaDB/Caddy/agent/alerts sharing the box → ~4 req/s realistic
-      ceiling; 70% utilization target (queueing-theory rule of thumb before
-      p95 latency climbs) → **~2.8 req/s working budget**; 25-50 requests
-      per patient encounter across all staff touching the chart; 2-3 visits
-      per provider per hour; a 3x-5x peak concentration factor. Result:
-      **roughly a 15-to-65-provider clinic**, using
-      `providers = 2.8 ÷ (req/encounter × visits/hr × peak-factor ÷ 3600)`
-      at each end of the assumption range. The gap between this and "breaks
-      at 10" is one unset config default, not the hardware.
-    - **Caveat, same as everywhere else in this section.** The two biggest
-      inputs (requests per encounter, peak concentration factor) are
-      assumptions, not observations. The rigorous fix is a load test with
-      realistic think-time and slot-aligned burst timing against the OpenEMR
-      web tier itself — the same idea as `evals/load/run_load.py`, which
-      exists for the agent side (Q10) but has no web-tier equivalent yet.
-      Scaling this to the horizontal design (≈3x CPU budget at the
-      "Balanced" tier) would roughly 3x the provider range too, but that
-      compounds this section's assumptions on top of its own and is not
-      separately modeled here.
+    slot-aligned bursts), applied here to raw OpenEMR page requests. An
+    earlier version of this estimate assumed an FPM worker pool capping
+    simultaneity at ~5 in-flight requests; that premise is **disproven** — a
+    live check of the `openemr` container found `mod_php` under Apache
+    prefork (`MaxRequestWorkers=250`), not `php-fpm` at all, and the M4 load
+    test never got the Apache process count above 54-68 even while CPU was
+    already saturated, confirming the worker pool was never the real wall.
+    The actual constraint, confirmed directly by container CPU data, is
+    OpenEMR's Apache/PHP and MariaDB layer saturating CPU — both peak at or
+    above 100% of a full vCPU core well before any worker-pool limit is
+    reached, on every Droplet tier tested (see below).
+    - **Today, prod `s-2vcpu-4gb`, unfixed.** No config-tunable worker pool
+      to raise — the constraint is raw CPU. M4's own bracket data: clean
+      through roughly 5-10 concurrent users, hard degradation by 50 (31/50
+      VUs completed, 90% of tool-gateway calls unavailable). Estimated safe
+      zone: **roughly a 1-2 provider practice**, consistent with the
+      operator-observed failure between 5 and 10 concurrent users — this
+      number hasn't changed, because it was never actually about FPM.
+    - **Measured, three bigger/different Droplet tiers, 2026-09-18.** Real
+      load tests (not modeled) against `s-4vcpu-8gb` ($48/mo, 4 shared vCPU),
+      `c-2` ($42/mo, 2 **dedicated** vCPU — prod's own core count, no
+      CPU-credit throttling), and `c-4` ($84/mo, 4 dedicated vCPU), each via
+      a throwaway rehearsal Droplet, replace the old modeled "~2.8 req/s
+      working budget" with throughput measured directly from real-model load
+      test traffic (method: OpenEMR-facing requests per second at each
+      tier's last-100%-VU-completion level — see the linked document):
+
+      | Tier | Measured throughput | Clinic size (25-50 req/encounter, 2-3 visits/hr, 3x-5x peak, formula unchanged) |
+      | --- | --- | --- |
+      | `s-4vcpu-8gb` ($48/mo) | 4.39 req/s | ~21-to-105 providers |
+      | `c-2` ($42/mo, dedicated) | 4.35 req/s | ~21-to-104 providers |
+      | `c-4` ($84/mo, dedicated) | 7.34 req/s | ~35-to-176 providers |
+
+      using `providers = throughput ÷ (req/encounter × visits/hr ×
+      peak-factor ÷ 3600)` at each end of the assumption range, same formula
+      and same other assumptions as before. Headline finding: `c-2`, at
+      prod's own core count but dedicated (non-burstable) CPU, matched or
+      beat the 4-vCPU shared-core tier — CPU-credit throttling on the
+      Basic/shared-CPU family, not just core count, is part of what limits
+      prod specifically. `c-4` is the standout: roughly 6-10x prod's clean
+      concurrent-user ceiling for 3.5x the monthly cost.
+    - **Caveat, same as everywhere else in this section.** Requests per
+      encounter and the peak concentration factor are still *assumptions*,
+      not observations — only the throughput term is now measured, and only
+      for the three new tiers, not prod itself (out of scope for that
+      session; prod was never touched). Turn p95 still busts the 30 s budget
+      on every tier tested, including the best one, so this section answers
+      "how many concurrent users the box can serve," not "how many providers
+      get a response inside budget" — those are different, both-open
+      questions. The rigorous next step is still a load test with realistic
+      think-time and slot-aligned burst timing rather than the driver's
+      current ramped-burst pattern.
 
 ### 3. Reliability requirements
 
