@@ -74,6 +74,9 @@
     function openDrawer(event) {
         if (event && event.preventDefault) { event.preventDefault(); }
         lastTrigger = event && event.currentTarget ? event.currentTarget : menuTrigger;
+        if (!panel.classList.contains('is-open')) {
+            fetchJson(apiBase + '/health?panel=drawer_open', {}, 4000).catch(function () { /* a counter, never the user's problem */ });
+        }
         panel.classList.add('is-open');
         panel.setAttribute('aria-hidden', 'false');
         setExpanded(true);
@@ -649,7 +652,9 @@
     }
 
     // Agent reachability through the edge; the chart does not depend on it.
-    fetchJson(apiBase + '/health', {}, 4000).then(function (r) {
+    // `panel=` tells the agent why the check was made: the top of the usage funnel in its /metrics
+    // (chart opened with the panel, drawer opened, kind of first question). No ids, no chart data.
+    fetchJson(apiBase + '/health?panel=chart_open', {}, 4000).then(function (r) {
         if (r.ok && r.data) {
             setStatus('', 'text-muted');
             return synchronizeChart();

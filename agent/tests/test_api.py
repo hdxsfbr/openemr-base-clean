@@ -35,11 +35,15 @@ def test_turn_requires_token_and_matching_conversation(client: TestClient) -> No
 
 
 def test_turn_returns_contract_shaped_response_with_correlation_id(client: TestClient) -> None:
+    from app.metrics import metrics
+
+    first_turns_before = metrics.first_turns["uc01_first"]
     token = mint_for_tests(CID, "abcdefabcdefabcd", TEST_SECRET)
     r = client.post(f"/v1/conversations/{CID}/turns", json={"message": "What changed since the last visit?", "correlation_id": "conv1234abcd.1"}, headers={"X-Copilot-Token": token})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["turn_type"] == "uc01_first" and body["correlation_id"] == "conv1234abcd.1"
+    assert metrics.first_turns["uc01_first"] == first_turns_before + 1, "the funnel counts what kind of question opened the conversation"
     assert r.headers["X-Correlation-Id"] == "conv1234abcd.1"
     assert body["verification"]["outcome"] in ("passed", "partial")
     assert {e["tool"] for e in body["evidence"]} >= {"encounters", "lab_results"}

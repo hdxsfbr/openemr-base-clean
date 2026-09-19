@@ -16,6 +16,10 @@ from .turn_outcome import VERIFICATION_OUTCOMES
 
 _HTTP_REASON_RE = re.compile(r"^http_(\d)\d\d$")
 REASON_NONE = "none"
+# The funnel that decides whether precomputing the UC-01 brief would ever be seen: chart opened with the
+# panel, drawer opened, and what kind of question opened the conversation. Closed label sets, no ids.
+PANEL_EVENTS = ("chart_open", "drawer_open")
+FIRST_TURN_TYPES = ("uc01_first", "followup")
 REASON_OTHER = "other"
 
 
@@ -43,6 +47,8 @@ class Metrics:
         self.rejections = Counter()
         self.tokens = Counter()
         self.verification = Counter()
+        self.panel_events = Counter()
+        self.first_turns = Counter()
         self.latencies: deque[tuple[float, float]] = deque(maxlen=5000)
         # Every HTTP request, healthchecks and scrapes included (copilot_in_flight).
         self.in_flight = 0
@@ -57,6 +63,19 @@ class Metrics:
     def denial(self, reason: str) -> None:
         with self.lock:
             self.denials[reason[:40]] += 1
+
+    def panel_event(self, event: str) -> bool:
+        """A chart opened with the panel on it, or the drawer was opened. False for anything else."""
+        if event not in PANEL_EVENTS:
+            return False
+        with self.lock:
+            self.panel_events[event] += 1
+        return True
+
+    def conversation_first_turn(self, turn_type: str | None) -> None:
+        """What kind of question opened a conversation: the UC-01 brief or something else."""
+        with self.lock:
+            self.first_turns[turn_type if turn_type in FIRST_TURN_TYPES else REASON_OTHER] += 1
 
     def turn_started(self) -> None:
         with self.lock:
@@ -112,6 +131,12 @@ class Metrics:
             lines.append("# TYPE copilot_verification_total counter")
             for outcome, n in self.verification.items():
                 lines.append(f'copilot_verification_total{{outcome="{outcome}"}} {n}')
+            lines.append("# TYPE copilot_panel_events_total counter")
+            for event, n in self.panel_events.items():
+                lines.append(f'copilot_panel_events_total{{event="{event}"}} {n}')
+            lines.append("# TYPE copilot_conversation_first_turn_total counter")
+            for turn_type, n in self.first_turns.items():
+                lines.append(f'copilot_conversation_first_turn_total{{turn_type="{turn_type}"}} {n}')
             lines.append("# TYPE copilot_tokens_total counter")
             for k, n in self.tokens.items():
                 lines.append(f'copilot_tokens_total{{kind="{k}"}} {n}')

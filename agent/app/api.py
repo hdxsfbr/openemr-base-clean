@@ -92,6 +92,13 @@ def _turn_input(delegation: Delegation, req: TurnRequest, correlation_id: str, f
     return state
 
 
+def _count_first_turn(state: dict[str, Any]) -> None:
+    """The funnel's last stage: what kind of question opened this conversation.
+    Render appends one history entry per answered turn, so one entry means first."""
+    if len(state.get("history") or []) == 1:
+        metrics.conversation_first_turn(state.get("turn_type"))
+
+
 def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResponse:
     return TurnResponse.model_validate({
         "turn_id": state["turn_id"],
@@ -173,6 +180,7 @@ async def post_turn(
             drop_token(auth.turn_id)
         response = _response_from_state(final, correlation_id)
         metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final.get("usage") or {}), final.get("rejected") or [], verification=response.verification.outcome)
+        _count_first_turn(final)
         status_code = 403 if response.status == "denied" else 200
         return JSONResponse(status_code=status_code, content=response.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id})
 
@@ -196,6 +204,7 @@ async def post_turn(
                 finish_turn_trace(span, final_state)
             response = _response_from_state(final_state, correlation_id)
             metrics.turn(response.status, (time.perf_counter() - started) * 1000, dict(final_state.get("usage") or {}), final_state.get("rejected") or [], verification=response.verification.outcome)
+            _count_first_turn(final_state)
             yield f"event: claims\ndata: {json.dumps(response.model_dump(mode='json'))}\n\n"
             yield f"event: done\ndata: {json.dumps({'status': response.status})}\n\n"
         except Exception as exc:  # noqa: BLE001

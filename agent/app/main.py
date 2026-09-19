@@ -86,7 +86,12 @@ async def correlation_and_access_log(request: Request, call_next):
 
 
 @app.get("/health")
-async def health() -> dict:
+async def health(panel: str | None = None) -> dict:
+    """Liveness. The chart panel's reachability check says why it is asking
+    (`?panel=chart_open` on load, `?panel=drawer_open` when the drawer opens),
+    which is the top of the funnel in `/metrics`; any other value is ignored."""
+    if panel and metrics.panel_event(panel):
+        log.info("panel event: %s", panel, extra={"component": "funnel"})
     return {"status": "ok", "version": __version__, "uptime_seconds": round(time.time() - _started_at, 1)}
 
 
