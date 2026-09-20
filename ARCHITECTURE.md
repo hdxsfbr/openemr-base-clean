@@ -4,67 +4,61 @@
 
 The Clinical Co-Pilot is a read-only assistant inside the OpenEMR patient
 chart for one user: a primary-care physician with 90 seconds before the next
-visit (`USERS.md`). It answers three questions about the open chart, "what
-changed since the last visit", "which abnormal labs still look unresolved",
-and "what does the chart say about this medication", with every statement
-cited to a record the physician can open in place, and explicit wording for
-what is missing, conflicting, undated, or unavailable. It never diagnoses,
-recommends, doses, or writes. Every capability traces to CAP-01..08 in
-`USERS.md`; nothing else is built.
+visit (`USERS.md`). It answers three questions about the open chart — what changed since the last
+visit, which abnormal labs still look unresolved, and what the chart says
+about a medication — with every statement cited to a record the physician can
+open in place, and explicit wording for what is missing, conflicting, undated
+or unavailable. It never diagnoses, recommends, doses or writes. Every
+capability traces to CAP-01..08 in `USERS.md`; nothing else is built.
 
-**Where it lives.** A custom OpenEMR module adds a launcher after External Data
-through `PatientMenuEvent` and renders a non-modal right drawer on the patient
-dashboard through `PatientDemographics\RenderEvent`. A separate agent service,
-outside PHP because Apache prefork and
-the 60-second limit cannot hold model calls (ARCH-MEDIUM-006), exposes the
-co-pilot HTTP API that the panel, the graders' Bruno collection, and the
-dashboard all use. The agent reaches clinical data only through the module's
+**Where it lives.** A custom OpenEMR module adds a launcher through `PatientMenuEvent` and renders
+a non-modal right drawer on the patient dashboard through
+`PatientDemographics\RenderEvent`. A separate agent service — outside PHP because Apache prefork and the
+60-second limit cannot hold model calls (ARCH-MEDIUM-006) — exposes the
+co-pilot HTTP API used by the panel, the Bruno collection and the dashboard. The agent reaches clinical data only through the module's
 gateway endpoints, which call OpenEMR services in process (ADR-0003). It
 holds the model key and nothing else: no database credentials, no session.
 
 **Who may see what.** The audit proved OpenEMR authorizes by role and chart
 section, never by patient, and that its services enforce nothing
 (SEC-HIGH-001, ARCH-HIGH-002). The decision is parity with the chart
-(ADR-0002): a conversation is bound server-side to (site, user, patient)
-when the panel renders; each turn starts with the module re-reading the live
-session and open patient and minting a 90-second delegation token; every
-tool call re-runs the chart's own section ACL, squad, and break-glass checks
-for the bound user and writes an audit event before returning data. The
+(ADR-0002): a conversation is bound server-side to (site, user, patient) at
+render; each turn re-reads the live session and open patient and mints a
+90-second delegation token; every tool call re-runs the chart's own section
+ACL, squad and break-glass checks for the bound user and writes an audit
+event before returning data. The
 model never receives or chooses a patient. Stated limitation: any clinician
 can summarize any chart they could open, no more and no less.
 
-**How answers are made.** Tools return normalized, deduplicated, windowed,
-status-bearing records (`ok | empty | partial | unavailable`) because the
-data contradicts itself and one lab path fails silently (DQ-HIGH-002/003,
-PERF-MED-001). The first turn of "what changed" is a fixed retrieval plan
-whose records render before any model call, so first evidence arrives in
-about two seconds and survives a model outage. A LangGraph turn graph whose
-nodes call the Anthropic SDK directly (Claude Sonnet 5, ADR-0004) narrates
-from that evidence pack and, on follow-ups, selects tools within bounded
-rounds; the same graph becomes Week 2's subgraph under a supervisor. It
-emits structured claims with typed facts and source identifiers. A
-deterministic verifier resolves every source against the records retrieved
-that turn, checks the typed fields, applies the domain rules (same-unit
-numeric lab comparison only, abnormality only from recorded flags or ranges,
-absence only after successful retrieval, no indication link without a
-linking record), and withholds what fails (ADR-0006). The model cannot see
-or override that decision.
+**How answers are made.** Tools return normalized, deduplicated, windowed, status-bearing records
+(`ok | empty | partial | unavailable`), because the data contradicts itself
+and one lab path fails silently (DQ-HIGH-002/003, PERF-MED-001). The first
+turn is a fixed retrieval plan whose records render before any model call, so
+first evidence arrives in about two seconds and survives a model outage. A LangGraph turn graph calling the Anthropic SDK directly (Claude Sonnet 5,
+ADR-0004) narrates from that evidence pack and, on follow-ups, selects tools
+within bounded rounds; the same graph becomes Week 2's subgraph under a
+supervisor. It emits structured claims with typed facts and source ids. A
+deterministic verifier resolves every source against that turn's records,
+checks the typed fields, applies the domain rules — same-unit lab comparison
+only, abnormality only from recorded flags or ranges, absence only after
+successful retrieval — and withholds what fails (ADR-0006). The model cannot
+see or override that decision.
 
-**When things fail.** Denials happen before any tool or model call. A failed
-tool yields a partial answer naming the missing section. A model failure
-yields the deterministic brief or an explicit "unavailable". Observability
+**When things fail.** Denials happen before any tool or model call; a failed
+tool yields a partial answer naming the missing section; a model failure
+yields the deterministic brief or an explicit "unavailable"; observability
 failures never block a response. Nothing is silently omitted.
 
 **How it is observed.** One correlation ID minted at the panel runs through
-module, agent API, tools, model calls, verifier, audit events, logs, and
-traces. Telemetry carries identifiers, counts, latency, tokens, cost, and
-verification outcomes only; PHI goes to OpenEMR's audit log, never to the
-tracer (ADR-0007). The three PRD alerts have thresholds in `KEY_METRICS.md`.
+module, agent API, tools, model calls, verifier, audit events, logs and
+traces. Telemetry carries identifiers, counts, latency, tokens, cost and
+verification outcomes only; PHI goes to OpenEMR's audit log, never the tracer
+(ADR-0007). The three PRD alerts have thresholds in `KEY_METRICS.md`.
 
 **Tradeoffs accepted.** Bespoke to OpenEMR rather than SMART on FHIR; parity
-rather than a care-relationship policy; a single Droplet; a hosted tracer
-made PHI-free by construction rather than self-hosted. Each is recorded with
-its revisit trigger in `docs/adr/`.
+rather than a care-relationship policy; a single Droplet; a hosted tracer made
+PHI-free by construction. Each is recorded with its revisit trigger in
+`docs/adr/`.
 
 ## Status and Rules
 
