@@ -147,7 +147,8 @@ because the tag was rebuilt after the agent container had been created.
 `0.3.0`; `/copilot-api/ready` returns `status: ready` with `openemr_gateway`,
 `llm_provider`, `tracer`, `delegation_secret` and `state_store` all `ok`. The
 release run `evals/results/2026-09-20T051146Z-0f11642.md` ran all 48 cases
-three times against it: 123 of 124 attempts passed, every blocking gate PASS,
+three times against it (at `0f11642`; the tree then moved on for the alerts
+fix, re-verified by `evals/results/2026-09-20T064022Z-4d2a9fd.md`: all 48 cases against the deployed tree, 48 passed, every blocking gate PASS, citations 206/206, p95 20.0 s, $0.0113 per model-backed turn, no 5xx): 123 of 124 attempts passed, every blocking gate PASS,
 citations 615/615, p95 15.8 s, $0.0104 per model-backed turn. The `alerts`
 service evaluates `/metrics` every 300 s and logged heartbeats throughout
 that run without firing.

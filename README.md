@@ -5,12 +5,16 @@ evaluator-facing README for the co-pilot (deployed URL, demo credentials,
 architecture overview, test and eval commands, limitations). This file keeps
 OpenEMR's own README below the deliverables table.
 
-**Deployment:** commit `c37b9e6` is live at
+**Deployment:** commit `478f432` is live at
 <https://openemr-137-184-4-22.sslip.io> on a single DigitalOcean Droplet,
-deployed 2026-09-20 04:33 UTC. The submission tag `week1-final` sits a few
+deployed 2026-09-20 06:2x UTC. The submission tag `week1-final` sits a few
 docs-only commits later; the runtime directories (`agent/`, the module,
 `infra/`, the cohort fixtures) are byte-identical between the two, so the tag
 and the running code differ only in documentation and eval results.
+
+The runtime tree moved on after that release run, to carry the alerts fix
+described below; a full single pass at the deployed commit re-verifies it —
+`evals/results/2026-09-20T064022Z-4d2a9fd.md`: all 48 cases against the deployed tree, 48 passed, every blocking gate PASS, citations 206/206, p95 20.0 s, $0.0113 per model-backed turn, no 5xx.
 
 Verified on that deployment: `/copilot-api/health` reports `0.3.0`,
 `/copilot-api/ready` returns all five dependencies `ok` including the
