@@ -85,9 +85,23 @@ def resolve_webhook(args: argparse.Namespace) -> str | None:
     return args.webhook
 
 
+def webhook_payload(record: dict[str, Any]) -> dict[str, Any]:
+    """The alert record plus a `text` summary.
+
+    Slack incoming webhooks reject any body without `text` or `blocks` with
+    `invalid_payload`, and ignore keys they do not know. Sending the structured
+    record *and* a one-line summary means the same payload renders in Slack and
+    still carries every field a generic receiver would want to parse.
+    """
+    severity = str(record.get("severity", "")).upper()
+    name = record.get("name", "alert")
+    message = record.get("message", "")
+    return {"text": f"[{severity}] {name}: {message}", **record}
+
+
 def post_webhook(url: str, payload: dict[str, Any], client: httpx.Client) -> bool:
     try:
-        client.post(url, json=payload).raise_for_status()
+        client.post(url, json=webhook_payload(payload)).raise_for_status()
         return True
     except httpx.HTTPError:
         return False

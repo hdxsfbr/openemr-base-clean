@@ -389,3 +389,21 @@ def test_cli_posts_to_the_webhook_named_by_the_file(tmp_path: Path) -> None:
     assert seen == ["http://hooks/from-file"]
     record = json.loads(out.getvalue().splitlines()[0])
     assert record["webhook_delivered"] is True
+
+
+def test_webhook_payload_carries_a_text_summary_for_slack() -> None:
+    """Slack rejects a body without `text` or `blocks` as invalid_payload, and
+    ignores keys it does not recognise. Found live: the alert fired correctly
+    and reported webhook_delivered false because the raw record has no `text`.
+    """
+    from app.alerts_cli import webhook_payload
+
+    record = {"ts": 1.0, "event": "alert", "name": "tool_failure_rate", "severity": "page",
+              "message": "Tool medications returned unavailable on 100.00% of 5 calls; a service path is broken.",
+              "value": 1.0, "threshold": 0.5}
+    payload = webhook_payload(record)
+
+    assert payload["text"] == "[PAGE] tool_failure_rate: Tool medications returned unavailable on 100.00% of 5 calls; a service path is broken."
+    # Every structured field survives for a non-Slack receiver.
+    for key, value in record.items():
+        assert payload[key] == value
