@@ -39,3 +39,27 @@ The denominators are exact: 5 of 5 medications calls, 5 of 35 tool calls
 across the five turns. The webhook URL is a file secret
 (`/run/secrets/slack_alert_webhook`), never an argv value visible to
 `docker inspect`, and is not in the repository.
+
+## The other half: no alert during a real run (2026-09-20)
+
+Pipeline 24351, job 79057, 761 s of the full live eval suite against the
+deployment on the submission commit. Nothing fired.
+
+That absence is evidence, not a gap. The staged test above shows the alert
+pages when a tool genuinely fails; this shows it stays quiet through twelve
+minutes of real workload. A threshold that never produces a false positive
+under normal operation is the harder half to demonstrate, and both halves now
+have a dated artifact behind them.
+
+What the window actually contained: 12 `forbidden` denials from
+`AUTH-FRONTDESK-001`, correctly excluded from the failure numerator because a
+denial is the access control working; one `fault_injected` on `lab_results`
+from `TOOL-OUTAGE-LABS-001`, correctly counted but far too small a share of
+the window's tool calls to cross 5%; and a 5-minute p95 around 17.8 s against
+a 30 s warn line.
+
+Note for anyone reading the alert stream on this host: `fault_injected`
+counts toward the tool-failure rate, so an eval run with several fault cases
+in one window can legitimately page here. It cannot happen in production —
+`fault_injection` defaults to `False` (`agent/app/settings.py`) — but on the
+demo box it is expected behaviour rather than a misfire.

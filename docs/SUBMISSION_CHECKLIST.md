@@ -110,13 +110,17 @@ resumes at line 51).
       stays "In progress" until the M3 deploy shows `tracer: reachable` on the
       Droplet. The panel probes `/health`, not `/ready`
       (`public/assets/js/copilot.js:485`).)*
-- [x] GitLab pipeline green on the submitted commit. *(Pipeline 23777 on
-      3415bac, 2026-09-16: four lints, agent tests, offline evals green on the
-      dedicated runner Droplet; the manual `test:evals-live` job (job 76210)
-      ran all 44 cases against the deployment, 44/44, no blocking gate failed,
-      results attached as an artifact. Root cause of "no pipelines" was the
-      lab account's unconfirmed email; `docs/deployment/digitalocean.md`
-      "CI Runner".)*
+- [x] GitLab pipeline green on the submitted commit. *(**Pipeline 24351 on
+      `4985e52d`, ref `week1-final`, 2026-09-20 — all seven jobs green**:
+      four lints, `test:agent`, `test:evals-offline`, and the manual
+      `test:evals-live` (job 79057, 761 s) running the full live suite against
+      the deployment.
+      <https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/jobs/79057>
+      No runtime alert fired during those 12 minutes, which is the other half
+      of the alert evidence: `docs/audit/evidence/observability/alerts-slack-2026-09-20.log`
+      shows it paging when a tool genuinely fails, and this run shows it
+      staying quiet under a real workload rather than crying wolf. Superseded:
+      pipeline 23777 on 3415bac, 2026-09-16.)*
 - [x] Runnable API collection covers core endpoints. *(Bruno, 21/21 on the
       deployment 2026-09-16.)*
 - [x] No credentials, tokens, session IDs, PHI, or private trace URLs are
