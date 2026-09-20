@@ -67,7 +67,9 @@ tamper-evident audit sink. A demo system: not for real PHI, not HIPAA-certified.
 *The Executive Summary's findings are unchanged observations of commit
 `fc95374`. What has since been implemented and verified in the co-pilot is
 recorded per row in §7 and per bullet in §9; nothing in OpenEMR itself was
-changed.*
+changed. Status notes dated 2026-09-20 describe the deployment at commit
+`478f432`, live that day; the submission tag `week1-final` differs from it
+only in docs and eval results.*
 
 | Field | Value |
 | --- | --- |
@@ -314,6 +316,16 @@ p95 27.6 s, p99 40.8 s over 120 model-backed turns on the deployment, with
 retrieval about 1 s per turn (above the 300 ms fan-out line). The 8 s design
 goal is tracked, not gated.*
 
+*Status 2026-09-20: the release run
+`evals/results/2026-09-20T051146Z-0f11642.md` (48 cases, three attempts per
+live case) measured p50 8.2 s, p95 15.8 s, p99 20.6 s over 126 model-backed
+turns. Four runtime commits were deployed after it (Slack alert delivery and
+a tool-failure counter fix; none touches the module or the eval cases), so a
+single-pass run at the deployed tree,
+`evals/results/2026-09-20T064022Z-4d2a9fd.md`, re-checked it: 48 of 48 cases,
+p95 20.0 s over 42 model-backed turns. Both are under the 30 s line and above
+the 8 s design goal.*
+
 **Cache design (decision, not yet implemented).** Tool results may be cached
 only within one conversation, keyed by `(site, user id, pid, tool, tool
 version, parameter hash)`, for at most 60 s, and dropped on conversation end
@@ -337,16 +349,41 @@ requirement is met:
   timed in the cloud window). *Status 2026-09-16: co-pilot turn latency is
   now measured authenticated against the deployment by the eval runner;
   authenticated dashboard render latency on the Droplet is still not.*
+  *Status 2026-09-20: a single-user dashboard render on the Droplet is still
+  not measured; chart open was timed only under concurrent load (next
+  bullet).*
 - Throughput, CPU, memory, and DB connections under 10 and 50 concurrent
   users; p99 at realistic volume. *Status 2026-09-16: not run
   (`README_AGENT_FORGE.md`, target 2026-09-19); p99 is reported only for the
   serial eval suite.*
+  *Status 2026-09-20: run on 2026-09-18 against the deployment
+  (`docs/audit/evidence/performance/load-test-2026-09-18.md`,
+  `baseline-2026-09-18.md`). Real model, 10 users: all 10 finished, 20 turns,
+  chart-open p95 9.9 s, turn p95 45.0 s, two 504s on the five-year chart. 50
+  users: 31 finished and 90% of tool calls came back `unavailable`. A control
+  run with no model calls failed the same way. At 50 users `openemr` and
+  `database` each peaked above one full core in both runs (103% and 111%
+  with the real model) while the agent never passed 54%, host memory
+  available never fell below 2,389 of 3,916 MiB, and MariaDB connections
+  peaked at 152: the ceiling is OpenEMR's Apache/PHP and MariaDB on two
+  vCPUs, not the agent or the model. Two fixes followed and are deployed: a
+  pooled HTTP client with checkpointer WAL (`ba3105b`; 50-user turn p95
+  43.8 s to 30.5 s) and one batched gateway request per retrieval (`b40d456`;
+  on a rehearsal Droplet on 2026-09-19, 10 users finished with 0 of 80 tool
+  calls unavailable, and the next level run, 15 users, had 37% unavailable;
+  `docs/audit/evidence/performance/batched-gateway-2026-09-19.md`). Load was
+  not re-measured on the deployed tree, and p99 at realistic chart volume is
+  still unmeasured.*
 - Model latency, real tokenizer counts, and cost per turn
   (`AI_COST_ANALYSIS.md`). *Status 2026-09-16: measured from API usage on the
   deployment: 608 input / 1,170 output / 5,106 cache-read tokens and $0.0127
   list price per model-backed turn at `1ddf824`; `AI_COST_ANALYSIS.md` Part B.
   The provider-tokenizer count of the raw 42K-token payload was not
   re-measured, because raw payloads are never sent.*
+  *Status 2026-09-20: 293 input / 897 output / 4,413 cache-read tokens, 1.56
+  model calls, and $0.0104 list price per model-backed turn in the release
+  run at `0f11642`; $0.0113 in the single-pass run at the deployed tree
+  (`4d2a9fd`).*
 - Cache hit rates and invalidation behavior once the design above exists.
   *Status 2026-09-16: not applicable yet; no conversation cache exists.*
 
@@ -465,6 +502,15 @@ carries a per-turn HMAC delegation token with no user or patient in it
 (`public/gateway/tools.php`); traces are PHI-masked with a LangSmith guard
 (`agent/app/telemetry.py`, ADR-0007); injected note text is quoted, not obeyed
 (eval `INJ-NOTE-O-001`, live pass). The BAA remains assumed, not reviewed.*
+
+*Status 2026-09-20: two changes to that row. Before it returns records bound
+for the model, the gateway now writes a `copilot-model-disclosure` audit row
+(§5.1). And the payload mask is the code default only: since 2026-09-19 the
+demo deployment sets `COPILOT_TRACE_CONTENT=1` (`runtime/compose.yaml`), so
+its hosted traces carry prompts, the evidence pack, and model output for
+error analysis. ADR-0007's amendment allows that only where the tracer is
+inside the compliance boundary, which is assumed here in the same way the
+LLM provider's BAA is; the deployment holds synthetic patients only.*
 
 Failure domains: a single host (all components fail together), MariaDB (data
 and audit fail together), the prefork pool (60 s limit), PHP file sessions
@@ -611,6 +657,16 @@ provider that excludes training use; no BAA was reviewed.
   *Not written to the OpenEMR log:* `copilot-llm-call` and
   `copilot-verification-result`; model and verifier outcomes go to the
   PHI-masked Langfuse trace and the agent's `/metrics` instead (ADR-0007).
+  *Status 2026-09-20:* since 2026-09-19 (commit `12cd849`) the gateway also
+  writes `copilot-model-disclosure` before it returns records that will go to
+  the model: provider, model id, tool names, record count, and the
+  conversation, turn, and correlation ids, never content. One row per
+  retrieval batch (two for a UC-01 first turn); if the row cannot be written,
+  every tool in the batch answers `unavailable` (`audit_unavailable`). Read
+  back from the deployment in
+  `docs/audit/evidence/compliance/04-model-disclosure-rows-2026-09-19.md`;
+  the fail-closed branch was not exercised live. `copilot-llm-call` and
+  `copilot-verification-result` are still not written.
 
 ### 5.2 Data retention and deletion
 
@@ -641,6 +697,15 @@ provider that excludes training use; no BAA was reviewed.
   browser keeps one opaque conversation id in `sessionStorage` so a reload
   can re-fetch the transcript behind a fresh ticket (`copilot.js`); no claim or
   record text is stored client-side.
+  *Status 2026-09-20:* the browser no longer stores a conversation id. Since
+  commit `4f99483` (2026-09-18) a reload resolves the recent conversation
+  server-side from the authenticated open chart
+  (`ConversationRepository::findResumable`), and the old `sessionStorage` key
+  is removed on load. The one value the panel keeps there is a timestamp for
+  the 60 s brief-on-open reload guard (`copilot.js`, `BRIEF_GUARD_KEY`).
+  Still not implemented: the checkpoint purge and the audited deletion
+  event. The 2026-09-20 truncation of `copilot_conversation` (§9) left its
+  checkpoints on the `agent_state` volume, unreachable and unswept.
 
 ### 5.3 Encryption (addressable: 164.312(a)(2)(iv), (e)(2)(ii); breach safe harbor 164.402)
 
@@ -736,22 +801,22 @@ revisited if the deployment stops being disposable.
 | Findings | Response in the co-pilot | Owner | Priority | Target | Verification |
 | --- | --- | --- | --- | --- | --- |
 | DQ-CRITICAL-001, DQ-HIGH-002…005, DQ-MEDIUM-007 | **Done:** deterministic synthetic cohort `af-cohort-v1` reproducing each defect plus access-control fixtures | Evals and fixtures | P1 (done) | 2026-09-14 | Post-load assertions pass; identical checksums across reloads |
-| SEC-HIGH-001, SEC-HIGH-002, ARCH-HIGH-001/002/003, SEC-INFO-008/009 | **Parity gateway per ADR-0002:** isolation equals the chart. Conversation bound server-side to (site, user, pid); session `pid` re-checked every turn; the chart's section ACLs and squad check re-run per tool; break-glass denied; typed `AuthorizedPatientContext` built by one adapter; no cross-request caching of decisions; `ViewEvent` dispatch to inherit any future patient filter was **planned and is not implemented**. Care-relationship policy designed and deferred. Integration via in-process module gateway (ADR-0003) | Gateway module | P0 | 2026-09-15 | **Implemented 2026-09-15** (`oe-module-copilot/src/Gateway`); verified live: tokenless, tampered, and stale tokens denied, patient switch closes the conversation, patient id in params rejected. **Recorded 2026-09-15/16:** per-role matrix (`bin/acl_matrix.php`; the `aclCheckIssue()` fail-open found on the first live role test and closed by reading `issue_types.aco_spec` fail-closed, commit `2dc51a0`); `AF-ACL-*` and role evals pass live (`AUTH-SQUAD-001`, `AUTH-PARITY-OTHER-001`, `AUTH-UNSCHED-DIRECT-001`, `AUTH-FRONTDESK-001` with `model_calls_max: 0`, `AUTH-SWITCH-001`, `AUTH-FORGED-PID-001`; run `2026-09-16T073141Z-1ddf824`, 3/3 attempts each). **Not done:** `ViewEvent` dispatch (no reference in the module; ADR-0002 §2 now marks it planned, 2026-09-17), an `audit-nurse` eval, a break-glass eval (denial exists in `ContextBuilder`, `conversation.php`, `ticket.php`; not automated per `evals/README.md`), a browser two-tab test |
-| PERF-MED-001, PERF-MED-005, DQ-HIGH-002/003/004, DQ-MEDIUM-006…011/014, DQ-LOW-012/013 | Tool contract: `status ∈ {ok, empty, partial, unavailable}`; normalized status and clinical dates with conflict flags; source table + ID per record; projected fields, time window, row caps with `truncated`; dedupe by record identity; labs via `ProcedureService::search()`, never `getAll()` | Gateway module (tools) | P0 | 2026-09-15 | **Implemented 2026-09-15**; verified: forced lab failure ⇒ `unavailable` and no absence claim; AF-HEAVY yields 7 problems from 26 rows, labs capped at 50 with `truncated`, notes at 20; contract tests on recorded responses. **Recorded 2026-09-15/16:** one eval per `AF-DQ-*` patient (commit `26a9a3d`; 44 cases at `1ddf824`, 45 on disk after `831e1d8`), except `AF-DQ-Q` (no vitals tool in Week 1, `evals/README.md`). Field-level absences and corrections are deterministic limitation lines, not model wording (`pack_limitations` in `agent/app/graph/nodes.py`: allergy reaction/severity, lab unit, text-valued lab, note author, corrected result, missing indication, two-source medication status; commits `950f357`, `9e4f39c`). All blocking gates PASS in the `1ddf824` and `a4a5856` runs. Two cases flip run to run and both fail only their non-blocking model-recall check: `MISS-AUTHOR-J-001` (missed at `1ddf824` attempts 1 and 3, and at `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (missed at `a4a5856`); the deterministic limitation lines passed in every run. **Known gap:** the planted orphan lab result never reaches the tool through `ProcedureService::search()`, so `partial` with an orphan count is not produced; recorded in `TOOL-ORPHAN-P-001` (commit `1ddf824`) |
-| COMP-HIGH-004, COMP-MED-003, ARCH-MEDIUM-005 | Gateway writes `copilot-*` audit events via `EventAuditLogger::newEvent()` before returning data; telemetry carries IDs, counts, latency, tokens, cost, and verification outcome only, or the tracer is self-hosted | Gateway module; agent service (telemetry) | P0 | 2026-09-16 | **Audit events done 2026-09-15** (`copilot-session-start`, `copilot-tool-read` before data, `copilot-denied`, `copilot-session-end`, verified in the deployment's `log` table). **Telemetry done 2026-09-15:** Langfuse callback handler with a payload mask and a LangSmith environment guard (`agent/app/telemetry.py`), keys pushed as file secrets, and a read-back on the deployment found no fixture PHI (commit `ab694d8`; `docs/operations/langfuse-dashboard.md`). The tracer is hosted Langfuse with PHI-free traces, not self-hosted (ADR-0007). **Not done:** an automated PHI-grep eval over exported traces (none in `evals/`); `copilot-llm-call` and `copilot-verification-result` are not written to the OpenEMR log (see §5.1 status) |
+| SEC-HIGH-001, SEC-HIGH-002, ARCH-HIGH-001/002/003, SEC-INFO-008/009 | **Parity gateway per ADR-0002:** isolation equals the chart. Conversation bound server-side to (site, user, pid); session `pid` re-checked every turn; the chart's section ACLs and squad check re-run per tool; break-glass denied; typed `AuthorizedPatientContext` built by one adapter; no cross-request caching of decisions; `ViewEvent` dispatch to inherit any future patient filter was **planned and is not implemented**. Care-relationship policy designed and deferred. Integration via in-process module gateway (ADR-0003) | Gateway module | P0 | 2026-09-15 | **Implemented 2026-09-15** (`oe-module-copilot/src/Gateway`); verified live: tokenless, tampered, and stale tokens denied, patient switch closes the conversation, patient id in params rejected. **Recorded 2026-09-15/16:** per-role matrix (`bin/acl_matrix.php`; the `aclCheckIssue()` fail-open found on the first live role test and closed by reading `issue_types.aco_spec` fail-closed, commit `2dc51a0`); `AF-ACL-*` and role evals pass live (`AUTH-SQUAD-001`, `AUTH-PARITY-OTHER-001`, `AUTH-UNSCHED-DIRECT-001`, `AUTH-FRONTDESK-001` with `model_calls_max: 0`, `AUTH-SWITCH-001`, `AUTH-FORGED-PID-001`; run `2026-09-16T073141Z-1ddf824`, 3/3 attempts each). **Not done:** `ViewEvent` dispatch (no reference in the module; ADR-0002 §2 now marks it planned, 2026-09-17), an `audit-nurse` eval, a break-glass eval (denial exists in `ContextBuilder`, `conversation.php`, `ticket.php`; not automated per `evals/README.md`), a browser two-tab test. **Status 2026-09-20:** the same items are still not done. The brief prepared on chart open (module 0.5.0, ADR-0003 amendment 2026-09-19) adds no endpoint and no authorization path: the panel starts the UC-01 question through the same ticket, delegation token, per-tool ACL, and audit-before-data sequence as a click, and `src/BriefPolicy.php` starts none for a break-glass login or a role with no clinical section. The code default is `visit_today`; the demo deployment overrides it to `always` (`runtime/compose.yaml`), so there a chart open by a clinical role reads the chart, writes its `copilot-tool-read` and `copilot-model-disclosure` rows, and sends the projected records to the model whether or not the brief is read. All 25 authorization attempts pass in the release run `evals/results/2026-09-20T051146Z-0f11642.md`, and all 9 authorization cases in the single-pass run at the deployed tree, `evals/results/2026-09-20T064022Z-4d2a9fd.md` |
+| PERF-MED-001, PERF-MED-005, DQ-HIGH-002/003/004, DQ-MEDIUM-006…011/014, DQ-LOW-012/013 | Tool contract: `status ∈ {ok, empty, partial, unavailable}`; normalized status and clinical dates with conflict flags; source table + ID per record; projected fields, time window, row caps with `truncated`; dedupe by record identity; labs via `ProcedureService::search()`, never `getAll()` | Gateway module (tools) | P0 | 2026-09-15 | **Implemented 2026-09-15**; verified: forced lab failure ⇒ `unavailable` and no absence claim; AF-HEAVY yields 7 problems from 26 rows, labs capped at 50 with `truncated`, notes at 20; contract tests on recorded responses. **Recorded 2026-09-15/16:** one eval per `AF-DQ-*` patient (commit `26a9a3d`; 44 cases at `1ddf824`, 45 on disk after `831e1d8`), except `AF-DQ-Q` (no vitals tool in Week 1, `evals/README.md`). Field-level absences and corrections are deterministic limitation lines, not model wording (`pack_limitations` in `agent/app/graph/nodes.py`: allergy reaction/severity, lab unit, text-valued lab, note author, corrected result, missing indication, two-source medication status; commits `950f357`, `9e4f39c`). All blocking gates PASS in the `1ddf824` and `a4a5856` runs. Two cases flip run to run and both fail only their non-blocking model-recall check: `MISS-AUTHOR-J-001` (missed at `1ddf824` attempts 1 and 3, and at `69560f05`) and `CONF-NOTE-VS-LIST-N-001` (missed at `a4a5856`); the deterministic limitation lines passed in every run. **Known gap:** the planted orphan lab result never reaches the tool through `ProcedureService::search()`, so `partial` with an orphan count is not produced; recorded in `TOOL-ORPHAN-P-001` (commit `1ddf824`). **Status 2026-09-20:** 48 cases on disk. Every measurable blocking gate is PASS in the release run `evals/results/2026-09-20T051146Z-0f11642.md` (three attempts per live case, 123 of 124 attempts) and in the single-pass run at the deployed tree, `evals/results/2026-09-20T064022Z-4d2a9fd.md` (48 of 48); `MISS-AUTHOR-J-001` and `CONF-NOTE-VS-LIST-N-001` passed every attempt in both. The one failed attempt is the holdout case `CONF-DUP-NAMES-C2-001` (attempt 2 of 3: duplicate-drug wording in the summary without a hedge; model wording, not a blocking gate). The orphan gap is unchanged |
+| COMP-HIGH-004, COMP-MED-003, ARCH-MEDIUM-005 | Gateway writes `copilot-*` audit events via `EventAuditLogger::newEvent()` before returning data; telemetry carries IDs, counts, latency, tokens, cost, and verification outcome only, or the tracer is self-hosted | Gateway module; agent service (telemetry) | P0 | 2026-09-16 | **Audit events done 2026-09-15** (`copilot-session-start`, `copilot-tool-read` before data, `copilot-denied`, `copilot-session-end`, verified in the deployment's `log` table). **Telemetry done 2026-09-15:** Langfuse callback handler with a payload mask and a LangSmith environment guard (`agent/app/telemetry.py`), keys pushed as file secrets, and a read-back on the deployment found no fixture PHI (commit `ab694d8`; `docs/operations/langfuse-dashboard.md`). The tracer is hosted Langfuse with PHI-free traces, not self-hosted (ADR-0007). **Not done:** an automated PHI-grep eval over exported traces (none in `evals/`); `copilot-llm-call` and `copilot-verification-result` are not written to the OpenEMR log (see §5.1 status). **Status 2026-09-20:** `copilot-model-disclosure` was added on 2026-09-19 (§5.1 status). The payload mask is still the code default, but the demo deployment has run with `COPILOT_TRACE_CONTENT=1` since 2026-09-19, so its hosted traces are no longer content-free; ADR-0007's amendment allows that only on the stated assumption that the tracer is inside the compliance boundary, and the deployment holds synthetic patients only. In masked mode exception text is now cut to the exception class (commit `26320e9`; `agent/tests/test_telemetry.py::test_exception_text_never_reaches_the_exporter_in_masked_mode`, the first export-grep check). An eval over exported traces still does not exist |
 | SEC-MED-003, SEC-MED-006 | Co-pilot renders model and record text as text only, with a strict CSP on its assets; its endpoints verify CSRF plus a short-lived patient-bound token | Module UI | P1 | 2026-09-16 | `AF-DQ-O` payload renders inert; request without CSRF rejected. **Status 2026-09-16, partly done:** the panel renders every string through `textContent`/DOM APIs (`public/assets/js/copilot.js`); `session.php`, `conversation.php`, and `ticket.php` verify the CSRF token; each turn carries a short-lived HMAC delegation token (`DelegationToken.php`). `INJ-NOTE-O-001` passes live: the payload is quoted, not obeyed, and `<script`/`onerror=` are absent from the response text. **Not done:** a CSP on the module's assets (no CSP header in the module), a browser-level render test, and a no-CSRF negative test in the suite |
 | SEC-MED-007, PERF-LOW-004 | Agent's own `/health` and `/ready` with real status codes and cached dependency checks; never proxy OpenEMR `readyz` | Agent service | P1 | 2026-09-18 | Dependency down ⇒ 503. **Implemented 2026-09-15** (`agent/app/main.py`: `/health`; `/ready` runs gateway ping, model `models.retrieve`, tracer, delegation secret, and state-dir checks, caches the result 30 s, and returns 503 when any fails; `agent/tests/test_health.py::test_ready_is_503_when_a_dependency_fails`). OpenEMR `readyz` is unrouted at Caddy (probe 2026-09-15: 404) and Compose health checks use `livez` and the agent's `/health` |
-| ARCH-MEDIUM-006, ARCH-MEDIUM-007, PERF-MED-002/003 | Model calls run outside PHP; panel loads asynchronously and shows an explicit "unavailable" state; tools never render or scrape pages; tool fan-out ≤300 ms p95; conversation-scoped tool cache per §2.2 | Agent service; evals (load test) | P1 (design), P2 (load test) | 2026-09-19 | 10/50-user load test with p50/p95/p99, CPU, memory. **Status 2026-09-16:** design part done: model calls run in the agent service (LangGraph, ADR-0004); the panel loads after the dashboard and shows explicit "Co-Pilot unavailable" states (`copilot.js`, `Bootstrap.php`); tools call services only, never pages. Measured, not budgeted: retrieval about 1 s per turn on the deployment (`KEY_METRICS.md`), above the 300 ms line. **Not done:** conversation-scoped tool cache (§2.2), the 10/50-user load test (`README_AGENT_FORGE.md`: pending, target 2026-09-19) |
+| ARCH-MEDIUM-006, ARCH-MEDIUM-007, PERF-MED-002/003 | Model calls run outside PHP; panel loads asynchronously and shows an explicit "unavailable" state; tools never render or scrape pages; tool fan-out ≤300 ms p95; conversation-scoped tool cache per §2.2 | Agent service; evals (load test) | P1 (design), P2 (load test) | 2026-09-19 | 10/50-user load test with p50/p95/p99, CPU, memory. **Status 2026-09-16:** design part done: model calls run in the agent service (LangGraph, ADR-0004); the panel loads after the dashboard and shows explicit "Co-Pilot unavailable" states (`copilot.js`, `Bootstrap.php`); tools call services only, never pages. Measured, not budgeted: retrieval about 1 s per turn on the deployment (`KEY_METRICS.md`), above the 300 ms line. **Not done:** conversation-scoped tool cache (§2.2), the 10/50-user load test (`README_AGENT_FORGE.md`: pending, target 2026-09-19). **Status 2026-09-20:** the load test ran on 2026-09-18 with p50/p95/p99, CPU, memory, and DB connections (§2.2 status): the ceiling is OpenEMR's Apache/PHP and MariaDB on two vCPUs, not the agent, and the two fixes that followed (`ba3105b`, `b40d456`) are deployed. Still not done: the conversation-scoped tool cache |
 
 ### 7.2 Our deployment
 
 | Findings | Change | Owner | Priority | Target | Verification |
 | --- | --- | --- | --- | --- | --- |
-| SEC-HIGH-500 | Caddy deny-by-default path allowlist, so only application routes reach OpenEMR | Infrastructure | P0 | 2026-09-16 | **Done 2026-09-15:** `evidence/security/cloud-probe-2026-09-15-allowlist.txt` shows 404 for 19 of the 20 probed sensitive, API, and OAuth paths (`interface/main/backup.php` answers 400: it sits under the allowlisted `/interface/*` and is handled by OpenEMR's own auth); only `livez` and the root redirect answer |
+| SEC-HIGH-500 | Caddy deny-by-default path allowlist, so only application routes reach OpenEMR | Infrastructure | P0 | 2026-09-16 | **Done 2026-09-15:** `evidence/security/cloud-probe-2026-09-15-allowlist.txt` shows 404 for 19 of the 20 probed sensitive, API, and OAuth paths (`interface/main/backup.php` answers 400: it sits under the allowlisted `/interface/*` and is handled by OpenEMR's own auth); only `livez` and the root redirect answer. **Re-probed 2026-09-20 05:21 UTC** (`evidence/security/cloud-probe-2026-09-20-final.txt`): the same 19 paths 404, `backup.php` 400, `livez` 200, `readyz` 404. That probe predates the redeploy to `478f432` later that morning; the `Caddyfile` has not changed since 2026-09-15 |
 | ARCH-LOW-008, SEC-HIGH-500 | The co-pilot module ships in our own image with a `.dockerignore` (excludes `docker/`, `tests/`, `evals/`, `docs/`, Terraform). The application image never contains `evals/` | Infrastructure | P0 | 2026-09-16 | **Done 2026-09-15:** `infra/image/openemr.Dockerfile` plus root `.dockerignore`; built image verified to contain the module and no `evals/` |
 | DQ-CRITICAL-001, SEC-HIGH-500 | **Demo seeding job**, separate from the image: a one-shot Compose service (`demo-seed`, profile `demo`) that runs the same OpenEMR image with no published ports, bind-mounts `evals/fixtures/cohort/` read-only at `/opt/copilot-demo/cohort` (outside the web root), and runs `seed_cohort.php --confirm-dev-data --anchor=<deploy date>` as `apache` with `OPENEMR_ROOT` set. `start.sh` runs it once after the schema upgrade and before Caddy starts; its manifest is kept in the deploy log. Synthetic data only, never a sanitized real database | Infrastructure; evals and fixtures | P1 | 2026-09-16 | Manifest checks pass on the Droplet; `evals/` absent from every running container's filesystem; `cloud-probe.sh` returns 404 for `evals/`. **Done 2026-09-15** (commit `06d1855`): `demo-seed` (profile `demo`) in `runtime/compose.yaml` mounts a copy of the cohort read-only at `/opt/copilot-demo/cohort`, runs `seed_users.php` then `seed_cohort.php` as `apache` with `OPENEMR_ROOT`; it is run explicitly after `start.sh`, not inside it (`docs/deployment/digitalocean.md`). Verified on the Droplet: 26 patients and 6 post-load checks passing. `evals/` is excluded from the image by the root `.dockerignore` (built image verified to contain no `evals/`); `/evals/*` is outside the Caddy allowlist. The 2026-09-15 probe did not request an `evals/` path explicitly |
-| SEC-MEDIUM-504 | Agent container: LLM key as a file secret mounted only there; **no database credentials** in the agent container; egress limited to the LLM and tracing endpoints | Infrastructure | P0 | 2026-09-16 | Secret absent from other containers' environments; no DB secret or network path from the agent container to `database`; blocked-egress test. **Partly done 2026-09-15:** the agent service is on the `frontend` network only and receives `anthropic_api_key`, `anthropic_workspace_id`, `langfuse_*`, and the delegation secret as file secrets; it has no MySQL secret and no `backend` network (`runtime/compose.yaml`). **Not done:** egress restriction (`main.tf` outbound rules still allow all TCP/UDP/ICMP; recorded as residual risk in `docs/deployment/digitalocean.md`) and the blocked-egress test |
-| SEC-MED-005, COMP-HIGH-002 | Keep REST/FHIR disabled as deployed (verified 2026-09-14) | Infrastructure | P0 | Ongoing | Globals dump in each cloud probe. 2026-09-15 probe: `/apis/*` and `/oauth2/*` return 404 at the edge (unrouted); the deployed globals were not re-dumped after the redeploy to the project image |
+| SEC-MEDIUM-504 | Agent container: LLM key as a file secret mounted only there; **no database credentials** in the agent container; egress limited to the LLM and tracing endpoints | Infrastructure | P0 | 2026-09-16 | Secret absent from other containers' environments; no DB secret or network path from the agent container to `database`; blocked-egress test. **Partly done 2026-09-15:** the agent service is on the `frontend` network only and receives `anthropic_api_key`, `anthropic_workspace_id`, `langfuse_*`, and the delegation secret as file secrets; it has no MySQL secret and no `backend` network (`runtime/compose.yaml`). **Not done:** egress restriction (`main.tf` outbound rules still allow all TCP/UDP/ICMP; recorded as residual risk in `docs/deployment/digitalocean.md`) and the blocked-egress test. **Status 2026-09-20:** one more operator secret exists since commit `e466b9d`: the Slack alert webhook, a file secret (`slack_alert_webhook`) mounted only in the separate `alerts` service, which runs the agent image on the `frontend` network with no published port, no MySQL secret, and none of the agent's keys, and shares only the agent's state volume; it reads the URL from the file each cycle, so it is in no argv or environment (`runtime/compose.yaml`; delivery recorded in `docs/audit/evidence/observability/alerts-slack-2026-09-20.log`). Egress is still unrestricted |
+| SEC-MED-005, COMP-HIGH-002 | Keep REST/FHIR disabled as deployed (verified 2026-09-14) | Infrastructure | P0 | Ongoing | Globals dump in each cloud probe. 2026-09-15 probe: `/apis/*` and `/oauth2/*` return 404 at the edge (unrouted); the deployed globals were not re-dumped after the redeploy to the project image. 2026-09-20 probe: the same 404s; the globals were again not dumped |
 
 ### 7.3 OpenEMR issues documented, not fixed
 
@@ -816,6 +881,12 @@ None of these shows up on a three-patient, one-visit dataset.
   tested: `audit-nurse` through the gateway, a browser two-tab switch,
   break-glass denial (code path only), and any bearer-token request (APIs
   remain disabled).
+  *Status 2026-09-20:* the same four are still not tested. All 25
+  authorization attempts pass in the release run
+  (`evals/results/2026-09-20T051146Z-0f11642.md`) and all 9 authorization
+  cases at the deployed tree (`evals/results/2026-09-20T064022Z-4d2a9fd.md`).
+  The brief prepared on chart open (module 0.5.0) reuses the click path and
+  adds no authorization decision (§7.1).
 - **Public deployment was probed briefly and unauthenticated.** File exposure,
   readiness, cookies, TLS, API surface, and unauthenticated latency are
   verified. Authenticated flows, dashboard latency on the Droplet, and load
@@ -828,6 +899,11 @@ None of these shows up on a three-patient, one-visit dataset.
   200/308). Authenticated co-pilot flows now run against the
   deployment through the eval suite and the Bruno collection. Dashboard
   latency on the Droplet and load behavior remain unmeasured.
+  *Status 2026-09-20:* re-probed on 2026-09-20 at 05:21 UTC with the same
+  result (`evidence/security/cloud-probe-2026-09-20-final.txt`). The probe
+  predates that morning's redeploy to `478f432`, which did not touch the
+  `Caddyfile`. Load behavior was measured on 2026-09-18 (§2.2 status); a
+  single-user dashboard render on the Droplet is still unmeasured.
 - **OpenEMR's own security backlog is documented, not triaged or fixed**
   (out of scope, §7.3): 584 Semgrep results, per-CVE exploitability, 65 CSRF
   candidates, and validity of the committed tokens.
@@ -837,6 +913,12 @@ None of these shows up on a three-patient, one-visit dataset.
   *Status 2026-09-16:* per-turn model latency, tokens, and cost are now
   measured on the deployment without Xdebug (§2.2 status); concurrency and
   real chart-size distributions are not.
+  *Status 2026-09-20:* concurrency was measured on 2026-09-18 and 2026-09-19
+  on the synthetic cohort (§2.2 status): OpenEMR's Apache/PHP and MariaDB
+  saturate this Droplet size first, and after gateway batching 10 concurrent
+  users finished with every turn complete while 15 were already degraded
+  (rehearsal Droplet of the same size). Real chart-size distributions are
+  still unmeasured.
 - **Lab handling is proven only on seeded rows.** Real HL7 lab feeds (units,
   statuses, amendments) have not been exercised.
 - **The target workflow is validated technically, not with a clinician.** The
@@ -897,6 +979,36 @@ None of these shows up on a three-patient, one-visit dataset.
   it touches the live host). Deferred to Week 2, tracked in
   `docs/WEEK2_HANDOFF.md`, rather than building and testing an egress
   restriction under grading-week time pressure.
+  *Status 2026-09-20:* one compensating control above is narrower than
+  written. The payload mask is the code default, but the demo deployment has
+  set `COPILOT_TRACE_CONTENT=1` since 2026-09-19 (ADR-0007 amendment), so its
+  traces carry synthetic record text; metric label sets stay bounded. The
+  Slack alert webhook added in commit `e466b9d` is a file secret in the
+  separate `alerts` container, not the agent's (§7.2).
+- **The deployment runs on UTC, and one window of audit rows is
+  mis-stamped.** *Recorded 2026-09-20.* OpenEMR datetimes carry no time zone
+  (DQ-MEDIUM-006), and the deployment showed what that costs. On 2026-09-19 a
+  clinic time zone was set on the `openemr` and `agent` containers only
+  (commit `a6bb7b2`). OpenEMR re-points each MySQL session at PHP's offset,
+  so one `datetime` column then held two clocks seven hours apart and
+  conversation resume returned a stale transcript:
+  `ISO-RECENT-PATIENT-RESUME-001` failed 3 of 3 attempts in
+  `evals/results/2026-09-20T041411Z-6c787bd.md`, listed as a release-blocking
+  failure while every measurable gate row read PASS. Reverted the same night
+  (commit `c37b9e6`): every container runs UTC and Compose sets no `TZ`,
+  `copilot_conversation` was truncated after a dump, the synthetic cohort was
+  re-seeded, and the case passes again
+  (`evals/results/2026-09-20T043551Z-c37b9e6.md` and both later full runs).
+  Kept rather than cleaned: roughly three hours of OpenEMR `log` rows
+  (18:45 to 21:33 PDT) that sort about seven hours early, because deleting
+  audit rows to tidy a seam is the wrong trade for §5.1, and the agent's
+  checkpoints for the truncated conversations (§5.2 status). On UTC, "today"
+  for the `visit_today` brief check rolls over at 17:00 Pacific daylight
+  time; the demo runs mode `always`, so it is unaffected. A real clinic needs
+  its time zone on every container that reads or writes a date (`openemr`,
+  `database`, `demo-seed`, `copilot-setup`, `agent`) plus a migration of rows
+  already written
+  (`docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10).
 - **Before any real patient use:**
   - Executed BAAs (LLM, tracing, hosting).
   - An external append-only audit sink with a least-privilege writer.
@@ -910,3 +1022,6 @@ None of these shows up on a three-patient, one-visit dataset.
 - **Local test fixtures:** three `audit-*` users and the `AF-*` cohort exist in
   the local dev database only today. On the deployment they arrive through the
   separate `demo-seed` job (§7.2), never inside the application image.
+  *Status 2026-09-20:* both have been on the deployment since 2026-09-15
+  through `demo-seed` (§7.2). The cohort was re-seeded on 2026-09-20 after
+  the clock revert above: 26 patients, 15 appointments that day.

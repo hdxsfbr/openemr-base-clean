@@ -89,15 +89,23 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   the unit the verifier accepts or withholds.
 - **`AuthorizedPatientContext`**: the immutable object (user, patient,
   allowed sections, reason) the gateway hands to every tool.
+- **Model-disclosure row**: the `copilot-model-disclosure` audit event the
+  gateway writes (since 2026-09-19) before it returns records the agent has
+  declared will go to the model provider: user, patient, provider, model id,
+  tool names, record count, and the conversation, turn, and correlation ids,
+  never content. One row per retrieval batch (two for a UC-01 first turn, one
+  for a follow-up), in addition to the per-tool `copilot-tool-read` rows; if
+  it cannot be written, every tool in the batch answers `unavailable`
+  (`audit_unavailable`).
 - **Parity**: the decision that the co-pilot sees exactly what the user could
   see in the chart (ADR-0002).
 - **ADR**: Architecture Decision Record, the one-page "we chose X because"
   documents in `docs/adr/`.
 - **Eval**: an automated test of the agent's behavior against fixtures. One
-  YAML file per case under `evals/cases/` (46 as of 2026-09-17), run by
+  YAML file per case under `evals/cases/` (48 as of 2026-09-20), run by
   `evals/run.py`; `live` cases drive a deployment, `offline` cases delegate
   to pytest node ids under `agent/tests/`.
-- **Golden set**: the `tier: golden` cases (14), deterministic and free of
+- **Golden set**: the `tier: golden` cases (15), deterministic and free of
   model-wording checks; the target is 100% always, and `--golden-only` runs
   them alone as a smoke test. Their integrity is a blocking release gate.
 - **Behavioral coverage**: every non-golden case, reported per `category`
@@ -111,8 +119,19 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   `evals/run.py` against the case manifest and printed at the top of every
   report in one of five states: PASS, FAIL, NOT RUN (a case, role, or fixture
   the gate needs did not execute; blocks like FAIL), NOT MEASURED (the runner
-  cannot measure it yet), NOT CONFIGURED (nothing to judge in this run: the cost gate when no turn was model-backed). A full run's
-  exit code follows the blocking gates.
+  cannot measure it yet), NOT CONFIGURED (nothing to judge in this run: the
+  cost gate when no turn was model-backed). A full run's exit code follows
+  the blocking gates.
+- **Release run**: a full, unfiltered `evals/run.py` run against the
+  deployment (holdout included), which is the release check. The week1-final
+  release run is `evals/results/2026-09-20T051146Z-0f11642.md`, taken with
+  `--repeat 3`, so its 124 attempts, golden 29/29, and holdout 11/12 count
+  attempts, not cases (48, 15, and 4 on disk). It ran while `c37b9e6` was
+  deployed, the same runtime tree as `0f11642`. **Single pass at the
+  deployed tree**: the full run, one attempt per case,
+  `evals/results/2026-09-20T064022Z-4d2a9fd.md` (48/48), taken after the
+  deployed runtime moved on to `478f432`; its runtime tree is the deployed
+  one.
 - **Recall check**: an eval assertion on the model's own claims or wording
   (`claims_include`, `text_must_match`), reported with a `recall:` prefix;
   it fails the case but feeds the non-blocking task-success gate, unlike the
@@ -143,6 +162,31 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
 - **Suggestions** (follow-up chips): up to three follow-up questions per
   turn, written by the model from that turn's records, lexicon-filtered,
   topped up from deterministic starters; offered as buttons, never facts.
+- **Pre-visit brief** (the brief): the UC-01 answer to the first starter
+  question, "What changed since the last visit?"; an ordinary cited,
+  verified turn, typed `uc01_first` by `classify`.
+- **Brief on open** (brief on chart open, module 0.5.0): the panel starts
+  the pre-visit brief itself as a chart finishes loading, through the same
+  path as a click, when `session.php` answers `brief_on_open` true (ADR-0003
+  amendment). **`BriefPolicy`** decides that server-side from
+  `COPILOT_BRIEF_ON_OPEN`: `off` (nothing until asked), `always` (every chart
+  open), or `visit_today` (only a patient with a non-cancelled appointment
+  today; the code default when the variable is unset, and an unknown value
+  fails closed to `off`). The demo Droplet's compose file overrides it to
+  `always`. No mode prepares a brief for a break-glass login or a role with
+  no clinical section.
+- **Physician wait** (`W(L)`): what is left of the brief's preparation once
+  the physician opens the drawer, `W(L) = max(0, T_ready - L)`, where
+  **`T_ready`** is chart open to a verified brief on screen and `L` (the
+  reading lag) is the seconds spent on the chart first. A `KEY_METRICS.md`
+  row, measured by `evals/brief_latency.py` as a curve over `L`; `L` is a
+  parameter, not an observation, and the measurement is not a release gate.
+- **Usage funnel**: the `/metrics` counters for chart open, brief started,
+  drawer open, and a conversation's first turn type
+  (`docs/operations/usage-funnel.md`). `brief_started` against
+  `drawer_open` is the waste rate: a brief with no drawer open is model
+  spend and audit rows for an answer nobody read. Event names only,
+  in-process, reset on every deploy.
 - **Cohort / fixtures**: the synthetic `AF-*` patients in
   `evals/fixtures/cohort/`. **`AF-HEAVY`**: the 5-year chronic patient (20
   encounters, ~120 lab results, 39 notes) used as the worst-case fixture for
@@ -158,10 +202,21 @@ One-line definitions for the acronyms and terms used across `AUDIT.md`,
   verified claim) or `deterministic` when the agent restated the first
   verified claims word for word instead.
 - **Correlation ID**: the identifier carried through one request end to end.
+- **Content capture mode**: `COPILOT_TRACE_CONTENT` (ADR-0007 amendment,
+  2026-09-19). Off, the code default, the tracer mask replaces every payload
+  with a digest; on, traces carry the prompts, evidence pack, raw model
+  output, and rendered answer for error analysis. The demo compose file sets
+  it on; the deployment holds synthetic patients only.
 - **LangGraph**: the graph runtime the agent service uses for state and
   edges; nodes are plain Python functions that call the Anthropic SDK.
 - **Turn graph**: the eight-node LangGraph (authorize, classify, plan,
   retrieve, narrate, verify, repair, render) that runs one conversation turn.
+- **`KNOWN_PLANS`**: the table in `agent/app/graph/nodes.py` of the tool
+  calls for the five fixed-wording follow-ups the agent writes itself (two
+  starter questions, three deterministic chips). A question that matches
+  one skips the `plan` model call; matching is on the agent's own constants,
+  so there is no client flag, and model-written chips still go through
+  `plan`.
 - **Checkpointer**: LangGraph's persistence of graph state per conversation;
   SQLite in Week 1, and the co-pilot's only transcript store.
 

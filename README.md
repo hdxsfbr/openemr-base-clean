@@ -8,24 +8,35 @@ OpenEMR's own README below the deliverables table.
 **Deployment:** commit `478f432` is live at
 <https://openemr-137-184-4-22.sslip.io> on a single DigitalOcean Droplet,
 deployed 2026-09-20 06:2x UTC. The submission tag `week1-final` sits a few
-docs-only commits later; the runtime directories (`agent/`, the module,
-`infra/`, the cohort fixtures) are byte-identical between the two, so the tag
-and the running code differ only in documentation and eval results.
-
-The runtime tree moved on after that release run, to carry the alerts fix
-described below; a full single pass at the deployed commit re-verifies it —
-`evals/results/2026-09-20T064022Z-4d2a9fd.md`: all 48 cases against the deployed tree, 48 passed, every blocking gate PASS, citations 206/206, p95 20.0 s, $0.0113 per model-backed turn, no 5xx.
+commits later; the runtime directories (`agent/`, the module, `infra/`, the
+cohort fixtures) are byte-identical between the two, so the tag and the
+running code differ only in documentation and eval results.
 
 Verified on that deployment: `/copilot-api/health` reports `0.3.0`,
 `/copilot-api/ready` returns all five dependencies `ok` including the
-observability tracer, and the release run
-`evals/results/2026-09-20T051146Z-0f11642.md` executed all 48 cases three
-times against it — 123 of 124 attempts passed, every blocking gate PASS,
-golden set 29/29, citations 615/615 resolved, model-backed p95 15.8 s,
-$0.0104 per turn, no 5xx. The one miss is a hedging-wording flip on a
-holdout case that passed the other two attempts.
+observability tracer, and a full single pass at the deployed tree,
+`evals/results/2026-09-20T064022Z-4d2a9fd.md`, ran all 48 cases — 48 passed,
+every blocking gate PASS, golden set 15/15, citations 206/206 resolved,
+model-backed p95 20.0 s, $0.0113 per model-backed turn, no 5xx.
 
-Running image digests:
+The stability evidence is the release run
+`evals/results/2026-09-20T051146Z-0f11642.md`, taken earlier the same day
+while `c37b9e6` was deployed (the runtime tree at `0f11642` is byte-identical
+to `c37b9e6`). It executed all 48 cases three times — 123 of 124 attempts
+passed, every blocking gate PASS, golden set 29/29 attempts, citations
+615/615 resolved, model-backed p95 15.8 s, $0.0104 per turn, no 5xx. The one
+miss is a hedging-wording flip on a holdout case that passed the other two
+attempts. Four runtime commits were deployed after that run: Slack delivery
+for the runtime alerts (`e466b9d`, `0471178`, `478f432`: the alerts job, the
+Compose file and the deploy scripts) and `dbf5372`, which makes
+`copilot_tool_calls_total`, the counter the PRD tool-failure alert reads,
+include the fault-injected and invalid-parameter tool failures the agent
+answers without a gateway call; it is the only one of the four on the turn
+path. The single pass above is what re-verifies the suite after them, and
+`docs/audit/evidence/observability/alerts-slack-2026-09-20.log` records the
+alerts paging in Slack.
+
+Image digests, as recorded on 2026-09-20 while `c37b9e6` was deployed:
 
 | Service | Image |
 | --- | --- |
@@ -37,15 +48,19 @@ Running image digests:
 
 `agent` and `alerts` run the same source from the same build; their digests
 differ because the tag was rebuilt after the agent container was created.
+Both rows predate the `478f432` redeploy, which rebuilt that image from
+changed `agent/app` source; the digests now running have not been
+re-recorded (not measured). No input to the `openemr`, `database` or `caddy`
+images changed between the two deploys.
 
 It runs the project's own OpenEMR image carrying the co-pilot module behind a
 deny-by-default Caddy path allowlist, as the audit required before an
 evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections "Current
 Deployment" and "Before the Evaluator Deployment" in
 [docs/deployment/digitalocean.md](docs/deployment/digitalocean.md)). The
-`sslip.io` hostname is disposable and an owned hostname is still pending. The
-Droplet is disposable too: `infra/digitalocean/destroy.sh` tears it down and
-`infra/digitalocean/tf.sh apply` plus `infra/digitalocean/deploy.sh`
+`sslip.io` hostname is disposable; an owned hostname is not done for Week 1.
+The Droplet is disposable too: `infra/digitalocean/destroy.sh` tears it down
+and `infra/digitalocean/tf.sh apply` plus `infra/digitalocean/deploy.sh`
 re-provision it; the 2026-09-14 smoke test and audit probe cycles are recorded
 in the runbook.
 

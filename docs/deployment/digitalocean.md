@@ -21,10 +21,11 @@ and obtains a public certificate. OpenEMR and MariaDB are not published on host
 ports, and MariaDB is isolated on an internal Docker network. SSH is restricted
 to CIDRs explicitly supplied to Terraform.
 
-The default OpenEMR image is the pinned upstream 8.1.1 production image. That is
-appropriate for validating the infrastructure path, but it does not contain
-future project code from this repository. Supply a pinned project image with
-the optional argument to `deploy.sh` before testing custom functionality.
+The OpenEMR base image is the pinned upstream 8.1.1 production image. Since
+2026-09-15 `start.sh` builds the project image on the Droplet from that base
+plus the co-pilot module (`infra/image/openemr.Dockerfile`), and the agent
+image beside it, from the build contexts `deploy.sh` copies. The optional
+fourth argument to `deploy.sh` overrides the base image only.
 
 ## Cost-Controlled Smoke Test
 
@@ -127,10 +128,15 @@ debugging. It remains billable until `./destroy.sh --yes` succeeds.
 ## Current Deployment (2026-09-20)
 
 Live at `https://openemr-137-184-4-22.sslip.io` (Droplet `137.184.4.22`,
-`s-2vcpu-4gb`). Deployed commit `c37b9e6`, pushed 2026-09-20 04:33 UTC from a
-clean clone rather than the working tree, so the deployed tree is a known
-commit and not whatever was checked out. The submission tag `week1-final` is
-a few docs-only commits later and its runtime directories are byte-identical.
+`s-2vcpu-4gb`). Deployed commit `478f432`, deployed 2026-09-20 06:2x UTC (the
+exact minute is not recorded). It carries Slack alert delivery and the
+tool-failure counter fix (`e466b9d`, `dbf5372`, `0471178`, `478f432`) on top
+of `c37b9e6` (the clock revert), which was pushed 2026-09-20 04:33 UTC from a
+clean clone rather than the working tree, so that the deployed tree was a
+known commit and not whatever was checked out. The submission tag
+`week1-final` is a few commits after `478f432` that change only docs and eval
+results, and its runtime directories (`agent/`, the module, `infra/`, the
+cohort fixtures) are byte-identical to it.
 
 | Service | Running image |
 | --- | --- |
@@ -141,28 +147,42 @@ a few docs-only commits later and its runtime directories are byte-identical.
 | `caddy` | `caddy:2.10.2-alpine` `sha256:4c6e91c6ed0e…` |
 
 `agent` and `alerts` build from the same source; the digests differ only
-because the tag was rebuilt after the agent container had been created.
+because the tag was rebuilt after the agent container had been created. The
+table was read while `c37b9e6` was deployed. `agent` and `alerts` build from
+`agent/`, which changed in the four commits up to `478f432`, so the deploys
+of those commits rebuilt both and their digests were not re-read afterwards
+(not measured); the inputs of `openemr`, `database` and `caddy` did not
+change.
 
 **Verified on this deployment.** `/copilot-api/health` reports version
 `0.3.0`; `/copilot-api/ready` returns `status: ready` with `openemr_gateway`,
-`llm_provider`, `tracer`, `delegation_secret` and `state_store` all `ok`. The
+`llm_provider`, `tracer`, `delegation_secret` and `state_store` all `ok`. Two
+eval runs stand behind it, and they are not the same kind of evidence.
+Parity, at the deployed tree: `evals/results/2026-09-20T064022Z-4d2a9fd.md`
+(the runtime of `4d2a9fd` is identical to `478f432`), one pass of all 48
+cases, 48 passed, every blocking gate PASS, citations 206/206, p95 20.0 s,
+$0.0113 per model-backed turn, no 5xx. Stability, earlier the same day: the
 release run `evals/results/2026-09-20T051146Z-0f11642.md` ran all 48 cases
-three times against it (at `0f11642`; the tree then moved on for the alerts
-fix, re-verified by `evals/results/2026-09-20T064022Z-4d2a9fd.md`: all 48 cases against the deployed tree, 48 passed, every blocking gate PASS, citations 206/206, p95 20.0 s, $0.0113 per model-backed turn, no 5xx): 123 of 124 attempts passed, every blocking gate PASS,
-citations 615/615, p95 15.8 s, $0.0104 per model-backed turn. The `alerts`
-service evaluates `/metrics` every 300 s and logged heartbeats throughout
-that run without firing.
+three times while `c37b9e6` was deployed (the runtime of `0f11642` is
+identical to `c37b9e6`): 123 of 124 attempts passed, every blocking gate
+PASS, citations 615/615, p95 15.8 s, $0.0104 per model-backed turn. Of the
+four commits between the two, only `dbf5372` touches the turn path
+(`agent/app/graph/nodes.py`, the tool-failure counter). The `alerts` service
+evaluates `/metrics` every 300 s and logged heartbeats throughout the release
+run without firing; since then it has delivered two staged pages to Slack,
+and the full live suite of GitLab pipeline 24351 (job 79057, 761 s) ran
+without one (`docs/audit/evidence/observability/alerts-slack-2026-09-20.log`).
 
 **Clocks.** Every container runs UTC and no service sets `TZ`. Setting the
-clinic timezone on `openemr` alone on 2026-09-19 put two clocks in one
-`datetime` column — OpenEMR re-points the MySQL session at PHP's offset on
-each connect — and conversation resume silently began returning stale
-transcripts. It was reverted the same night, the conversation table was
-truncated and the cohort re-seeded on one clock. A real clinic deployment
-needs its own timezone on *every* container that writes a date (`openemr`,
-`database`, `demo-seed`, `copilot-setup`, `agent`) plus a migration of rows
-written on the old clock; a partial rollout is worse than UTC because nothing
-errors. Full write-up:
+clinic timezone on `openemr` and `agent` but not on `database` on 2026-09-19
+put two clocks in one `datetime` column — OpenEMR re-points the MySQL session
+at PHP's offset on each connect — and conversation resume silently began
+returning stale transcripts. It was reverted the same night, the conversation
+table was truncated and the cohort re-seeded on one clock. A real clinic
+deployment needs its own timezone on *every* container that writes a date
+(`openemr`, `database`, `demo-seed`, `copilot-setup`, `agent`) plus a
+migration of rows written on the old clock; a partial rollout is worse than
+UTC because nothing errors. Full write-up:
 `docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10.
 
 **Snapshot and edge probe, 2026-09-20.** Snapshot `week1-final-2026-09-20`
@@ -175,17 +195,33 @@ at mode 600. `deploy.sh` re-copies the whole runtime directory including the
 Caddyfile, so the deny-by-default allowlist was re-probed after the final
 deploy: `docs/audit/evidence/security/cloud-probe-2026-09-20-final.txt` — every
 sensitive file path, `/apis` and `/oauth2` return 404, `readyz` stays unrouted,
-and only `meta/health/livez` and the login page answer 200.
+and only `meta/health/livez` and the login page answer 200. Both the snapshot
+and the probe (05:21:57Z) predate the `478f432` redeploy, so "the final
+deploy" here is the `c37b9e6` one and the snapshot holds its images; neither
+was repeated afterwards. The Caddyfile did not change in between: the
+`infra/` difference between `c37b9e6` and `478f432` is `push-secrets.sh`,
+`compose.yaml` and `start.sh`.
 
 **Demo data.** 26 synthetic cohort patients, demo users, and a schedule
-re-seeded for the current UTC day, so `COPILOT_BRIEF_ON_OPEN=visit_today`
-fires for the walkthrough patients; the deployment nonetheless runs `always`
-so the brief still shows once that schedule ages out. The `sslip.io` hostname
-is still the disposable one; an owned hostname is not done for Week 1.
+re-seeded for the UTC day 2026-09-20, so `COPILOT_BRIEF_ON_OPEN=visit_today`
+fires for the walkthrough patients until 2026-09-21 00:00 UTC (17:00 Pacific
+on the 20th); the deployment nonetheless runs `always` (the compose default
+here; the module's own default is `visit_today`) so the brief still shows
+once that schedule ages out. The `sslip.io` hostname is still the disposable
+one; an owned hostname is not done for Week 1.
 
 **Before this.** `v0.1.0-skeleton` (2026-09-15) and `v0.2.0-slice`, then
 commit `e1dd331` / tag `week1` for the early submission, which is what the
-2026-09-16 and 2026-09-17 eval reports targeted.
+2026-09-16 and 2026-09-17 eval reports targeted. Since 2026-09-17 the
+`deploy:production` CI job runs `deploy.sh` on every push to `main` ("What
+the pipeline runs" below), so from then on every push to `main` also
+triggers a deploy (which pipeline or manual run performed each deploy is not
+recorded in this repository). The release run, the snapshot and the edge
+probe above were taken while the `c37b9e6` runtime tree (2026-09-20 04:33
+UTC) was deployed; `dbf5372` and then `0471178` were live in between, while
+alert delivery was being proven
+(`docs/audit/evidence/observability/alerts-slack-2026-09-20.log`), before
+`478f432`.
 
 ## Manual Cycle
 
@@ -233,8 +269,10 @@ ssh "deployer@$DROPLET_IP" cat /opt/agentforge/secrets/demo_user_password
 ```
 
 Operator-supplied secrets (`anthropic_api_key`, `langfuse_public_key`,
-`langfuse_secret_key`, and `anthropic_workspace_id` only when the Anthropic key
-is organization-level rather than workspace-scoped) live on the operator's machine as one file each in
+`langfuse_secret_key`, `anthropic_workspace_id` only when the Anthropic key
+is organization-level rather than workspace-scoped, and since 2026-09-20
+`slack_alert_webhook`, the Slack incoming webhook the `alerts` service posts
+to) live on the operator's machine as one file each in
 `~/.config/agentforge/` (override the directory with `AGENTFORGE_SECRETS_DIR`),
 next to `do.env`, and are never committed. Push whichever exist, restart the
 agent, and print `/ready` with:
@@ -245,8 +283,13 @@ agent, and print `/ready` with:
 
 `deploy.sh` runs the same push before `start.sh`, so a redeploy keeps them.
 On the Droplet they are mode 0644 inside the 0700 secrets directory (Compose
-file secrets keep the host mode and the agent runs as uid 10001). Until they
-exist the agent's `/ready` reports each as `not_configured`.
+file secrets keep the host mode and the agent runs as uid 10001). `start.sh`
+writes an empty placeholder for each one that is absent, so Compose starts
+either way. Until the model and tracer keys exist the agent's `/ready`
+reports each as `not_configured`; without `slack_alert_webhook` the `alerts`
+service only logs. That service reads the file every cycle, so pushing the
+webhook to a running host needs no restart of it
+(`docs/operations/alerts.md`, "Delivery").
 
 Retrieve the generated demo administrator password only over SSH:
 
@@ -283,13 +326,23 @@ Droplet billing.
 - The `alerts` service (the agent image, no build of its own) running
   `python -m app.alerts --url http://agent:8080/metrics --ready-url
   http://agent:8080/ready --state /var/lib/copilot/alerts-state.json
-  --interval 300`: the three PRD alert rules every 300 s, one JSON line per
-  evaluation in `docker compose logs alerts`, state on the agent volume, its
-  inherited health check disabled so it never blocks `up --wait`.
+  --interval 300 --webhook-file /run/secrets/slack_alert_webhook
+  --webhook-channel "#andre-batista-alerts"`: the three PRD alert rules every
+  300 s, one JSON line per evaluation in `docker compose logs alerts`, each
+  alert also posted to the Slack webhook in the `slack_alert_webhook` file
+  secret when one is supplied, state on the agent volume, its inherited
+  health check disabled so it never blocks `up --wait`.
 - Log rotation on every container (`x-logging` in `compose.yaml`: json-file,
   10 MiB, three files), so a long-lived host no longer grows unbounded logs.
 - Droplet-local named volumes (database, sites, logs, TLS, agent state, Caddy)
   and randomly generated demo credentials.
+- Ten Compose file secrets under `/opt/agentforge/secrets/`: five generated
+  on the host by `start.sh` (`mysql_root_password`, `mysql_password`,
+  `openemr_admin_password`, `copilot_delegation_secret`,
+  `demo_user_password`) and five operator-supplied (`anthropic_api_key`,
+  `anthropic_workspace_id`, `langfuse_public_key`, `langfuse_secret_key`,
+  `slack_alert_webhook`).
+- No `TZ` on any service: every container runs UTC ("Clocks" above).
 
 Terraform state remains local and ignored by Git. Application secrets are
 generated on the Droplet, stored with owner-only permissions, and are not
@@ -341,14 +394,26 @@ runner #222 on GitLab.
 
 ### What the pipeline runs
 
-`.gitlab-ci.yml` has two stages. `lint`: `lint:whitespace`, `lint:php` (the
+`.gitlab-ci.yml` has four stages. `lint`: `lint:whitespace`, `lint:php` (the
 module), `lint:caddy` (`runtime/Caddyfile`), `lint:compose` (`runtime/compose.yaml`
 with placeholder secrets). `test`: `test:agent` (pytest plus the contract
 export drift check) and `test:evals-offline` (`python evals/run.py
---offline-only`, results kept as a 30-day artifact). The first green pipeline
-on this runner is recorded in `docs/SUBMISSION_CHECKLIST.md`.
+--offline-only`, results kept as a 30-day artifact). `deploy` and `verify`
+(since 2026-09-17, commit `d7fd6b3`, an owner decision recorded in the file)
+hold two jobs that run only on a push to the branch `main`:
+`deploy:production` runs
+`deploy.sh 137.184.4.22 openemr-137-184-4-22.sslip.io "$TLS_EMAIL"` with the
+protected CI variable `DEPLOY_SSH_PRIVATE_KEY`, and `verify:smoke` then runs
+`smoke.sh` and prints `/copilot-api/ready`. The runner holds no
+`~/.config/agentforge/`, so the `push-secrets.sh` call inside `deploy.sh`
+skips every file and the operator-pushed keys on the host stay as they are.
+A docs-only push therefore redeploys the same runtime tree; a tag pipeline
+runs neither job. `tf.sh apply`, `destroy.sh` and a real secret push stay
+human-run. The first green pipeline on this runner, and pipeline 24351 on the
+submission, are recorded in `docs/SUBMISSION_CHECKLIST.md`.
 
-`test:evals-live` is a **manual** job (`when: manual`, `allow_failure: false`)
+`test:evals-live` is a **manual** job in the `verify` stage (`when: manual`,
+`allow_failure: true`, so an unplayed job does not hold the pipeline)
 that runs the full suite against the deployment with
 `python evals/run.py --base-url "$COPILOT_EVAL_BASE_URL" --label "gitlab-ci $CI_PIPELINE_ID"`;
 `COPILOT_EVAL_BASE_URL` defaults to `https://openemr-137-184-4-22.sslip.io`
@@ -358,7 +423,8 @@ variable `DEMO_PASSWORD` (the shared demo clinician password from
 under `evals/results/` attach as a 90-day artifact; the job's exit code
 follows the release gates (a non-blocking recall miss is reported, not
 fatal). It is manual so a push never spends model budget by itself (about
-$0.50 and 12 minutes per run).
+$0.50 and 12 minutes per run; the single pass of 2026-09-20 cost $0.47 and
+job 79057 took 761 s).
 
 ## Failure and Recovery
 
@@ -393,52 +459,66 @@ each line as it is done, by file name only; never write a value anywhere.
    `langfuse_secret_key`: Langfuse project settings, API keys, create the new
    pair, delete the old one; write both files as in step 1; `./push-secrets.sh`
    if the Droplet is still up.
-3. `[ ] <date>` Host-generated secrets in `/opt/agentforge/secrets/`
+3. `[ ] <date>` Slack alert webhook, `~/.config/agentforge/slack_alert_webhook`
+   (added 2026-09-20 with alert delivery; a webhook URL is a credential):
+   revoke the incoming webhook in the Slack workspace, create a new one only
+   if alerts will keep running, write the file as in step 1;
+   `./push-secrets.sh` if the Droplet is still up (the `alerts` service reads
+   it on its next cycle).
+4. `[ ] <date>` Host-generated secrets in `/opt/agentforge/secrets/`
    (`mysql_root_password`, `mysql_password`, `openemr_admin_password`,
    `copilot_delegation_secret`, `demo_user_password`, written by
    `runtime/start.sh` only when absent): rotated by ending the host.
    `cd infra/digitalocean && set -a; . ~/.config/agentforge/do.env; set +a && ./destroy.sh --yes`,
    then the "Configure" section's resource-count loop must print `droplets: 0`.
    An in-place rotation of `copilot_delegation_secret` is untested and is not
-   described here. Delete the M4 snapshot too, since it carries these files:
+   described here. Delete the snapshots too, since they carry these files and
+   the host copies of the operator-supplied ones:
    `doctl compute snapshot list` then `doctl compute snapshot delete <id>` for
-   `week1-final-2026-09-19`.
-4. `[ ] <date>` CI variable `DEMO_PASSWORD` (GitLab, Settings, CI/CD,
-   Variables): delete it; it named the destroyed host's `demo_user_password`.
-5. `[ ] <date>` DigitalOcean API token, `~/.config/agentforge/do.env`:
+   `week1-final-2026-09-18` and `week1-final-2026-09-20` (no snapshot of the
+   plan's name, `week1-final-2026-09-19`, is recorded).
+5. `[ ] <date>` CI variables (GitLab, Settings, CI/CD, Variables):
+   `DEMO_PASSWORD`, delete it; it named the destroyed host's
+   `demo_user_password`. `DEPLOY_SSH_PRIVATE_KEY`, delete it; its public half
+   was in the destroyed host's `authorized_keys` for `deployer`, and while it
+   exists every push to `main` still runs `deploy:production` against
+   `137.184.4.22`.
+6. `[ ] <date>` DigitalOcean API token, `~/.config/agentforge/do.env`:
    `unset DIGITALOCEAN_TOKEN`; in the control panel (API, Tokens) generate a
    new token and revoke the old; rewrite `do.env` at mode 600 with
    `(umask 077; read -rsp 'token: ' v; printf 'DIGITALOCEAN_TOKEN=%s\n' "$v" > ~/.config/agentforge/do.env; unset v)`.
-6. `[ ] <date>` CI runner token, `~/.config/agentforge/gitlab_runner_token`:
+7. `[ ] <date>` CI runner token, `~/.config/agentforge/gitlab_runner_token`:
    either retire the runner, `./tf.sh -chdir=runner destroy -var-file=../terraform.tfvars`
    then delete runner #222 on GitLab, or reset the token on the runner's page,
    write the file as in step 1, and re-run
    `./runner/register.sh "$(./tf.sh -chdir=runner output -raw runner_ip)" ~/.config/agentforge/gitlab_runner_token`.
-7. `[ ] <date>` GitLab personal access token, `~/.config/agentforge/gitlab_pat`
+8. `[ ] <date>` GitLab personal access token, `~/.config/agentforge/gitlab_pat`
    and `~/.config/agentforge/git-credentials`, and the write token embedded in
    the `gitlab` remote URL: revoke every token under GitLab User settings,
    Access tokens; then
    `git remote set-url gitlab https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean.git`
    and `shred -u ~/.config/agentforge/git-credentials ~/.config/agentforge/gitlab_pat`.
    Never run `git remote -v` before the URL is replaced.
-8. `[ ] <date>` Deploy SSH key, `~/.ssh/id_ed25519` (or the override in
+9. `[ ] <date>` Deploy SSH key, `~/.ssh/id_ed25519` (or the override in
    `terraform.tfvars`): `ssh-keygen -t ed25519 -a 64 -f ~/.ssh/id_ed25519_agentforge`,
    point `terraform.tfvars` at the new public key, remove the old key under
-   DigitalOcean Settings, Security. No `tf.sh apply` is needed once step 3 ran.
-9. `[ ] <date>` Backups and state copies: `~/.config/agentforge/backups/`
-   holds `<host>-<stamp>.tar.age` (or `.gpg`) archives from `backup.sh`
-   whose `config.tar` carries `/opt/agentforge/secrets` and `.env`;
-   keep one only while its passphrase is kept, otherwise `shred -u` it.
-   `~/.config/agentforge/tfstate/<date>/` holds no secret by design and stays
-   at mode 600.
-10. `[ ] <date>` Langfuse traces are synthetic and PHI-free; deleting the
+   DigitalOcean Settings, Security. No `tf.sh apply` is needed once step 4 ran.
+10. `[ ] <date>` Backups and state copies: `~/.config/agentforge/backups/`
+    holds `<host>-<stamp>.tar.age` (or `.gpg`) archives from `backup.sh`
+    whose `config.tar` carries `/opt/agentforge/secrets` and `.env`;
+    keep one only while its passphrase is kept, otherwise `shred -u` it.
+    `~/.config/agentforge/tfstate/<date>/` holds no secret by design and stays
+    at mode 600.
+11. `[ ] <date>` Langfuse traces hold synthetic patients only (since
+    2026-09-19 with content capture on, ADR-0007 amendment); deleting the
     project is optional and is not a rotation step.
 
 ## Backup and Restore
 
 `infra/digitalocean/backup.sh` and `restore.sh` run on the operator's machine
-and work over SSH (written 2026-09-17; **neither has been run against a host
-yet** — that is the M4 rehearsal below). Neither has a default host: `--host`
+and work over SSH (written 2026-09-17; first run against a host in the M4
+rehearsal of 2026-09-18, on a throwaway Droplet: "Timings" below, where
+`restore.sh` needed one `printf` fix). Neither has a default host: `--host`
 is mandatory, and `--dry-run` prints every command without contacting
 anything.
 
@@ -523,10 +603,12 @@ human-gated (`docs/FINAL_PUSH_PLAN.md`, M3 and M4); agents prepare and
 watch, and fill the timing table at the end.
 
 Cost: one `s-2vcpu-4gb` Droplet at $0.03571 per hour, so a rehearsal done in
-one sitting is under $0.20 of compute, plus about $0.15 of model spend for
-each `--golden-only` run: 7 of the 14 golden cases are model-backed (the other
-7 are `mode: offline`), 8 model turns in all at $0.0127 to $0.0223 each.
-Destroy the same day.
+one sitting is under $0.20 of compute, plus the model spend of each
+`--golden-only` run: 7 of the 15 golden cases are live (the other 8 are
+`mode: offline`). Estimated at about $0.15 per run when this runbook was
+written (14 golden cases then); the golden-only run of 2026-09-20
+(`evals/results/2026-09-20T032913Z-23e197e.md`) made 7 live turns, 5 of them
+model-backed, for $0.06. Destroy the same day.
 
 Before starting: `git status --porcelain` is empty on the branch being
 rehearsed; the DigitalOcean token is loaded
@@ -575,13 +657,16 @@ REHEARSAL_HOST="$(./tf.sh output -raw smoke_hostname)"
 ```
 
 `deploy.sh` pushes the operator's model and tracer keys from
-`~/.config/agentforge/` to whatever host it targets (`deploy.sh:60`); the
-golden run needs the model key. To rehearse without them, prefix
-`AGENTFORGE_SECRETS_DIR=/nonexistent` (then `/ready` stays 503 and the
-model-backed golden cases fail, as designed). On a brand-new `sslip.io`
-hostname, certificate issuance can outlast the six `livez` probes at the end
-of `start.sh`; rerun `deploy.sh`, it is idempotent. T1 is the wall-clock time
-from the `deploy.sh` call to its "Deployment started" line.
+`~/.config/agentforge/` to whatever host it targets (`deploy.sh:64`); the
+golden run needs the model key. Since 2026-09-20 the same push carries
+`slack_alert_webhook` when that file exists, so a rehearsal host's `alerts`
+service posts to the same Slack channel as the live one. To rehearse without
+any of them, prefix `AGENTFORGE_SECRETS_DIR=/nonexistent` (then `/ready`
+stays 503 and the model-backed golden cases fail, as designed). On a
+brand-new `sslip.io` hostname, certificate issuance can outlast the six
+`livez` probes at the end of `start.sh`; rerun `deploy.sh`, it is idempotent.
+T1 is the wall-clock time from the `deploy.sh` call to its "Deployment
+started" line.
 
 ### 4. Seed and verify (T2)
 
@@ -790,4 +875,6 @@ deployment would need): patched images and a vulnerability-scan gate
 (SEC-HIGH-502); OpenEMR container hardening and removing `MYSQL_ROOT_PASS` from
 its environment (SEC-MEDIUM-503); tested backup/restore and rollback
 (COMP-MED-005) — `backup.sh`, `restore.sh` and the rehearsal runbook above
-exist since 2026-09-17, and none of them has run against a host yet.
+exist since 2026-09-17 and were run end to end on a throwaway Droplet on
+2026-09-18 ("Timings" above); that is a rehearsal, not a tested backup
+schedule for a real deployment.

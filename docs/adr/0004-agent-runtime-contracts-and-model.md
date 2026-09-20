@@ -199,12 +199,65 @@ cache-friendly regardless of orchestration.
   without touching the SDK, a call after the cooldown goes through; time is
   controlled with `monkeypatch`).
 - Cost and latency per turn type are now summarized per run by the eval
-  scorecard (`evals/run.py`; latest full run
-  `evals/results/2026-09-20T051146Z-0f11642.md`: 48 cases x 3, 123 passed, every
-  blocking gate PASS, $0.0104 list price per model-backed turn, p95 15.8 s
-  over 40 model-backed turns) and rolled up in `AI_COST_ANALYSIS.md`. The
+  scorecard (`evals/run.py`; latest `--repeat 3` run
+  `evals/results/2026-09-20T051146Z-0f11642.md`: 48 cases x 3, 123 of 124
+  attempts passed, every blocking gate PASS, $0.0104 list price per
+  model-backed turn, p95 15.8 s over 126 model-backed turns; latest single
+  pass, at the deployed runtime tree,
+  `evals/results/2026-09-20T064022Z-4d2a9fd.md`: 48 of 48, $0.0113, p95 20.0 s
+  over 42 model-backed turns) and rolled up in `AI_COST_ANALYSIS.md`. The
   `--repeat 3` run at `1ddf824` (p95 27.6 s over 120 model-backed turns) is
   kept as stability history.
+
+### Status notes (2026-09-20, settings changed since the notes above; the decision text is unchanged)
+
+- **Plan rounds are 1, not 3.** The 2026-09-16 note above ("Plan rounds (3)
+  ... as decided") was true that day. `max_plan_rounds` has been 1 since
+  commit `e2cd633` (2026-09-18), and the demo compose file sets
+  `COPILOT_MAX_PLAN_ROUNDS` to 1 by default; the amendment is recorded in the
+  status line and inside decision 2, where the bound lives (the status line
+  and the code comments call it decision 5). Tool calls per turn are still 8.
+- **Follow-ups run at effort `low`, not `medium`** (decision 4;
+  `effort_followup`, commit `f4f69ab`, 2026-09-19; it also sets the effort of
+  the `plan` call and of a follow-up's repair round). Fixture A/B, 14 turns
+  per arm: 18.1 s -> 11.9 s and 1,788 -> 1,231 output tokens per follow-up,
+  model summaries kept 10 vs 11, claims per turn 4.9 -> 3.9. Live suite at
+  `low` against the run at `medium`
+  (`evals/results/2026-09-19T230512Z-f4f69ab4.md` vs
+  `2026-09-19T223524Z-12cd849a.md`): 48/48 vs 47/48, task success 100% in
+  both, claims per turn 4.21 -> 4.10, follow-up p50 8.1 -> 7.2 s and p95
+  12.3 -> 11.9 s, $0.0116 -> $0.0111 per model-backed turn. The risk to
+  watch is recall, since `low` writes fewer claims;
+  `COPILOT_EFFORT_FOLLOWUP=medium` restores the decision as written without a
+  code change. `docs/audit/evidence/performance/followup-effort-2026-09-19.md`.
+- **Narration output cap 1,800 -> 3,200 tokens** (`max_output_tokens`, commit
+  `5d90982`, 2026-09-19). Adaptive-thinking tokens count toward the cap; at
+  1,800, 10% of first-turn `narrate` calls stopped on `max_tokens` (Langfuse,
+  2026-09-18/19), the re-ask ran a second full call, and the turn took 26 s
+  instead of 9 s, which was the first-turn p95. 3,200 at the measured ~120
+  output tokens per second still finishes inside `model_timeout_seconds`
+  (30 s). `stop_reason` on each generation's metadata shows any new hit.
+- **`plan` is skipped for the agent's own follow-ups** (`KNOWN_PLANS` in
+  `agent/app/graph/nodes.py`, commit `089ef2b`, 2026-09-19). The five
+  follow-ups the agent writes itself (two starter chips and the three
+  deterministic suggestions) have fixed wording and chose the same tools in
+  3 of 3 `plan` runs each (the medication question added `problems` in 1 of
+  3, and the table takes the union), so a question that matches one of those
+  constants after normalization retrieves from a table instead of paying the
+  `plan` model call. There is no client flag: the match is on the agent's own
+  constants, and model-written chips still go through `plan`. Expected saving
+  about 2 s and one model call per such turn (Langfuse, 2026-09-18, 199
+  follow-up turns: `plan` p50 2.0 s, p95 2.9 s); not measured live.
+  `docs/audit/evidence/performance/known-plans-2026-09-19.md`.
+- **Model output is parsed more tolerantly, still by our code** (decision 4,
+  `app/model_output.py`). Since `f5fed01` (2026-09-19) a malformed claim (no
+  text, unknown type, a number where a string belongs, a null container) is
+  dropped instead of failing the whole output, and an over-long summary is
+  cut at its last complete sentence; text that is not JSON is still refused.
+  Since `bea1c00` (2026-09-19) a blank optional tool parameter from `plan`
+  becomes a null and one that still fails its contract is dropped, which
+  widens the retrieval; a call whose remaining parameters also fail is
+  refused as `invalid_params` as before.
 
 ## Verification
 

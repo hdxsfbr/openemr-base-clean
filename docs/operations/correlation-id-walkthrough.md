@@ -21,7 +21,7 @@ This page shows the path with a real turn from the eval run of 2026-09-16
 | Hop | Where to look | What the eval turn showed |
 | --- | --- | --- |
 | Panel | Meta line under the answer: `ref 75a29aa756c7985f.1` | Same value the runner captured from the `X-Correlation-Id` response header |
-| Module audit rows | OpenEMR `log` table; the JSON in `comments` (base64) carries `correlation_id` | `copilot-session-start` 1 row, `copilot-tool-read` 7 rows (one per tool call, written before data leaves) |
+| Module audit rows | OpenEMR `log` table; the JSON in `comments` (base64) carries `correlation_id`. Since 2026-09-19 a model-backed turn also writes `copilot-model-disclosure` rows with the same id, one per retrieval batch (`docs/audit/evidence/compliance/04-model-disclosure-rows-2026-09-19.md`) | `copilot-session-start` 1 row, `copilot-tool-read` 7 rows (one per tool call, written before data leaves) |
 | Agent logs | JSON lines on the agent container's stdout, field `correlation_id`, one per graph node | `authorize`, `classify`, `retrieve`, `narrate`, `verify` (twice), `repair`, `render` (twice) with `duration_ms` each |
 | Agent API | `X-Correlation-Id` response header and `correlation_id` in the turn body | Both equal the ticket's id (`OBS-CORRELATION-001` asserts this) |
 | Langfuse | Trace `copilot.turn`, session id = conversation id, tags `copilot` plus the turn type (`uc01_first` or `followup`, set as `langfuse_tags` in `agent/app/telemetry.py`); the correlation id is in the trace metadata | Trace `921f44e1de3dc19deb130609664fa3bc`: 19 observations (node spans plus `narrate` and `repair` generations), cost $0.028, latency 21.2 s, no PHI in inputs or outputs (masked). Turns since commit `74a1bf6` (2026-09-15) also carry one `tool`-type observation per gateway call, so a comparable trace now has more observations than this one |
@@ -62,4 +62,9 @@ the Langfuse UI.
 No user id, no patient id, no chart content. The audit row holds the user
 and patient on the OpenEMR side; the Langfuse trace holds the conversation
 id and masked node inputs and outputs. Joining the two needs access to both
-systems, which is the intended boundary (ADR-0007).
+systems, which is the intended boundary (ADR-0007). Masked is the code
+default and what the 2026-09-16 trace above shows; since 2026-09-19 the demo
+deployment, which holds synthetic patients only, runs content capture
+(`COPILOT_TRACE_CONTENT=1`, ADR-0007 amendment of 2026-09-19), so its traces
+also carry the question, the model exchange, and the rendered answer. The id
+itself is unchanged.

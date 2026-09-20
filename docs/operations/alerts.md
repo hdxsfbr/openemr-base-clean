@@ -77,7 +77,7 @@ First response.
    matches the agent log line and the panel's error banner.
 3. Check the Anthropic status page for an incident or elevated latency.
 4. `GET /meta/health/livez` on the OpenEMR hostname and, over SSH, the CPU of
-   the `openemr` and `mysql` containers; slow tools mean slow OpenEMR.
+   the `openemr` and `database` containers; slow tools mean slow OpenEMR.
 5. In the agent logs (`docker compose logs agent`), look for `circuit_open`
    and `timeout` model errors. The breaker in `app/model.py` opens after three
    consecutive failures and stays open for 60 s; while it is open, turns skip
@@ -182,9 +182,18 @@ calls, no alert). A burst of `forbidden` on a user who should have access is
 a delegation or ACL problem, read from the gateway's audit rows.
 
 What it usually means. One clinical service path broke (schema change,
-upstream bug, database), the gateway is timing out (2 s per tool), or the
+upstream bug, database), the gateway is timing out (2 s,
+`gateway_timeout_seconds`; since the batched gateway, commit `b40d456` and
+the ADR-0003 status note of 2026-09-19, that is per batch request, and a
+timeout marks every tool in the batch `unavailable` together), or the
 per-turn delegation token is being rejected, in which case every tool fails at
-once and the OpenEMR audit log shows denials.
+once and the OpenEMR audit log shows denials. Since commit `dbf5372` the
+counter also records the tools the agent answers without a gateway call,
+`fault_injected` and `invalid_params`; between the batching change and that
+fix neither moved this alert. On the demo deployment `fault_injected` counts
+toward the rate, so an eval run with several fault-injection cases in one
+window can legitimately page; read the `reason` before treating a page as an
+outage.
 
 First response.
 
@@ -196,9 +205,12 @@ First response.
    `service_error`, `audit_unavailable`, ...; the exact code of an
    `http_<code>` is on the tool span in Langfuse, the metric keeps only the
    class), then open a recent trace in Langfuse and read the tool spans.
-4. `GET /meta/health/livez`, then run the failing tool's fixture test against
-   the stack (the Bruno collection under `docs/api-collection` has one request
-   per tool).
+4. `GET /meta/health/livez`, then re-run a turn that reads the failing tool
+   against the stack: `python evals/run.py --case <id>` for a case on that
+   section, or the matching turn in folder `2 Use Cases` of the Bruno
+   collection (`docs/api-collection`). The collection has no request per
+   tool; the gateway is unrouted at the edge, so a tool runs only inside a
+   turn.
 5. Agent logs are secondary here; the model circuit breaker does not affect
    tools. If every tool fails with `forbidden`, check the delegation secret on
    both sides (module and agent) and the gateway's audit rows.
@@ -206,12 +218,12 @@ First response.
 Mitigation. The agent already marks the section as unavailable and claims
 nothing about it, so the panel stays truthful with the other sections. Do not
 patch OpenEMR live; fix the service path in the module or gateway, deploy, and
-rerun the fixture. Rehearse with `COPILOT_FAULT_INJECTION=1` and
+rerun the turn. Rehearse with `COPILOT_FAULT_INJECTION=1` and
 `X-Copilot-Fault: tool:<name>` (for example `tool:medications`); the section
 must render as unavailable and this alert must fire on the next evaluation.
 
 Resolved when the rate is at or under 2% across a full window and the tool
-that paged has passed its fixture test against the deployed stack.
+that paged has answered `ok` or `empty` on a turn against the deployed stack.
 
 ## Running the job
 
@@ -230,19 +242,24 @@ Output is one JSON line per alert, or one `heartbeat` line when nothing
 fires. Exit code 0 means no page, 2 means a page-severity alert fired, 1 means
 the metrics endpoint could not be fetched (which is itself worth a look;
 `/health` failing is the agent being down). `--interval 300` loops instead of
-exiting; `--webhook URL` POSTs each alert record as JSON and is off by
-default; `--timeout` sets the HTTP timeout (10 s default). The thresholds
-and the rate math are covered by `agent/tests/test_alerts.py`.
+exiting; `--webhook-file PATH` reads the receiver URL from a file every cycle
+(what the deployment uses, see "Delivery"), `--webhook URL` is the argv
+fallback for a one-off run, and with neither the job only logs;
+`--webhook-channel` adds the best-effort Slack channel override; `--timeout`
+sets the HTTP timeout (10 s default). The thresholds, the rate math, and the
+webhook payload and file handling are covered by `agent/tests/test_alerts.py`.
 
 On the Droplet the evaluation is scheduled by the `alerts` service in
 `infra/digitalocean/runtime/compose.yaml` (added 2026-09-17, on the host
-from the M3 deploy). It runs the agent image with
+from the M3 deploy; the two webhook flags came with commits `e466b9d` and
+`478f432`). It runs the agent image with
 
 ```
-python -m app.alerts --url http://agent:8080/metrics --ready-url http://agent:8080/ready --state /var/lib/copilot/alerts-state.json --interval 300
+python -m app.alerts --url http://agent:8080/metrics --ready-url http://agent:8080/ready --state /var/lib/copilot/alerts-state.json --interval 300 --webhook-file /run/secrets/slack_alert_webhook --webhook-channel "#andre-batista-alerts"
 ```
 
-on the `frontend` network, with the `agent_state` volume mounted at
+on the `frontend` network, with the `slack_alert_webhook` file secret and the
+`agent_state` volume mounted at
 `/var/lib/copilot` (`COPILOT_STATE_DIR`, so the state file survives a
 container recreate), `restart: unless-stopped`, `depends_on` the agent being
 healthy, and the image's inherited health check disabled (it probes port
@@ -258,13 +275,17 @@ ssh deployer@<droplet-ip> 'cd /opt/agentforge && docker compose logs alerts | gr
 Do not add a cron line as well: two evaluators sharing one state file break
 the rate math (each sees the other's sample as "previous"). In interval mode
 the process never exits, so exit code 2 is not available as an escalation;
-to wire a pager, add `--webhook` to the service command pointing at the
-receiver (an incoming webhook for a chat channel, or a paging service's
-events endpoint). The POST body is the same record that is logged, so a
-receiver needs only to read `severity`, `name`, and `message`. Nothing in
-the record can carry PHI: it is built from counters, gauges, and fixed
-message templates. Container logs rotate (json-file, 10 MiB, three files)
-like every other service's.
+the escalation is the webhook, which the service already has (see
+"Delivery"). To point it at a different receiver (another chat channel's
+incoming webhook, or a paging service's events endpoint), replace the
+`slack_alert_webhook` secret file and push it; no change to the service
+command is needed. The POST body is a one-line `text` summary followed by
+the same record that is logged (plus `channel` when `--webhook-channel` is
+set), so a generic receiver needs only to read `severity`, `name`, and
+`message`, and the logged record gains `webhook_delivered` true or false.
+Nothing in the record can carry PHI: it is built from counters, gauges, and
+fixed message templates. Container logs rotate (json-file, 10 MiB, three
+files) like every other service's.
 
 The same evaluation also runs from any machine that can reach the public
 hostname (the metrics path is read-only), which is how the alert rules are
@@ -272,7 +293,9 @@ checked before a demo.
 
 ## What the dashboard adds
 
-Langfuse holds one PHI-free trace per turn with the stage spans, tool
-statuses, verifier outcome, and token usage, and its dashboard views cover the
-same three signals over any time range. Use it to explain an alert (which
-stage, which tool, which correlation id); use this job to be told about one.
+Langfuse holds one trace per turn with the stage spans, tool statuses,
+verifier outcome, and token usage (digests only by default; the demo
+deployment, which holds synthetic patients only, runs content capture,
+ADR-0007 amendment of 2026-09-19), and its dashboard views cover the same
+three signals over any time range. Use it to explain an alert (which stage,
+which tool, which correlation id); use this job to be told about one.

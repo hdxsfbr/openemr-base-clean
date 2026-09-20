@@ -4,12 +4,16 @@ Published by the owner after the final video is uploaded (plan M5, "Owner-only":
 Saturday night or Sunday 06:00 PT, with the 20 to 30 s clip). Replace
 `<final video URL>` in both versions before posting. Links go to the public
 GitHub fork only; the lab GitLab is login-only and is never linked. Every
-number below exists today and is cited to
-`evals/results/2026-09-20T051146Z-0f11642.md` (48 cases x 3 attempts, 123 of
-124 passed, golden 29/29, citations 615/615, p95 15.8 s, $0.0104 per
-model-backed turn). If the
-release run at the final commit changes them, update the numbers here from
-that report before posting; never round a number up.
+number below exists today and is cited to the week1-final release run,
+`evals/results/2026-09-20T051146Z-0f11642.md` (48 cases with `--repeat 3`: 38
+live cases x 3 plus 10 offline cases x 1 = 124 attempts, 123 passed; golden
+set 29/29 attempts over its 15 cases; citations 615/615; p95 15.8 s; $0.0104
+per model-backed turn). That run is final and its numbers do not change. The
+runtime tree moved on afterwards to carry the alert fixes (deployed tree
+`478f432`), and a full single pass re-verified it:
+`evals/results/2026-09-20T064022Z-4d2a9fd.md`, 48 of 48, citations 206/206,
+p95 20.0 s, $0.0113 per model-backed turn. The post quotes the release run
+and names it; do not mix the two runs' numbers, and never round a number up.
 
 The audit lesson is true as written: OpenEMR's `AclMain::aclCheckIssue()`
 returns true whenever the issue-type table is not loaded at page scope, which
@@ -35,12 +39,15 @@ records before anything renders. Every statement cites a chart record, and
 the citation opens the record. Missing data stays "not documented", never
 "none". Dosing questions are out of scope by design.
 
-Numbers from the tracked release run at commit 0f11642, every case run three
-times against the live deployment:
-- 48 eval cases in three tiers, 123 of 124 attempts passed; the golden set 29/29
+Numbers from the tracked release run at commit 0f11642, every live case run
+three times against the live deployment:
+- 48 eval cases in three tiers, 123 of 124 attempts passed; golden-set
+  attempts 29/29
 - 615 of 615 citations resolved to a retrieved record
 - p95 latency 15.8 s per model-backed turn
 - $0.0104 per turn at list price
+- alerting fixes shipped after that run, so a full pass re-checked the
+  deployed tree: 48 of 48
 - load tested at 10 and 50 concurrent users, with the ceiling measured in
   OpenEMR's own Apache and MariaDB rather than in the agent
 

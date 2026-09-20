@@ -205,6 +205,39 @@ feed error analysis or eval data.
   the contract test for the SDK surface the module relies on, including the
   private `_get_error_level_and_status_message`.
 
+### Status note (2026-09-20): alert delivery
+
+Decision 6 said the alert job "emits `alert` log events plus a webhook". Until
+commit `e466b9d` the evaluator had a `--webhook` flag and the deployment passed
+nothing to it, so a page reached only `docker compose logs alerts`.
+
+- **Delivery.** The `alerts` service now runs with `--webhook-file
+  /run/secrets/slack_alert_webhook` and `--webhook-channel`. The receiver is a
+  Slack incoming webhook held as a Docker file secret (`slack_alert_webhook`,
+  pushed by `push-secrets.sh`, never in the repository): a webhook URL is a
+  credential, and an argv value is visible to `docker inspect` and every
+  process listing on the host. The file is read every cycle, so an absent or
+  empty file means log-only, not a crash, and supplying it needs no restart.
+  The payload is a one-line `text` summary followed by the alert record
+  (commit `0471178`; Slack rejects a body without `text` or `blocks`), plus a
+  best-effort `channel` (commit `478f432`; honoured only by legacy
+  custom-integration webhooks). The record is counters, gauges, and fixed
+  message templates, so the PHI-free rule of decision 2 holds for this
+  channel in either trace mode.
+- **What proving it found.** Five fault-injected turns on the deployment
+  showed the tool-failure alert could not fire: since the batched gateway,
+  tools the agent answers without a gateway call (`fault_injected`,
+  `invalid_params`) skipped the `copilot_tool_calls_total` increment, so the
+  alert's numerator was structurally zero. Fixed in `dbf5372` with a graph
+  regression test. Both tool-failure rules then fired and delivered
+  (`webhook_delivered` true), and the full live suite of pipeline 24351 ran
+  761 s without a page.
+  `docs/audit/evidence/observability/alerts-slack-2026-09-20.log`; runbook
+  `docs/operations/alerts.md`, "Delivery".
+- Of the Verification items below, "Alert evals" is now also exercised end to
+  end for the tool-failure alert; no such record exists for the latency and
+  error-rate alerts, which `agent/tests/test_alerts.py` covers.
+
 ## Verification
 
 - **Observed 2026-09-15 on the deployment:** one Langfuse trace per turn

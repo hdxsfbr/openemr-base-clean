@@ -12,7 +12,8 @@ cd docs/api-collection && bru run --env deployed --env-var DEMO_PASSWORD="$(ssh 
 The demo clinician password is generated on the deployment host
 (`docs/deployment/digitalocean.md`, "Manual Cycle"); never commit it.
 
-Folders run in order (21 requests). Folder 1 performs the same handshake the
+Folders run in order (22 requests; the recorded runs are 21 of 21 and
+predate the 22nd). Folder 1 performs the same handshake the
 panel does (login, open chart, CSRF, start conversation, ticket); every turn
 request in folders 2 and 3 mints a fresh ticket in its pre-request script,
 because a ticket lives 90 seconds and is bound to one turn. Folder 2 runs the

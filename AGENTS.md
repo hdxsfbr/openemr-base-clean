@@ -83,11 +83,12 @@ when risk or failures justify them. At minimum:
 - Validate modified Compose files with `docker compose ... config --quiet`.
 - Exercise affected endpoints or UI flows against the running development stack.
 - Run relevant existing PHP, JavaScript, module, contract, and eval tests.
-  For the agent: `cd agent && pytest` (60 tests) and `python -m
-  app.contracts.export --check`; for the evals, `python evals/run.py
-  --offline-only` needs no stack, `--golden-only` is the smoke set against a
-  deployment, and a full run (which includes the holdout set) is the release
-  check. Do not pass `--include-holdout` while tuning a prompt.
+  For the agent: `cd agent && pytest` (145 tests as of 2026-09-20) and
+  `python -m app.contracts.export --check`; for the evals, `python
+  evals/run.py --offline-only` needs no stack, `--golden-only` is the smoke
+  set against a deployment, and a full run (which includes the holdout set)
+  is the release check. Do not pass `--include-holdout` while tuning a
+  prompt.
 - For authorization, verification, failure-handling, or patient-context changes,
   include a negative/adversarial test as well as the normal flow.
 

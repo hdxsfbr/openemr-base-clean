@@ -70,6 +70,47 @@ cut order at the end of this file; do not stretch the Saturday freeze.
 > per the cut order; the Friday agent batch is complete except its two
 > dashboard widgets.
 
+> **Status re-check, 2026-09-20 (Sunday, at tag `week1-final`).** Re-verified
+> against the tree at `ebaae17`, the committed evidence, and the public
+> `/health` and `/ready` endpoints (08:27 UTC: 0.3.0, all five dependencies
+> ok). A box below is ticked only where its evidence is in the tree; items
+> that landed in part carry a "Status 2026-09-20" line instead.
+>
+> **Closed since Saturday night:** the `--repeat 3` release run and its
+> `compare.py` output (`evals/results/2026-09-20T051146Z-0f11642.md`, 123 of
+> 124 attempts, every blocking gate PASS; `...-0f11642-vs-a4a5856.md`); the
+> redeploy carrying the `session.php` version fix (`c37b9e6`, from a clean
+> clone); the edge re-probe; the Droplet snapshot; `AI_COST_ANALYSIS.md`
+> Part A; the number sweep onto the release run; the annotated tag
+> `week1-final` at `ebaae17`, where `main` sits on both remotes; pipeline
+> 24351 with the manual live job 79057 green (on `4985e52d`, one docs-only
+> commit earlier); `docs/INTERVIEW_FEEDBACK.md`; and Slack alert
+> delivery proven end to end
+> (`docs/audit/evidence/observability/alerts-slack-2026-09-20.log`).
+>
+> **Where the night departed from this plan.** The 18:00 PT freeze did not
+> hold. A clinic-timezone change deployed at 18:45 PT broke conversation
+> resume (`ISO-RECENT-PATIENT-RESUME-001` failed three of three in
+> `2026-09-20T041411Z-6c787bd.md`, the first release-run attempt) and was
+> reverted to UTC in `c37b9e6`, the tree the release run then measured. Four
+> runtime commits then landed after the release run (`e466b9d`, `dbf5372`,
+> `0471178`, `478f432`: Slack delivery and the tool-failure counter; only
+> `dbf5372` touches the turn path), and `478f432` is what is deployed. It was
+> re-verified by one full pass (`2026-09-20T064022Z-4d2a9fd.md`, 48 of 48,
+> every blocking gate PASS) and by CI job 79057, not by the second
+> `--repeat 3` run that the Sunday 06:30 item below calls for when `agent/`
+> changes after the release run. The image digests, the snapshot and the
+> edge probe were all taken at the `c37b9e6` deploy and were not re-taken
+> after the `478f432` redeploy; the Caddyfile did not change in between.
+>
+> **Still open:** the from-a-phone check on the final deployment; the demo
+> password wording for evaluators (`README_AGENT_FORGE.md` still gives only
+> the SSH path); the error-analysis journal (all 20 "First issue" fields are
+> blank); the provider-credit and Langfuse-unit numbers, which are not in
+> `digitalocean.md`; the `PROJECT_PLAN.md` Thursday-Friday scope decision;
+> and the partly landed items marked below. **Owner-only, unchanged:** the
+> final demo video, the social post, the form, and the AI interviews.
+
 ---
 
 ## Thursday 2026-09-17 (interview day: docs, tests and local work only; no deploy)
@@ -100,7 +141,7 @@ land before it. Everything else is after 12:30 PT.
   in present tense; :277-280 rollback stated as established; :113-114 cost
   "acceptable against the projection" with no threshold).
 
-- [ ] **Fix the three one-line checklist errors** (P1, S)
+- [x] **Fix the three one-line checklist errors** (P1, S) — done 2026-09-17 (`f56d6db`: the `[HAHAHA]` line is gone, the early commit and tag are recorded, the screenshot sentence names the committed renders; the portal confirmation time was never recorded in the repository and the checklist says so)
   `docs/SUBMISSION_CHECKLIST.md:119` reads `- [HAHAHA] Submission completed
   with several hours of buffer.` (commit d6606ac); write "- [x] Submission
   completed (portal confirmation 2026-09-16 21:59 CT, commit e1dd331, tag
@@ -153,7 +194,7 @@ checklist :8-15.
   the value; rotate only after grading (re-seeding does not rotate it:
   `seed_users.php:6` skips existing users).
 
-- [ ] **Doc refresh rows 1 to 6: latest run, both flaky cases, deployed tag** (P1, S)
+- [x] **Doc refresh rows 1 to 6: latest run, both flaky cases, deployed tag** (P1, S) — done 2026-09-17 (`f56d6db`, `aa4d19a`), then superseded by the sweep onto the release run (`2a45e9f`, `90b7e4b`); task success is 100% in that run, so no risk-acceptance note is carried
   Why: PRD p.9 "Eval Dataset: your test suite with results"; AGENTS.md
   evidence gate; interview question "What did you find when you ran it?".
   State: the a4a5856 run exists at HEAD, but `KEY_METRICS.md`,
@@ -196,6 +237,9 @@ checklist :8-15.
   Do: one docs pass; move Open Item 9 (agent-level denials) and the
   retention bullet into Known Limitations; comment-only edit to the
   `ToolRegistry.php` docblock, no rebuild.
+  Status 2026-09-20: the docs pass landed 2026-09-17 (`f56d6db`). Still
+  open: the `ToolRegistry.php:37` docblock, which still reads "Validates raw
+  parameters against the contract (contracts/schema/*_params.schema.json)".
 
 - [ ] **Review the 20-trace error-analysis journal and record the issue list** (P1, M)
   Why: PRD p.10 "What did you find? What would you add next?";
@@ -229,7 +273,7 @@ checklist :8-15.
   cents a turn"). Verify with `--offline-only` and `--golden-only`. Must
   land before the final full run.
 
-- [ ] **Decide the `CONF-NOTE-VS-LIST-N-001` matcher and record it as a scope decision** (P1, S)
+- [x] **Decide the `CONF-NOTE-VS-LIST-N-001` matcher and record it as a scope decision** (P1, S) — done 2026-09-17 (`a6d2f9c`: `kind: note_vs_list` in the case, the decision and its evidence in `evals/README.md` "Matcher decisions are made on recorded evidence"; the case passed 3 of 3 in the release run)
   State: in a4a5856 the conflict claim was verified and cited both tables
   but its text lacked "atorvastatin", so only the claim-text regex
   (run.py:185) failed; 11 of 12 recorded runs pass the strict matcher. Do:
@@ -256,6 +300,11 @@ checklist :8-15.
   :86-92 (the pipeline shows "blocked" until the manual `test:evals-live`
   job is played; play it Thursday or Friday if a CI artifact is wanted,
   about $0.55 and 12 minutes, never during Saturday's load tests).
+  Status 2026-09-20: the `gitlab` remote URL no longer embeds a token
+  (`git remote -v`), and the checklist records pipeline 24351 on `4985e52d`
+  in place of 23777. `digitalocean.md` names the PAT file under "After
+  grading: credential rotation", not under "CI Runner". The PAT renewal and
+  the revocation of the old token are not verifiable from the repository.
 
 - [ ] **Record the scope decision that closes `PROJECT_PLAN.md:221-227`** (P2, S)
   Replace the Thursday-Friday "deepen UC-02, note-level citations,
@@ -341,6 +390,11 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   `ARCHITECTURE.md:574-579` (scale-out is a second container with a shared
   checkpointer, never uvicorn workers), :599-602, `KEY_METRICS.md:32-39`,
   traceability row 30, checklist :61-64, `INTERVIEW_NOTES.md:43-45`.
+  Status 2026-09-20: (b) to (e) shipped 2026-09-17 (`16a5d34`) and are
+  deployed. Still open: (a), `agent/Dockerfile` carries no `--workers 1` pin
+  or comment (uvicorn's default is one worker, so behaviour is as intended),
+  and re-rendering the committed panel evidence: the two Langfuse widgets
+  exist (built 2026-09-18, seen 2026-09-20), the renders predate them.
 
 - [x] **Schedule the alert evaluator as a compose service in the same deploy** (P1, S)
   State: `alerts.py`, `alerts_cli.py` and 26 tests exist; nothing in
@@ -450,7 +504,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
 
 ### Friday drafts (placeholders now, numbers Saturday)
 
-- [ ] **Draft the per-tier architectural-changes table for `AI_COST_ANALYSIS.md`** (P1, S now, fill Saturday)
+- [x] **Draft the per-tier architectural-changes table for `AI_COST_ANALYSIS.md`** (P1, S now, fill Saturday) — done 2026-09-18 as the filled table, "What breaks first, by tier" (see Saturday)
   Why: PRD p.9 "consider architectural changes needed at each level. This
   is not simply cost-per-token * n users". State: :102-109 is node
   arithmetic on unmeasured assumptions; :124-126 says "scales linearly".
@@ -514,7 +568,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   MariaDB and demo passwords stay). Execute only after the final AI
   interview window.
 
-- [x] **Add the tests that prove controls the docs already cite** (P1, S; lint and tracer-down P2)
+- [x] **Add the tests that prove controls the docs already cite** (P1, S; lint and tracer-down P2) — done 2026-09-17 (`16a5d34`: the checkpoint-content, breaker and LangSmith-guard tests are in `agent/tests/test_controls.py`, the 429 test in `test_api.py`; the offline golden case `ISO-CHECKPOINT-OFFLINE-001` was not registered)
   State: 60 tests; nothing covers checkpoint content (ADR-0005:128-130
   claims it; `ARCHITECTURE.md:851` says still to add), the 429 rate limit,
   the circuit breaker, or the LangSmith guard. Do (tests only, excluded
@@ -554,6 +608,9 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   `text_must_not_match` for "as I mentioned earlier" phrasings; an
   `as_user:` step opening a second session as `physician` plus a ticket
   step carrying the first user's conversation id expecting 403/404.
+  Status 2026-09-20: `ISO-FRESH-REPEAT-001` landed 2026-09-17 (`a6d2f9c`) and
+  passes in the release run. `ISO-TWO-USERS-001` is not built and is listed
+  under `evals/README.md` "Not automated in Week 1".
 
 - [ ] **Journal-derived cases that pass against the frozen agent** (P1, M)
   Only cases that pass now; cases needing a new claim type or an
@@ -579,7 +636,7 @@ snapshot, then the load runs, the egress decision by noon, code freeze at
 no later than 19:00 PT, the demo dry run and recording. Nothing that
 changes gateway, verifier, prompt or model merges after the release run.
 
-- [ ] **Snapshot the Droplet and copy the Terraform state first** (P0, S)
+- [x] **Snapshot the Droplet and copy the Terraform state first** (P0, S) — done: `week1-final-2026-09-18`, then `week1-final-2026-09-20` (action 3419196856, 44 s, live) after the `c37b9e6` deploy, with the state copy, per `docs/deployment/digitalocean.md` "Current Deployment"; not re-taken after the `478f432` redeploy
   `doctl compute droplet-action snapshot $(./tf.sh output -raw droplet_id)
   --snapshot-name week1-final-2026-09-19` (about $0.06 per GB-month). A
   restored Droplet gets a new IP and hostname, so this is the rollback of
@@ -624,6 +681,13 @@ changes gateway, verifier, prompt or model merges after the release run.
   `terraform.tfvars`, `./tf.sh apply` (the plan must show a resize only,
   about 2 minutes of power-off), before the release run so the final
   baseline matches the final host. No global turn semaphore this week.
+  Status 2026-09-20: the decision is in `ARCHITECTURE.md` "Latency and
+  Scale" (one asyncio process per node, scale by nodes; the ceiling is
+  OpenEMR's Apache/PHP and MariaDB, both CPU-bound). The host was not
+  resized; three larger tiers were measured on throwaway Droplets instead
+  (`docs/audit/evidence/performance/droplet-tier-comparison-2026-09-18.md`).
+  Still open: ADR-0001's status note still lists "the sizing revisit after
+  the load test" as open.
 
 - [x] **Egress decision by noon: paste the risk acceptance** (P1, S)
   Decided default (2026-09-18): accepted for Week 1, not built. `DOCKER-USER`
@@ -651,7 +715,15 @@ changes gateway, verifier, prompt or model merges after the release run.
   measurement to weigh at the M4 STOP gate, not a revision applied here.
   Traceability row 37 also updated.
 
-- [ ] **Code freeze 18:00 PT; deploy the frozen tree from a clean worktree; run the `--repeat 3` release run** (P0, M)
+- [x] **Code freeze 18:00 PT; deploy the frozen tree from a clean worktree; run the `--repeat 3` release run** (P0, M) — done 2026-09-20 UTC, late and with the departures in the Sunday status note above
+  Done: `c37b9e6` deployed from a clean clone with digests recorded; release
+  run `evals/results/2026-09-20T051146Z-0f11642.md` (48 cases, 124 attempts,
+  123 passed, every blocking gate PASS, $1.32) and
+  `...-0f11642-vs-a4a5856.md`; `test:evals-live` played as job 79057 in
+  pipeline 24351. Not as written: the freeze slipped, `478f432` was deployed
+  after the release run and re-verified by a single pass
+  (`2026-09-20T064022Z-4d2a9fd.md`), and step (6), the phone check, is still
+  the owner's.
   Why: PRD p.9 deployed application and eval results; checklist :123,
   :134; `KEY_METRICS.md:113` (a release run executes the whole suite);
   `evals/README.md:81-82`. State: the only `--repeat 3` report is 1ddf824
@@ -682,7 +754,7 @@ changes gateway, verifier, prompt or model merges after the release run.
   one citation; tick checklist :123 and :134. Play `test:evals-live` on the
   frozen commit from the GitLab UI and keep the job URL.
 
-- [ ] **Re-run the deny-by-default edge probe after the final deploy** (P2, S)
+- [x] **Re-run the deny-by-default edge probe after the final deploy** (P2, S) — done 2026-09-20 05:21 UTC: `docs/audit/evidence/security/cloud-probe-2026-09-20-final.txt` (named for the day it ran), cited from `digitalocean.md` "Current Deployment"; it followed the `c37b9e6` deploy, and the later `478f432` redeploy left the Caddyfile unchanged
   `deploy.sh:49` re-copies the whole runtime directory including the
   Caddyfile, so the final deploy can regress the allowlist. Run
   `docs/audit/scripts/cloud-probe.sh openemr-137-184-4-22.sslip.io
@@ -734,6 +806,12 @@ changes gateway, verifier, prompt or model merges after the release run.
   `grep -rn '1ddf824\|a7641e9\|69560f0\|a4a5856\|44 cases\|MISS-AUTHOR-J-001\|nine \(eval\|result\)' --include='*.md' . | grep -v evals/results`;
   walk the 202 "2026-09-16" status lines outside `evals/results` and update
   each or append "unchanged as of 2026-09-20".
+  Status 2026-09-20: the number sweep onto the release run landed
+  (`2a45e9f`, `90b7e4b`, `28aeffb`); `abcb17f` and a further refresh the same
+  day followed the `478f432` redeploy. Not done as written: the walk over
+  every "2026-09-16" status line. The "target 2026-09-19" strings that
+  remain sit in dated audit status lines (`AUDIT.md`,
+  `docs/audit/performance.md`) and in two sentences of `KEY_METRICS.md`.
 
 Fallback: if the video is uploaded Saturday night, publish the social post
 then instead of Sunday morning.
@@ -759,7 +837,7 @@ then instead of Sunday morning.
   run, repeat the `--repeat 3` run now and finish by 08:00 PT; otherwise do
   not. Anything not green is written up as a limitation, never hot-fixed.
 
-- [ ] **Refresh `AI_COST_ANALYSIS.md` Part A to the final commit** (P1, S; last edit to the cost doc)
+- [x] **Refresh `AI_COST_ANALYSIS.md` Part A to the final commit** (P1, S; last edit to the cost doc) — done 2026-09-19 (`24b16d7`, 151 commits) and recounted 2026-09-20 at `ebaae17`, tag `week1-final` (167 commits by Andre Batista, 111 `Assisted-by`, 152 `Co-Authored-By`)
   State: Part A says "through 2026-09-15", 36 commits, about 13 h, Droplet
   "$0.20 measured", model dev spend "$1 to $15"; HEAD has 66 project commits
   (27 `Assisted-by`, 56 `Co-Authored-By`); the CI runner Droplet
@@ -786,6 +864,13 @@ then instead of Sunday morning.
   push origin main --tags`; record the tag beside the deployed commit and
   digests in `digitalocean.md`, `README.md:8-9`, `README_AGENT_FORGE.md:31-36`,
   `SETUP.md:250`, `ARCHITECTURE.md:72`.
+  Status 2026-09-20: the annotated tag `week1-final` (tag object `917427f`)
+  is at `ebaae17`, where `main` sits on both remotes (the tag was read back
+  from `origin` with `git ls-remote`; GitLab's copy was not re-read), its
+  message names `478f432` as the deployed tree, and the checklist records
+  pipeline 24351 on `4985e52d`, one docs-only commit earlier. Still open: the
+  final demo and social post URLs (owner-only items), and the Sunday lines
+  of `PROJECT_PLAN.md`, which are still unticked bullets.
 
 - [ ] **08:00 PT: submit the final form** (P0, S)
   Live URL `https://openemr-137-184-4-22.sslip.io`; repository URL per
@@ -951,6 +1036,19 @@ to 30 on Sunday after the release run.
 6. Repair rate 32.5% (13 of 40 turns), withheld 2.6%, claims per turn 3.75; 213 tool calls per full run, 7 unavailable of which 6 forbidden.
 7. Audit: 4 of 310 service classes used, 12 chart sections, 1,045 SQL statements per dashboard load, 169 KB about 42K tokens for the five-year chart; the `aclCheckIssue` fail-open found on the first live role test (`AUDIT.md` §8).
 8. Infrastructure: one s-2vcpu-4gb Droplet at $0.03571 per hour since 2026-09-15 19:12 UTC, CI runner $0.00893 per hour since 2026-09-16, Apache prefork `MaxRequestWorkers` 250, `tool_concurrency` 6, gateway timeout 2.0 s, daily halt 2,000,000 tokens (about 1,100 turns), 10 turns per minute per conversation. Fill in the 10- and 50-user p95, error rate and peak CPU/memory from Saturday's report before both AI interviews.
+
+**At the final submission (2026-09-20) the measured items above read** (the
+audit figures in 7 stand; of the constants in 8, `tool_concurrency` is gone
+since `b40d456`, which sends each retrieval batch as one gateway request
+under the same 2.0 s timeout):
+
+- Eval: 48 cases, live cases x 3: 124 attempts, 123 passed, every blocking gate PASS, golden set 29/29 attempts, citations 615/615 (`evals/results/2026-09-20T051146Z-0f11642.md`). The one miss, `CONF-DUP-NAMES-C2-001`, is a holdout hedging flip. Single pass at the deployed tree `478f432`: 48 of 48, citations 206/206 (`evals/results/2026-09-20T064022Z-4d2a9fd.md`).
+- Latency on 126 model-backed turns: p50 8.2 s, p95 15.8 s, p99 20.6 s; first turns p95 18.6 s, follow-ups p95 11.2 s; the deployed-tree pass reads p95 20.0 s on 42 turns. Thresholds unchanged: warn 30 s, block 45 s.
+- Cost: $0.0104 per model-backed turn in the release run, $0.0113 in the deployed-tree pass; 1.56 model calls, about 293 in / 897 out / 4,413 cache-read tokens; projection basis still $0.0223.
+- Stability: 123/124 at `0f11642`. Against `a4a5856`: p95 24.1 s to 15.8 s, task success 95% to 100%, model calls per turn 2.33 to 1.56; first-turn p95 moved the other way, 16.0 s to 18.6 s.
+- Suite shape: 15 golden, 4 holdout, 9 authorization cases, 11 categories, 26 cohort patients, 145 pytest tests, 22 Bruno requests (the recorded Bruno runs are 21 of 21).
+- Scorecard (release run): repair rate 12.7%, withheld 1.1%, claims per turn 4.25.
+- Load, measured 2026-09-18 before the batching and effort changes: 10 users p95 45.0 s with 10.0% errors; 50 users p95 43.8 s with 5.6% errors and 76% of turns `partial`; peak CPU `openemr` 103.2%, `database` 111.0%, `agent` 43.7%; host memory used never passed 1,526 MiB of 3,916 MiB. The brief prepared on chart open is ready in p50 13.4 s, p95 17.5 s; at a 10 s reading lag the physician waits p50 3.4 s, p95 7.5 s (`docs/audit/evidence/performance/brief-latency-2026-09-19.md`; the lag is a parameter, not observed).
 
 ---
 

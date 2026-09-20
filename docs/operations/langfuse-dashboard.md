@@ -28,22 +28,25 @@ are committed for evaluators without project access under
 | Tool calls by name over time | Count of TOOL observations grouped by name (`encounters`, `problems`, `medications`, `allergies`, `lab_results`, `clinical_notes`, `patient_context`) | Tool calls |
 | Tool errors by name | TOOL observations with level ERROR grouped by name | Tool failures |
 | ERROR-level observations over time | Count of observations of any type with level ERROR, grouped by observation type | Errors (a model call that fails and a tool that returns `unavailable` both land here) |
-| Verification pass rate (**to build**) | Average of the trace score `verification_passed` over `copilot.turn` traces per time bucket (scores emitted since 2026-09-17 by `finish_turn_trace`; absent on turns where the verifier did not run) | Verification pass/fail rate — not yet on the dashboard |
-| Turn error rate (**to build**) | Average of the trace score `turn_error` over `copilot.turn` traces per time bucket (1.0 for a failed or timed-out turn) | Error rate — not yet on the dashboard; `/metrics` `copilot_requests_total{status="5xx"}` is the alert-job source |
+| Verification pass rate | Average of the trace score `verification_passed` over `copilot.turn` traces per time bucket (scores emitted since 2026-09-17 by `finish_turn_trace`; absent on turns where the verifier did not run) | Verification pass/fail rate (on the dashboard since 2026-09-18; reads 0 in a bucket with no traffic, which means idle, not failed) |
+| Turn error rate | Average of the trace score `turn_error` over `copilot.turn` traces per time bucket (1.0 for a failed or timed-out turn) | Error rate (on the dashboard since 2026-09-18); `/metrics` `copilot_requests_total{status="5xx"}` is the alert-job source |
 
-### The two panels still to build
+### The verification and error-rate panels
 
 These are the last two of the PRD's dashboard minimum (p.8, "verification
-pass/fail rate" and "error rate"). Everything they need already exists; only
-the two widgets are missing, and Langfuse Cloud exposes no widget API, so
-they are built in the UI.
+pass/fail rate" and "error rate"). Both widgets are on the Clinical Co-Pilot
+dashboard: built in the UI on 2026-09-18 (`docs/_status/week1-final-push.md`),
+because Langfuse Cloud exposes no widget API, and seen drawing data there on
+2026-09-20. The committed panel renders in
+`docs/audit/evidence/observability/` are the nine-panel set from 2026-09-16
+and predate both; they have not been re-rendered.
 
 Verified 2026-09-20 against `GET /api/public/v2/scores`: 8,709 scores are
 recorded on the project, and a 50-score sample carried `verification_passed`
-and `turn_error` on `copilot.turn` traces. Both panels will have history the
-moment they are created — they are not waiting on new traffic.
+and `turn_error` on `copilot.turn` traces.
 
-For each: **Dashboards → Clinical Co-Pilot → Add widget**, then
+The widget definition, kept so either can be rebuilt: **Dashboards →
+Clinical Co-Pilot → Add widget**, then
 
 | Field | Verification pass rate | Turn error rate |
 | --- | --- | --- |
@@ -56,9 +59,6 @@ For each: **Dashboards → Clinical Co-Pilot → Add widget**, then
 
 Read the first as "fraction of turns whose verifier passed" (1.0 is all
 passed) and the second as "fraction of turns that errored" (0.0 is none).
-After saving both, re-render the panel set into
-`docs/audit/evidence/observability/` so the committed evidence matches the
-live dashboard, and strike the two "**to build**" rows above.
 
 The Langfuse Agent Dashboard adds p95 latency per tool and observation
 types; the Latency dashboard adds p95 by trace name and by model.
@@ -69,7 +69,14 @@ types; the Latency dashboard adds p95 by trace name and by model.
   tags `copilot` plus the turn type (`uc01_first` or `followup`; set in
   `agent/app/telemetry.py`), metadata `correlation_id`, `conversation_id`,
   and `turn_type`, plus PHI-free totals (`status`, `claims`, `withheld`,
-  `tool_calls`, `timings_ms`, `usage`) attached when the turn finishes.
+  `tool_calls`, `timings_ms`, `usage`, `verification`) attached when the turn
+  finishes. Since 2026-09-19 (commit `49f1637`) the totals are readable in
+  the UI (an allowlist, `METADATA_KEYS`, lets them through the mask, which had
+  been digesting them too), they include `summary_basis` and the
+  `summary_replaced` rule name, each generation carries a `prompt_version`
+  hash, and a third trace score, `summary_model_kept` (1.0 when the model's
+  summary was shown, 0.0 when the deterministic one replaced it), joins
+  `verification_passed` and `turn_error`.
 - Nested observations: the graph nodes (`authorize`, `classify`,
   `retrieve`, `plan`, `narrate`, `verify`, `repair`, `render`) as chains,
   one GENERATION per model call with token usage and cost, and one TOOL
@@ -81,6 +88,16 @@ types; the Latency dashboard adds p95 by trace name and by model.
   bytes}`) by the client-side mask (ADR-0007). No claim text, record text,
   names, or identifiers reach Langfuse. Verified by reading traces back
   through the API and in the UI on 2026-09-16.
+- That is the code default and what the 2026-09-16 renders and the committed
+  trace export show. Since 2026-09-19 the demo deployment runs content
+  capture instead (`COPILOT_TRACE_CONTENT`, default `1` in
+  `infra/digitalocean/runtime/compose.yaml`, off in `agent/app/settings.py`;
+  ADR-0007 amendment of 2026-09-19): the mask is not installed, each `plan`,
+  `narrate`, and `repair` generation carries its system prompt, messages
+  (evidence pack and question), and raw output, and the turn trace carries the
+  question, the rendered answer, the model's own summary, accepted and
+  rejected claims, and the summary-replacement reason. The deployment holds
+  synthetic patients only; `COPILOT_TRACE_CONTENT=0` restores the digests.
 
 ## Project state noted on 2026-09-16
 
@@ -92,13 +109,16 @@ types; the Latency dashboard adds p95 by trace name and by model.
   nothing. **Three migration targets remain before 2026-11-16.** (1) Added
   2026-09-17 with the `verification_passed` and `turn_error` trace scores:
   `finish_turn_trace` calls `score_trace` on every turn
-  (`agent/app/telemetry.py:164,191-192`), and langfuse 4.15.3 posts scores
+  (`agent/app/telemetry.py`; lines 280-284 and 319-322 as of 2026-09-20, where
+  `summary_model_kept` is a third score on the same path), and langfuse
+  4.15.3 (the local virtualenv that was read; `agent/requirements.lock` pins
+  4.15.4 for the container) posts scores
   through `LangfuseSpan.score_trace` -> `create_score` -> `add_score_task`
   -> `ScoreIngestionConsumer` -> `POST /api/public/ingestion`
   (`langfuse/_utils/request.py:59`), the v3 ingestion endpoint the SDK itself
   marks "removed on November 16, 2026" (`langfuse/api/ingestion/client.py:32`);
   bump the SDK to a release whose score path no longer posts there and confirm
-  the two scores still arrive on a `copilot.turn` trace. (2) The runnable
+  the scores still arrive on a `copilot.turn` trace. (2) The runnable
   trace-lookup curl in `docs/operations/correlation-id-walkthrough.md:50`
   (`GET /api/public/traces?limit=50`) and (3) the one-off export that produced
   the committed trace evidence,

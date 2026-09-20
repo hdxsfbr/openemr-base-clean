@@ -5,7 +5,8 @@ agent capability must reference a use case here; `ARCHITECTURE.md` traces each
 capability and tool to the table in "What the Use Cases Require of the Agent".
 The profile and workflow are hypotheses until the validation work at the end
 is done. The clinician-proxy interview is still open (2026-09-14; still open
-as of 2026-09-16, `docs/SUBMISSION_CHECKLIST.md`).
+as of 2026-09-16 and at the final submission, 2026-09-20,
+`docs/SUBMISSION_CHECKLIST.md`).
 
 Patients named below (`AF-*`) are fictional members of the synthetic cohort
 `af-cohort-v1` (`evals/fixtures/cohort/README.md`). They make the examples
@@ -73,7 +74,7 @@ case below states its own variation.
 
 | Time | What the physician is doing | What the co-pilot does |
 | --- | --- | --- |
-| T−30 s | Signs the previous patient's note, looks at the calendar, sees the next appointment (name, time, a reason line such as "3-month follow-up"), and clicks it. The chart opens on the patient dashboard. | *(Originally: nothing yet; no retrieval, no model call, no audit row until asked. As built 2026-09-19, module 0.5.0: the panel starts the UC-01 brief here, as the chart loads, so the answer is waiting at T0 instead of arriving around T+14 s. `BriefPolicy` decides this server-side; mode `off` restores the original behaviour and mode `visit_today` limits it to patients on today's schedule. ADR-0003 amendment.)* |
+| T−30 s | Signs the previous patient's note, looks at the calendar, sees the next appointment (name, time, a reason line such as "3-month follow-up"), and clicks it. The chart opens on the patient dashboard. | *(Originally: nothing yet; no retrieval, no model call, no audit row until asked. As built 2026-09-19, module 0.5.0: the panel starts the UC-01 brief here, as the chart loads, so the answer is waiting at T0 instead of arriving around T+14 s. `BriefPolicy` decides this server-side: the default mode, `visit_today`, starts it only when the schedule shows a visit today for this patient, as it does for an appointment just clicked on the calendar; mode `always` starts it on every chart open and is what the demo deployment runs; mode `off` restores the original behaviour. No mode starts one for a break-glass login or for a role with no clinical section (front desk). ADR-0003 amendment.)* |
 | T0 | Reads the dashboard header: name, age, last visit date. | The panel renders inside the dashboard, bound to this chart and this login (ADR-0002). It offers one question: "What changed since the last visit?" *(As built 2026-09-16: three starter chips, one per use case, with this question first; after each answer the chips are the turn's own record-shaped follow-ups, topped up from the starters. `copilot.js`, ADR-0006 §8.)* |
 | T+2 s | Opens the drawer, or clicks a question. | The gateway checks the session, patient, and section permissions, audits the read, and renders the retrieved records first: counts by section, each row cited. *(As built: with the brief prepared on open, this work has already happened and the drawer opens on a finished answer; a typed question still starts here.)* |
 | T+5 s | Reads the brief. | The verified narrative arrives: changes grouped by section, every statement cited, absences and conflicts stated. *(Measured 2026-09-19: a first turn is p50 9.2 s, p95 24.8 s, which is why it is now started at T−30 s rather than read at T+5 s.)* |
@@ -99,6 +100,21 @@ retrieved records stream before the narrative (SSE `evidence` event), but time
 to first evidence is not yet measured. Failure states are implemented: each
 unavailable section is a named limitation line, and the panel shows an
 explicit "Co-Pilot unavailable" message per error code (`copilot.js`).
+
+*Status 2026-09-20:* the clinician-proxy interview has not taken place, so
+eight seconds is still a hypothesis. The complete verified response now
+measures p50 8.2 s, p95 15.8 s over 126 model-backed turns in the
+three-attempt release run (`evals/results/2026-09-20T051146Z-0f11642.md`)
+and p50 8.7 s, p95 20.0 s over 42 in the single-pass run at the deployed tree
+(`evals/results/2026-09-20T064022Z-4d2a9fd.md`); a UC-01 first turn alone is
+p50 9.7 s, p95 18.6 s in the release run. With the brief prepared on chart
+open, the physician waits only what is left after their own reading time
+(`KEY_METRICS.md`, "Physician wait for the brief"): 12 briefs on four cohort
+charts were ready p50 13.4 s, p95 17.5 s after chart open, so a drawer opened
+10 s in waits p50 3.4 s, p95 7.5 s, and one opened 20 s in waits nothing
+(`docs/audit/evidence/performance/brief-latency-2026-09-19.md`; the reading
+time is a parameter there, no real physician session has been timed). Time
+to first evidence is still NOT MEASURED.
 
 ## Use Case UC-01: Changes Since the Last Visit
 
@@ -343,14 +359,24 @@ one the physician opened, read under their own session and logged under their
 name — no schedule-to-patients lookup, no read of a chart that is not open,
 and the parity model ("open a chart and be logged") intact. What is given up
 is the spend and audit floor: a brief prepared for a chart whose drawer is
-never opened costs about $0.011 and writes its audit rows anyway, which
-`brief_started` against `drawer_open` measures
+never opened costs about $0.011 (the live-suite average per model-backed
+turn, 2026-09-19; a brief's own cost is not measured) and writes its audit
+rows anyway, which `brief_started` against `drawer_open` measures
 (`docs/operations/usage-funnel.md`). That is why the default
 (`COPILOT_BRIEF_ON_OPEN=visit_today`) prepares one only for a patient today's
 schedule shows a visit for — the sweep's scope argument, applied to spend:
 the brief is for the 90 seconds before a visit, so a chart opened for any
 other reason is not the moment. Mode `always` prepares one per chart open;
-mode `off` restores the click.
+mode `off` restores the click. *(As deployed 2026-09-20: the demo Droplet
+overrides the default to `always`
+(`infra/digitalocean/runtime/compose.yaml`), because its cohort carries
+whatever schedule was last seeded and a walkthrough has to show the brief on
+whichever chart is opened; that is a deployment choice, not a change to the
+product default. "Today" is PHP's day, and every container on that Droplet
+runs UTC, so under `visit_today` there the schedule would roll over at
+00:00 UTC, 17:00 Pacific daylight time; a clinic needs its own timezone on
+every container that writes a date (`docs/deployment/digitalocean.md`,
+"Clocks").)*
 
 ## Rejected and Deferred Use Cases
 
@@ -404,6 +430,19 @@ explicit states: implemented as deterministic limitation lines
 `MODEL-OUTAGE-001` and `MODEL-FALLBACK-OFFLINE-001` pass; the fallback brief
 renders the change set and absence states as cited claims with no model call.
 
+*Status 2026-09-20:* the suite is 48 cases. Every case named in the status
+notes of this document passes in the latest committed full run, 48 of 48 at
+the deployed runtime tree (`evals/results/2026-09-20T064022Z-4d2a9fd.md`,
+citation resolution 206/206), and on every attempt of the three-attempt
+release run (`evals/results/2026-09-20T051146Z-0f11642.md`, 123 of 124
+attempts, 615/615) except one attempt of the holdout case
+`CONF-DUP-NAMES-C2-001`. The gaps recorded on 2026-09-16 are unchanged:
+citation correctness is NOT MEASURED, record click-through is not
+instrumented (the usage funnel counts chart opens, briefs started, drawer
+opens, and the first turn's type, not citation clicks;
+`docs/operations/usage-funnel.md`), and no eval asserts the UC-03 pronoun
+form or the UC-02 "no follow-up found in the chart" wording.
+
 Tools required, all read-only and patient-bound: patient context, encounters,
 clinical notes, problems, medications, allergies, laboratory observations. Each
 maps to a chart section the user could open, and each is used by at least one
@@ -411,7 +450,11 @@ use case above (`ARCHITECTURE.md` carries the tool-to-use-case matrix).
 
 Not required by any use case, and therefore not built: patient search or
 lookup, schedule access, any write, memory across conversations, cross-user
-context, streaming voice, file or image input.
+context, streaming voice, file or image input. *(2026-09-19, module 0.5.0:
+the agent still has no schedule tool. In mode `visit_today` the module's
+`BriefPolicy` asks the schedule one question server-side, whether the open
+chart has a non-cancelled appointment dated today, and nothing about any
+other patient; ADR-0003 amendment.)*
 
 ## Secondary Users
 
@@ -435,6 +478,12 @@ boxes above remain open (`docs/SUBMISSION_CHECKLIST.md`). The material for
 the last one exists as the table in "Rejected and Deferred Use Cases"; the
 box is left for the owner to tick. The metric thresholds that
 depend on the interview stay provisional in `KEY_METRICS.md`.
+
+*Status 2026-09-20:* unchanged; no clinician or proxy interview has taken
+place and every box above is still open. The technical interview of
+2026-09-17 asked about the latency target, the cost helper, and capacity
+(`docs/INTERVIEW_FEEDBACK.md`), not about this workflow, so it settles none
+of the questions below.
 
 Questions the interview should settle, tied to the decisions above:
 

@@ -162,7 +162,7 @@ agent/.venv/bin/python -m pytest -q agent/tests
 agent/.venv/bin/python evals/run.py --offline-only
 ```
 
-Live cases (`--golden-only` for the 14-case smoke set, or a full run) drive a
+Live cases (`--golden-only` for the 15-case smoke set, or a full run) drive a
 deployment through the same login handshake as the panel and need the demo
 clinician password in `DEMO_PASSWORD`; see `evals/README.md`, "Running".
 
@@ -251,11 +251,12 @@ and known limitations are documented in
 provisioned and externally verified on September 14, 2026 (public TLS smoke
 test, demo data loaded), re-provisioned the same evening for the audit's
 public probe, and destroyed after each of those runs to control cost. What is
-live at `https://openemr-137-184-4-22.sslip.io` today is commit `e1dd331`, tag
-`week1`, deployed September 16, 2026 (health and readiness confirmed that day;
-no runtime directory changed between `831e1d8` and `e1dd331`). The older
-`v0.2.0-slice` tag served the deployment from September 15 and is no longer
-what is deployed; no image digest has been recorded for the current deploy.
+live at `https://openemr-137-184-4-22.sslip.io` is the runtime tree of commit
+`478f432`, deployed September 20, 2026; the submission tag `week1-final`
+differs from it only in documentation and eval results (`README.md`,
+"Deployment", has the verification runs and the recorded image digests). The
+early submission was commit `e1dd331`, tag `week1`, deployed September 16,
+2026; the older `v0.2.0-slice` tag served the deployment from September 15.
 The deployment runs the project's own OpenEMR image carrying the co-pilot
 module, behind a deny-by-default Caddy path allowlist; the audit required both
 before an evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections

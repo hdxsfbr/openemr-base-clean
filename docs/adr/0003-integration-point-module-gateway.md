@@ -108,6 +108,36 @@
   physician re-asks for the current state; and a page reload inside the
   brief's own 10-25 s window can pay for a second brief, which a 60-second
   per-tab guard narrows but does not close.
+- **Status note (2026-09-20, brief on chart open as deployed):** the clinic
+  `TZ` the 2026-09-20 sentence above relies on was set on the demo deployment
+  on 2026-09-19 (`a6bb7b2`, on `openemr` and `agent` only) and removed again
+  the same night (`c37b9e6`, which touches `compose.yaml` only). Set on some
+  containers and not the others it put two clocks in one `datetime` column,
+  and conversation resume returned a stale transcript
+  (`ISO-RECENT-PATIENT-RESUME-001` failed 3 of 3 in
+  `evals/results/2026-09-20T041411Z-6c787bd.md` and passes again in
+  `evals/results/2026-09-20T043551Z-c37b9e6.md`). Every container now runs
+  UTC and the compose file sets no `TZ`; `configure_timezone()` stays in
+  `openemr-entrypoint.sh` and does nothing while `TZ` is unset, and
+  `BriefPolicy` still takes PHP's day. So "today" on this deployment is the
+  UTC day, and the mid-afternoon rollover described above is its actual
+  behaviour for a reader in the Americas; the Droplet's `always` override
+  means the demo does not depend on it. A real clinic needs its timezone on
+  every container that writes a date, together, plus a migration of the rows
+  already written (`docs/deployment/digitalocean.md`, "Clocks";
+  `docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10).
+  Measured for the brief itself: time to a ready brief p50 13.4 s, p95 17.5 s
+  over 12 briefs on four charts, so a physician who opens the drawer 10 s
+  after the chart waits p50 3.4 s, p95 7.5 s, where the reading lag is a
+  parameter and not an observation
+  (`docs/audit/evidence/performance/brief-latency-2026-09-19.md`). One flaw
+  found in the browser check and recorded, not patched: a restored transcript
+  draws the brief as a question the physician typed, because the history the
+  agent returns does not say which turn the panel started (same evidence file
+  as the clock, §6). The Bruno collection has 22 requests since `8e4facb`
+  (`1 Session/06 Brief on chart open.bru` asserts the `brief_on_open`
+  contract, not a particular day's value); the recorded collection runs are
+  of the 21 that preceded it.
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (project owner)
 - **Related requirements:** PRD "an AI agent embedded directly into OpenEMR";

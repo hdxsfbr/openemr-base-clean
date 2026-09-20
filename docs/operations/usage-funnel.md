@@ -21,11 +21,15 @@ it costs: `brief_started` against `drawer_open` is the waste rate.
 Read it as three ratios:
 
 - `brief_started / chart_open` — how often the policy fires. It is ~1 in mode
-  `always`, and in mode `visit_today` it is the share of opened charts that are
-  patients being seen today.
+  `always` (what the demo Droplet's compose file sets), and in mode
+  `visit_today` (the module's default) it is the share of opened charts that
+  are patients being seen today.
 - `drawer_open / brief_started` — **the waste rate.** Every brief without a
-  drawer open is about $0.011 of model spend, one `copilot-model-disclosure`
-  audit row, and one tool fan-out for an answer nobody read. Sustained low, the
+  drawer open is about $0.011 of model spend (the live-suite average per
+  model-backed turn, `evals/results/2026-09-19T230512Z-f4f69ab4.md`; the cost
+  of a brief alone is not measured), its `copilot-tool-read` rows and two
+  `copilot-model-disclosure` rows (one per retrieval batch of a UC-01 first
+  turn), and the tool fan-out, for an answer nobody read. Sustained low, the
   answer is mode `visit_today`, then mode `off`.
 - `uc01_first / (uc01_first + followup)` — does a conversation open with the
   brief. Now near 1 wherever the brief is prepared, since the brief *is* the
@@ -59,4 +63,7 @@ panel event also writes one JSON log line (`"msg": "panel event: drawer_open"`,
   off two adjacent events.
 - Until real physicians use the deployment these numbers describe the
   developer and the graders. The point of shipping it now is that the numbers
-  exist from the first real session on.
+  exist from the first real session on. As of 2026-09-20 no funnel reading is
+  recorded: `docs/audit/evidence/performance/brief-on-open-2026-09-20.md`
+  section 9 lists `brief_started` against `drawer_open` over a session as
+  still to record.
