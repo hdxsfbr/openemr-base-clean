@@ -156,11 +156,18 @@ resumes at line 51).
 
 - [ ] Early checklist rerun against the final commit and deployment.
 - [ ] Interview feedback addressed or documented as a tradeoff.
-- [x] Three required alert definitions and on-call responses are documented.
+- [x] Three required alert definitions, on-call responses, and working delivery.
       *(`docs/operations/alerts.md`, `agent/app/alerts.py`, 2026-09-16.
       Scheduled on the host by the `alerts` service in
-      `infra/digitalocean/runtime/compose.yaml` every 300 s since 2026-09-17;
-      live from the M3 deploy.)*
+      `infra/digitalocean/runtime/compose.yaml` every 300 s. Delivery to Slack
+      proven end to end 2026-09-20: five faulted turns produced two `page`
+      alerts with exact denominators (5 of 5 medications calls, 5 of 35 tool
+      calls) and both landed in the channel. Proving it found two defects —
+      the tool-failure numerator was structurally zero after the
+      batched-gateway change, and the first delivery failed on Slack's payload
+      shape — both fixed and regression-tested
+      (`docs/audit/evidence/observability/alerts-slack-2026-09-20.log`). The
+      webhook URL is a Docker secret, never argv, never in the repository.)*
 - [x] CPU, memory, latency, and throughput baselines recorded.
       *(`docs/audit/evidence/performance/baseline-2026-09-18.md`, sampled every 5 s by
       `docs/audit/scripts/droplet-stats.sh` during each load level; CSVs in

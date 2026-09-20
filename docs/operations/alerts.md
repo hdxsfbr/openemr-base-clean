@@ -17,8 +17,34 @@ dashboard.
 
 | Severity | Meaning | Delivery |
 | --- | --- | --- |
-| `warn` | Logged. Look at it during the next working session. | JSON line in the job output; webhook when configured |
-| `page` | The owner acts now. | Same; in one-shot mode exit code 2 so CI or a wrapper can escalate. The `alerts` compose service loops with `--interval 300` and never exits, so there the escalation is `--webhook` or a watch on `docker compose logs alerts` for `"severity": "page"` |
+| `warn` | Look at it during the next working session. | JSON line in the job output, and a Slack message |
+| `page` | The owner acts now. | Same, plus exit code 2 in one-shot mode so CI or a wrapper can escalate. The `alerts` compose service loops with `--interval 300` and never exits, so there the escalation is the Slack message |
+
+## Delivery
+
+Alerts reach Slack. The deployment runs the evaluator with
+`--webhook-file /run/secrets/slack_alert_webhook`, a Docker secret holding a
+Slack incoming webhook: a webhook URL is a credential, and an argv value is
+visible to `docker inspect` and every process listing on the host, so it takes
+the same file-secret path as the model and tracer keys. Push it with
+`push-secrets.sh` after writing it to
+`~/.config/agentforge/slack_alert_webhook`. The file is read every cycle, so
+supplying it to a running host needs no restart, and an absent or empty file
+means log-only rather than a crash.
+
+The payload leads with a one-line `text` summary and keeps every structured
+field after it, because Slack rejects a body without `text` or `blocks` as
+`invalid_payload` while ignoring keys it does not recognise — so one body
+renders in a channel and still parses for a generic receiver.
+`--webhook-channel` names a channel, but Slack honours that only on legacy
+custom-integration webhooks; an app-based webhook is bound to the channel
+chosen at creation.
+
+Proven end to end on 2026-09-20, including two defects that only showed up by
+proving it: the tool-failure alert's numerator was structurally zero after the
+batched-gateway change, and the first delivery attempt failed on payload
+shape. Both fixed, both regression-tested.
+`docs/audit/evidence/observability/alerts-slack-2026-09-20.log`.
 
 ## Alert 1: turn latency
 

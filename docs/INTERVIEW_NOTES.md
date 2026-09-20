@@ -352,6 +352,24 @@ migration of rows written on the old clock; doing it partially is worse than
 UTC. Full write-up:
 `docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10.
 
+**The alerts page a Slack channel, and proving that found two defects.** The
+three PRD alerts were evaluated every 300 s and written to stdout, which meant
+a page at 3am reached nobody. Wiring the webhook was meant to be a five-minute
+job. Driving five faulted turns at the deployment showed `/metrics` had no
+`medications` row at all: the batched-gateway optimisation
+(`046b96e`) resolves fault-injected and invalid-params tools locally and
+skipped the counter increment, so the tool-failure alert's numerator was
+structurally zero and it could not fire. That is not just a test gap —
+`invalid_params` is a real production failure, the model emitting a parameter
+the contract rejects, and it was invisible to the alert built to catch it. The
+2026-09-18 page predates batching, which is exactly why the alert looked
+healthy. Fixed, then the first real delivery returned
+`"webhook_delivered": false` because Slack rejects a body without `text`.
+Fixed too. Both pages now land in the channel with exact denominators.
+Evidence: `docs/audit/evidence/observability/alerts-slack-2026-09-20.log`. The
+lesson I would state to a CTO: an alert you have never seen fire end to end is
+a hypothesis, not a control.
+
 **Two gates read NOT MEASURED, by design, not by omission.** Citation
 correctness needs gold source ids per case — the runner can prove every
 citation resolves to a retrieved record (and does, on every run), but not that

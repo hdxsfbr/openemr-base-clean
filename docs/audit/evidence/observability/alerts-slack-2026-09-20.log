@@ -1,0 +1,41 @@
+alerts-1  | {"event": "heartbeat", "rate_window_seconds": 162.2, "ts": 1789885557.5706575, "turns_5m": 0.0}
+
+## What this shows (2026-09-20)
+
+Runtime alert delivery, proven end to end against the live deployment, and
+two defects found by proving it rather than assuming it.
+
+Method: five turns as `audit-physician` on AF-DQ-A2 carrying
+`X-Copilot-Fault: tool:medications`, the same method as the 2026-09-18
+rehearsal. Each returned `status=partial` with `medications=unavailable`.
+
+**Defect 1 — the alert could not fire.** `/metrics` showed six tools, all
+`ok` or `empty`, with no `medications` row at all. `_call_batch` resolves
+fault-injected and invalid-params tools locally and `continue`d past the
+`metrics.tool_call` increment, which the batched-gateway change (046b96e,
+2026-09-19) left running only for tools that reach the gateway. The
+tool-failure alert reads `copilot_tool_calls_total`, so its numerator was
+structurally zero. The 2026-09-18 page predates batching, which is why the
+alert looked healthy. `invalid_params` — a real production failure, the model
+emitting a parameter the contract rejects — was equally invisible. Fixed in
+`dbf5372` with a graph regression test.
+
+**Defect 2 — delivery failed silently.** With the counter fixed the alert
+fired correctly on both rules and reported `"webhook_delivered": false`.
+Slack rejects any body without `text` or `blocks` as `invalid_payload`, and
+the job posted the raw alert record. Fixed in `0471178`: the payload now
+leads with a one-line summary and keeps every structured field after it, so
+one body serves Slack and a generic receiver.
+
+**Result.** Both rules fired and both delivered, `"webhook_delivered": true`,
+and the two pages appeared in the Slack channel at 23:23 local:
+
+    [PAGE] tool_failure_rate: Tool medications returned unavailable on
+    100.00% of 5 calls; a service path is broken.
+    [PAGE] tool_failure_rate: 5 of 35 clinical tool calls returned
+    unavailable (14.29%); above the 5% page threshold.
+
+The denominators are exact: 5 of 5 medications calls, 5 of 35 tool calls
+across the five turns. The webhook URL is a file secret
+(`/run/secrets/slack_alert_webhook`), never an argv value visible to
+`docker inspect`, and is not in the repository.
