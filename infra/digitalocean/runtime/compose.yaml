@@ -22,6 +22,12 @@ services:
       MARIADB_USER: openemr
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MARIADB_PASSWORD_FILE: /run/secrets/mysql_password
+      # Must match the openemr service. PHP writes created_at/last_turn_at and
+      # MariaDB writes NOW() into the same columns, so if the two containers
+      # disagree the column holds two different clocks and every "most recent"
+      # comparison over it is wrong -- which is exactly what happened when the
+      # clinic clock was set on openemr alone (ISO-RECENT-PATIENT-RESUME-001).
+      TZ: ${TZ:-America/Los_Angeles}
     secrets:
       - mysql_root_password
       - mysql_password
