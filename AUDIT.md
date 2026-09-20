@@ -4,8 +4,8 @@
 
 We audited OpenEMR (commit `fc95374`) before writing any AI code: code tracing,
 read-only SQL, live role tests, image scans, a public deployment probe, timing,
-and a planted synthetic cohort. Every claim below was re-checked against source or the
-database. Five findings changed the design, ranked by effect.
+and a planted synthetic cohort. Every claim below was re-checked against source
+or the database. Five findings changed the design, ranked by effect.
 
 **1. OpenEMR has no patient-level authorization.** Access is decided by role
 and chart section. `AclMain::aclCheckCore` takes no patient argument; only 4 of
@@ -17,11 +17,12 @@ view. *Consequence:* the co-pilot's isolation equals the chart's, by decision
 section ACLs per tool, audits every read, and never lets the model pick a
 patient. A stricter care-relationship policy is designed and deferred.
 
-**2. The data cannot support the use case, and it contradicts itself.** Three demo
-patients, one 2014 encounter each, no labs, three placeholder SOAP notes under
-50 characters, no onset dates. One prescription is active in `prescriptions` and
+**2. The data cannot support the use case, and it contradicts itself.** Three
+demo patients, one 2014 encounter each, no labs, three placeholder SOAP notes
+under 50 characters, no onset dates. One prescription is active in `prescriptions` and
 inactive in `lists`; the chart greys a medication by end date while the API
-calls it "stopped" by activity flag — same row, two answers. *Consequence:* tools normalize status and dates, flag conflicts, and
+calls it "stopped" by activity flag — same row, two answers.
+*Consequence:* tools normalize status and dates, flag conflicts, and
 distinguish "not documented" from "reviewed, none" and "unavailable". A
 versioned synthetic cohort reproduces each defect for evals.
 
@@ -58,6 +59,7 @@ rests on our gateway checks. Both pinned images carry fixable Critical CVEs we
 document rather than patch. Real data distributions are unverified and no
 clinician has validated the workflow. No executed BAAs, retention schedule, or
 tamper-evident audit sink. A demo system: not for real PHI, not HIPAA-certified.
+
 ---
 
 ## Audit Record
