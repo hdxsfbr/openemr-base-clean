@@ -814,13 +814,11 @@ then instead of Sunday morning.
 
 ## Sunday 2026-09-20 (docs only; docs freeze 07:00 PT; submit 08:00 PT = 10:00 CT; hard deadline 10:00 PT = 12:00 CT)
 
-- [ ] **06:00 to 07:00 PT: publish the social post and record the clip** (P0, S)
-  A 20 to 30 s screen recording of a starter question on AF-DQ-A2 with the
-  claims table and a citation click-through (`ref` and session values
-  blurred, no credentials); LinkedIn and X from `docs/SOCIAL_POST.md`, tag
-  @GauntletAI; paste the URL into checklist :135 and traceability row 41.
-  If the video or load numbers slipped, post with the eval numbers and the
-  clip rather than miss the deadline.
+- [x] **Publish the social post** (P0, S)
+  Status 2026-09-20: published, <https://x.com/_hdx_/status/2101640176279961620>
+  (from `docs/SOCIAL_POST.md`, numbers from the release run); linked from
+  `docs/SUBMISSION_CHECKLIST.md` and `docs/REQUIREMENTS_TRACEABILITY.md`
+  row 42.
 
 - [ ] **06:30 PT: rerun the early checklist against the final commit and deployment; no deploys** (P0, S)
   `evals/run.py --golden-only` and the phone check again; `git ls-remote

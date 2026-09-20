@@ -307,11 +307,10 @@ it describes has grown since.
       `agent/` source that the `agent` and `alerts` images build from and
       left the Caddyfile unchanged. Both remotes and the tag are as in the
       repository note above. Owner still to repeat the from-a-phone check.)*
-- [ ] Social post published and linked. *(Draft `docs/SOCIAL_POST.md`, LinkedIn
-      and X versions, numbers refreshed to the release run 2026-09-20, video
-      URL filled in (<https://youtu.be/ZBzNHUv8fps>): X version is 279
-      characters raw, 252 t.co-weighted. Links the public GitHub fork, never
-      the GitLab. Owner action: publish and paste the link back here.)*
+- [x] Social post published and linked. *(Published 2026-09-20:
+      <https://x.com/_hdx_/status/2101640176279961620>. Draft
+      `docs/SOCIAL_POST.md`, numbers from the release run, links the public
+      GitHub fork, never the GitLab.)*
 - [ ] Final AI interview completed within its required window.
 - [ ] Final submission completed before the portal deadline.
 
