@@ -5,8 +5,9 @@ Saturday night or Sunday 06:00 PT, with the 20 to 30 s clip). Replace
 `<final video URL>` in both versions before posting. Links go to the public
 GitHub fork only; the lab GitLab is login-only and is never linked. Every
 number below exists today and is cited to
-`evals/results/2026-09-17T024919Z-a4a5856.md` (45 cases, 44 passed, Golden
-14/14, citations 177/177, p95 24.1 s, $0.0127 per model-backed turn). If the
+`evals/results/2026-09-20T051146Z-0f11642.md` (48 cases x 3 attempts, 123 of
+124 passed, golden 29/29, citations 615/615, p95 15.8 s, $0.0104 per
+model-backed turn). If the
 release run at the final commit changes them, update the numbers here from
 that report before posting; never round a number up.
 
@@ -34,11 +35,14 @@ records before anything renders. Every statement cites a chart record, and
 the citation opens the record. Missing data stays "not documented", never
 "none". Dosing questions are out of scope by design.
 
-Numbers from the tracked eval run at commit a4a5856:
-- 45 eval cases in three tiers, 44 passed; the 14-case golden set passed 14/14
-- 177 of 177 citations resolved to a retrieved record
-- p95 latency 24.1 s per model-backed turn
-- $0.0127 per turn at list price
+Numbers from the tracked release run at commit 0f11642, every case run three
+times against the live deployment:
+- 48 eval cases in three tiers, 123 of 124 attempts passed; the golden set 29/29
+- 615 of 615 citations resolved to a retrieved record
+- p95 latency 15.8 s per model-backed turn
+- $0.0104 per turn at list price
+- load tested at 10 and 50 concurrent users, with the ceiling measured in
+  OpenEMR's own Apache and MariaDB rather than in the agent
 
 The audit lesson I keep: OpenEMR's issue-section ACL helper,
 AclMain::aclCheckIssue(), fails open when its type table is not loaded at page
@@ -54,7 +58,7 @@ Demo: <final video URL>
 ## X
 
 <!-- x-start -->
-90 seconds between patient rooms. Read-only OpenEMR co-pilot: every claim cites a chart record and a deterministic verifier checks it. 45 evals, 177/177 citations resolved, 1.27 cents/turn. @GauntletAI https://github.com/hdxsfbr/openemr-base-clean <final video URL>
+90 seconds between patient rooms. Read-only OpenEMR co-pilot: every claim cites a chart record and a deterministic verifier checks it. 48 evals x3, 615/615 citations resolved, 1.04 cents/turn. @GauntletAI https://github.com/hdxsfbr/openemr-base-clean <final video URL>
 <!-- x-end -->
 
 Character count commands (run from the repository root). The markers are
