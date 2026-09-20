@@ -60,6 +60,43 @@
   exception path is ever reached). Still judged acceptable per the original
   reasoning — internal-only hop, tradeoff already named in Consequences —
   but the risk is real under load, not hypothetical.
+- **Amended 2026-09-19 (brief on chart open, module 0.5.0):** the panel may
+  now start the UC-01 brief itself as a chart finishes loading, instead of
+  waiting to be clicked. *Why:* the first turn measured p50 9.2 s and p95
+  24.8 s on the live suite (`evals/results/2026-09-19T230512Z-f4f69ab4.md`),
+  and the moment this product is designed for is the 90 seconds between two
+  visits (`USERS.md`); a quarter of that spent watching a spinner is the
+  single worst thing about the panel. *What is unchanged:* the brief is the
+  UC-01 starter question sent through the same path as a click — the user's
+  session and CSRF, a per-turn ticket, the delegation token, the gateway's
+  per-tool section ACL, audit-before-data, and the deterministic verifier.
+  There is no new endpoint, no new authorization, and nothing the client
+  asserts: `BriefPolicy` decides server-side and the panel obeys, the same
+  way the agent's known-plan table matches on its own constants
+  (`agent/app/graph/nodes.py`, `KNOWN_PLANS`). *What is changed:* retrieval,
+  one model call, and the `copilot-tool-read` and `copilot-model-disclosure`
+  audit rows now happen for a chart that was opened, where before they
+  happened only for a chart that was asked about; `USERS.md`'s "nothing is
+  retrieved before the click" holds only in mode `off`. The rows are still
+  the physician's own read of a chart they opened, audited under their name.
+  *Modes* (`COPILOT_BRIEF_ON_OPEN`, default `always`): `off` restores the
+  previous behaviour; `always` prepares a brief per chart open; `visit_today`
+  prepares one only when the schedule shows a visit today for that patient,
+  which is the cost-shaped mode and needs the cohort seeded at a current
+  `DEMO_ANCHOR` to do anything. No mode prepares a brief for a role the chart
+  hides every clinical section from, or for a break-glass login, so front
+  desk does not generate a denied turn per chart open. *Not an ADR-0002
+  widening:* the only chart read is the one already open; the schedule
+  question is "does this open chart have a visit today", never "which
+  patients are on my schedule", so there is no patient lookup and no read of
+  an unopened chart — the distinction `USERS.md` draws when it defers the
+  UC-04 schedule sweep. *Residual risk:* spend on briefs nobody reads, which
+  the funnel measures as `brief_started` against `drawer_open`
+  (`docs/operations/usage-funnel.md`); a brief prepared at open and read
+  minutes later is stale, so it carries the answer's own timestamp and the
+  physician re-asks for the current state; and a page reload inside the
+  brief's own 10-25 s window can pay for a second brief, which a 60-second
+  per-tab guard narrows but does not close.
 - **Date:** 2026-09-14
 - **Owners:** Andre Batista (project owner)
 - **Related requirements:** PRD "an AI agent embedded directly into OpenEMR";

@@ -10,6 +10,12 @@
  * Everything is rendered through textContent and DOM APIs; no HTML from any
  * response is inserted.
  *
+ * The first turn can also start without a click: when session.php answers
+ * `brief_on_open` (BriefPolicy decides, server-side), the panel asks the UC-01
+ * brief question itself as the chart finishes loading, through the same
+ * session, ticket, audit and verification path as a click. The physician reads
+ * a finished brief instead of waiting about 9 s for one.
+ *
  * @package   OpenEMR
  * @author    Andre Batista
  * @copyright Copyright (c) 2026 Andre Batista
@@ -37,7 +43,10 @@
         correlationId: null,
         renderedConversationId: undefined,
         syncPromise: null,
-        busy: false
+        busy: false,
+        // Server-side decision from session.php; the panel never decides this itself.
+        briefOnOpen: false,
+        briefStarted: false
     };
     var lastTrigger = null;
 
@@ -54,6 +63,15 @@
         'Which recent abnormal labs still have no later result or documented follow-up?',
         'What does the chart say about why each current medication is on the list?'
     ];
+    // The brief is the UC-01 starter, so it takes the same classification, the same
+    // retrieval and the same gates as the click; nothing about it is a special path.
+    var BRIEF_QUESTION = STARTER_QUESTIONS[0];
+    // A reload while a brief is in flight would start a second one, because the
+    // conversation has no turn to resume yet. This tab remembers for long enough
+    // to cover the slowest turn (the agent's 45 s wall clock). The stored value is
+    // a timestamp and nothing else: no conversation id, no patient, no chart data.
+    var BRIEF_GUARD_KEY = 'copilot.brief.started';
+    var BRIEF_GUARD_MS = 60000;
     var asked = [];
 
     function el(tag, className, text) {
@@ -268,6 +286,19 @@
         scrollToEnd();
         return msg;
     }
+    /**
+     * The brief was not typed by anyone, so it is not shown as the physician's
+     * question. The line says where it came from and, once answered, renderTurn
+     * timestamps it -- a brief prepared minutes ago must not read as just-now.
+     */
+    function appendBriefHeader() {
+        clearPlaceholder();
+        var msg = el('div', 'copilot-brief-header small text-muted');
+        msg.appendChild(el('span', null, 'Pre-visit brief · what changed since the last visit'));
+        transcript.appendChild(msg);
+        scrollToEnd();
+        return msg;
+    }
     function appendPending() {
         var msg = el('div', 'copilot-msg copilot-msg-assistant');
         var line = el('div', 'copilot-progress');
@@ -432,6 +463,7 @@
             }
             if (!r.data.chart_open) { throw new Error('no_chart'); }
             state.csrf = r.data.csrf_token;
+            state.briefOnOpen = r.data.brief_on_open === true;
         });
     }
     function resumeConversation() {
@@ -447,7 +479,9 @@
         asked = [];
         transcript.textContent = '';
         renderSuggestions([]);
-        transcript.appendChild(el('div', 'copilot-hint small text-muted', 'Nothing is retrieved until you ask. Pick a question or type your own.'));
+        transcript.appendChild(el('div', 'copilot-hint small text-muted', state.briefOnOpen
+            ? 'Preparing this chart’s brief. Ask your own question any time.'
+            : 'Nothing is retrieved until you ask. Pick a question or type your own.'));
     }
     function synchronizeChart() {
         if (state.syncPromise) { return state.syncPromise; }
@@ -550,16 +584,16 @@
             suggestions.appendChild(chip);
         });
     }
-    function ask(question) {
+    function ask(question, auto) {
         if (state.busy) { return; }
         setBusy(true);
         var pending = null;
-        setStatus('Checking the open chart…', 'text-muted');
+        setStatus(auto ? 'Preparing the brief…' : 'Checking the open chart…', 'text-muted');
         prepareTurn().then(function () {
             asked.push(question);
-            appendUser(question, new Date().toISOString());
+            if (auto) { appendBriefHeader(); } else { appendUser(question, new Date().toISOString()); }
             pending = appendPending();
-            setStatus('Working…', 'text-muted');
+            setStatus(auto ? 'Preparing the brief…' : 'Working…', 'text-muted');
             return ensureConversation();
         }).then(ticket).then(function (t) {
             setProgress(pending, 'Retrieving chart records…');
@@ -590,6 +624,30 @@
             }
             setStatus('', 'text-muted');
         }).finally(function () { setBusy(false); scrollToEnd(); input.focus(); });
+    }
+
+    function briefStartedRecently() {
+        try {
+            var at = Number(sessionStorage.getItem(BRIEF_GUARD_KEY) || 0);
+            return at > 0 && (Date.now() - at) < BRIEF_GUARD_MS;
+        } catch (e) { return false; }
+    }
+    function markBriefStarted() {
+        try { sessionStorage.setItem(BRIEF_GUARD_KEY, String(Date.now())); } catch (e) { /* storage unavailable */ }
+    }
+    /**
+     * Start the brief for a chart that has just opened, if the server said to.
+     * Skipped when this conversation already has turns (its answers are on
+     * screen), when a question is already running, and when this tab started a
+     * brief moments ago, so a reload mid-brief does not pay for a second one.
+     */
+    function maybeStartBrief(restored) {
+        if (restored === true || !state.briefOnOpen || state.briefStarted || state.busy || asked.length) { return; }
+        if (briefStartedRecently()) { return; }
+        state.briefStarted = true;
+        markBriefStarted();
+        fetchJson(apiBase + '/health?panel=brief_started', {}, 4000).catch(function () { /* a counter, never the user's problem */ });
+        ask(BRIEF_QUESTION, true);
     }
 
     /** Re-render the transcript selected server-side for the current open chart. */
@@ -653,11 +711,13 @@
 
     // Agent reachability through the edge; the chart does not depend on it.
     // `panel=` tells the agent why the check was made: the top of the usage funnel in its /metrics
-    // (chart opened with the panel, drawer opened, kind of first question). No ids, no chart data.
+    // (chart opened with the panel, brief prepared for it, drawer opened, kind of first question).
+    // Briefs prepared against drawers opened is what the precompute costs against what it is worth.
+    // No ids, no chart data.
     fetchJson(apiBase + '/health?panel=chart_open', {}, 4000).then(function (r) {
         if (r.ok && r.data) {
             setStatus('', 'text-muted');
-            return synchronizeChart();
+            return synchronizeChart().then(maybeStartBrief);
         }
         setStatus('Unavailable: agent service not reachable. The chart is unaffected.', 'text-danger');
         return false;

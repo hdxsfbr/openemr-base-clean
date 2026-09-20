@@ -5,7 +5,8 @@
  *
  * Included by OpenEMR on every request while the module is active
  * (ModulesApplication::bootstrapCustomModules). It only registers listeners;
- * nothing clinical happens until the physician asks a question.
+ * nothing clinical happens until the physician opens a chart the co-pilot
+ * prepares a brief for (BriefPolicy), or asks a question.
  *
  * @package   OpenEMR
  * @link      https://www.open-emr.org

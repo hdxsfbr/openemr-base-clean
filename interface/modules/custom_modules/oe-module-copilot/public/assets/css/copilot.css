@@ -224,6 +224,14 @@
     text-align: center;
 }
 
+/* Says where an answer nobody typed a question for came from. */
+#copilot-panel .copilot-brief-header {
+    margin-bottom: 0.25rem;
+    padding: 0.15rem 0.5rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 #copilot-panel .copilot-composer {
     flex: 0 0 auto;
     padding: 0.75rem 1rem 1rem;

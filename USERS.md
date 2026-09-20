@@ -73,10 +73,10 @@ case below states its own variation.
 
 | Time | What the physician is doing | What the co-pilot does |
 | --- | --- | --- |
-| T−30 s | Signs the previous patient's note, looks at the calendar, sees the next appointment (name, time, a reason line such as "3-month follow-up"), and clicks it. The chart opens on the patient dashboard. | Nothing yet. No retrieval, no model call, no audit row until asked. |
+| T−30 s | Signs the previous patient's note, looks at the calendar, sees the next appointment (name, time, a reason line such as "3-month follow-up"), and clicks it. The chart opens on the patient dashboard. | *(Originally: nothing yet; no retrieval, no model call, no audit row until asked. As built 2026-09-19, module 0.5.0: the panel starts the UC-01 brief here, as the chart loads, so the answer is waiting at T0 instead of arriving around T+14 s. `BriefPolicy` decides this server-side; mode `off` restores the original behaviour and mode `visit_today` limits it to patients on today's schedule. ADR-0003 amendment.)* |
 | T0 | Reads the dashboard header: name, age, last visit date. | The panel renders inside the dashboard, bound to this chart and this login (ADR-0002). It offers one question: "What changed since the last visit?" *(As built 2026-09-16: three starter chips, one per use case, with this question first; after each answer the chips are the turn's own record-shaped follow-ups, topped up from the starters. `copilot.js`, ADR-0006 §8.)* |
-| T+2 s | Clicks the question. | The gateway checks the session, patient, and section permissions, audits the read, and renders the retrieved records first: counts by section, each row cited. |
-| T+5 s | Reads the brief. | The verified narrative arrives: changes grouped by section, every statement cited, absences and conflicts stated. |
+| T+2 s | Opens the drawer, or clicks a question. | The gateway checks the session, patient, and section permissions, audits the read, and renders the retrieved records first: counts by section, each row cited. *(As built: with the brief prepared on open, this work has already happened and the drawer opens on a finished answer; a typed question still starts here.)* |
+| T+5 s | Reads the brief. | The verified narrative arrives: changes grouped by section, every statement cited, absences and conflicts stated. *(Measured 2026-09-19: a first turn is p50 9.2 s, p95 24.8 s, which is why it is now started at T−30 s rather than read at T+5 s.)* |
 | T+5–40 s | Asks one follow-up in their own words: "which of those labs is still open?", "why is the gabapentin on the list?" | Resolves the reference, keeps the window and patient, runs the tools the follow-up needs, cites again. |
 | T+40–75 s | Opens one or two citations: the lab report, the note. | The citation opens the record in the same chart. |
 | T+90 s | Enters the room with a two- or three-item agenda. | Has written nothing to the record and made no clinical decision. |
@@ -333,10 +333,21 @@ authorization, a schedule tool, batch orchestration with a spend budget, a
 calendar-side surface, and its own evals. The cohort already seeds today's
 appointments for `audit-physician`, so a later UC-04 needs no new fixtures.
 
-**What we keep from the sweep's idea:** the per-chart brief is one click at
-chart open, so the payoff arrives at the moment of need with no typing.
-Nothing is retrieved before the click: no model spend, no audit noise, and
-the parity model ("open a chart and be logged") stays intact.
+**What we keep from the sweep's idea:** the per-chart brief arrives at chart
+open, so the payoff is at the moment of need with no typing. *(Updated
+2026-09-19, module 0.5.0: it was one click; the panel now starts it as the
+chart loads, because a first turn measured p50 9.2 s and p95 24.8 s and the
+whole moment is 90 seconds. ADR-0003 amendment.)* What is kept from the
+argument above is the scope, which is the part that mattered: one chart, the
+one the physician opened, read under their own session and logged under their
+name — no schedule-to-patients lookup, no read of a chart that is not open,
+and the parity model ("open a chart and be logged") intact. What is given up
+is the spend and audit floor: a brief prepared for a chart whose drawer is
+never opened costs about $0.011 and writes its audit rows anyway, which
+`brief_started` against `drawer_open` measures
+(`docs/operations/usage-funnel.md`). Mode `visit_today`
+(`COPILOT_BRIEF_ON_OPEN`) spends only on patients today's schedule shows a
+visit for; mode `off` restores the click.
 
 ## Rejected and Deferred Use Cases
 

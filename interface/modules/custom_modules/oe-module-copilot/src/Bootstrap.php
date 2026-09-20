@@ -4,8 +4,11 @@
  * AgentForge Clinical Co-Pilot module bootstrap class.
  *
  * Adds a patient-menu launcher and renders its drawer through supported
- * patient-scoped events (ADR-0003). The drawer is inert until the user clicks
- * a question: no retrieval, no model call, no audit row before that.
+ * patient-scoped events (ADR-0003). What the drawer does on load is decided
+ * server-side by BriefPolicy: under `off` it stays inert until the user clicks
+ * a question, and otherwise it prepares the pre-visit brief for the chart being
+ * opened, so the answer is waiting instead of being typed for (ADR-0003
+ * amendment 2026-09-19).
  *
  * @package   OpenEMR
  * @link      https://www.open-emr.org
@@ -27,7 +30,7 @@ final class Bootstrap
 {
     public const MODULE_DIRECTORY = 'oe-module-copilot';
     public const MODULE_PATH = '/interface/modules/custom_modules/' . self::MODULE_DIRECTORY;
-    public const VERSION = '0.4.4';
+    public const VERSION = '0.5.0';
 
     /** Path prefix, relative to the site root, where the agent API is published by the edge. */
     public const API_BASE = '/copilot-api';

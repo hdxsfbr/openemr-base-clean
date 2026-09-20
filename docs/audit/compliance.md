@@ -322,6 +322,22 @@ that answered `empty` not listed, and no chart content
 (`docs/audit/evidence/compliance/04-model-disclosure-rows-2026-09-19.md`).
 The fail-closed branch has not been exercised in the deployment.
 
+*Amended 2026-09-19 (brief on chart open, module 0.5.0):* these rows, and the
+`copilot-tool-read` rows beside them, are now also written for a chart the
+physician opened without asking anything, because the panel starts the UC-01
+brief as the chart loads (`BriefPolicy`, ADR-0003 amendment). Nothing about
+the rows changes — same user, same open chart, same sections, written before
+the data leaves — but their trigger does: an opened chart, not a typed
+question. Two consequences for this section. For the minimum-necessary
+argument (§4), the read is still the one chart on screen and still the
+sections UC-01 needs, but it is now made for every chart opened rather than
+only those asked about; mode `visit_today` (`COPILOT_BRIEF_ON_OPEN`) narrows
+it to patients with a visit on today's schedule, and mode `off` restores the
+question-triggered behaviour exactly. For the access-log review (§6.1), a
+`copilot-model-disclosure` row with no drawer interaction behind it is
+expected and is not evidence of an unattended read; the physician opened that
+chart, which OpenEMR audits on its own.
+
 ## 6. Procedures: demo project vs. real deployment
 
 ### 6.1 Access-log review

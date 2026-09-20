@@ -54,8 +54,13 @@ Open a patient from the synthetic cohort (`pubpid` `AF-*`, defined in
 | AF-DQ-N | 900018 | A note says atorvastatin was stopped while the list shows it active. No deterministic note-versus-list detector exists, so naming that conflict is model recall (`CONF-NOTE-VS-LIST-N-001`, non-blocking task-success gate) and it was missed in the `a4a5856` run. The conflicts the system states deterministically come from `pack_limitations` (`agent/app/graph/nodes.py`): see AF-DQ-B, where an activity flag and an end date disagree (`CONF-STATUS-B-001`, blocking uncertainty-recall gate) |
 | AF-HEAVY | 900023 | Five years, 120 results, 39 notes; bounded retrieval at volume |
 
-The panel at the top of the dashboard offers three starter questions: "What
-changed since the last visit?", "Which recent abnormal labs still have no
+The panel at the top of the dashboard prepares the pre-visit brief ("What
+changed since the last visit?") as the chart loads, so it is waiting rather
+than typed for: a first turn takes p50 9.2 s and the moment it serves is 90
+seconds long (module 0.5.0, `BriefPolicy`, ADR-0003 amendment; the mode is
+`COPILOT_BRIEF_ON_OPEN`, where `off` restores retrieve-only-when-asked and
+`visit_today` limits it to patients on today's schedule). It also offers three
+starter questions: that one, "Which recent abnormal labs still have no
 later result or documented follow-up?", and "What does the chart say about
 why each current medication is on the list?". Follow-ups are typed in the
 composer or picked from the follow-up chips under each answer (up to three,

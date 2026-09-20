@@ -16,9 +16,11 @@ from .turn_outcome import VERIFICATION_OUTCOMES
 
 _HTTP_REASON_RE = re.compile(r"^http_(\d)\d\d$")
 REASON_NONE = "none"
-# The funnel that decides whether precomputing the UC-01 brief would ever be seen: chart opened with the
-# panel, drawer opened, and what kind of question opened the conversation. Closed label sets, no ids.
-PANEL_EVENTS = ("chart_open", "drawer_open")
+# The funnel that says whether precomputing the UC-01 brief is seen: chart opened with the panel, brief
+# started for it (BriefPolicy said so, module 0.5.0), drawer opened, and what kind of question opened the
+# conversation. `brief_started` against `drawer_open` is the precompute's waste rate: a brief prepared for
+# a chart whose drawer is never opened is spend nobody read. Closed label sets, no ids.
+PANEL_EVENTS = ("chart_open", "brief_started", "drawer_open")
 FIRST_TURN_TYPES = ("uc01_first", "followup")
 REASON_OTHER = "other"
 
@@ -65,7 +67,8 @@ class Metrics:
             self.denials[reason[:40]] += 1
 
     def panel_event(self, event: str) -> bool:
-        """A chart opened with the panel on it, or the drawer was opened. False for anything else."""
+        """A chart opened with the panel on it, a brief started for it, or the
+        drawer was opened. False for anything else."""
         if event not in PANEL_EVENTS:
             return False
         with self.lock:

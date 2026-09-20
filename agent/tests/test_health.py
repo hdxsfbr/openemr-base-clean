@@ -24,16 +24,17 @@ def test_health_is_alive_and_echoes_correlation_id(client: TestClient) -> None:
 
 
 def test_the_panels_health_check_counts_the_top_of_the_funnel(client: TestClient) -> None:
-    """The chart panel says why it is checking reachability; only the two known
-    events are counted, and a probe or a made-up value counts nothing."""
+    """The chart panel says why it is checking reachability; only the three
+    known events are counted, and a probe or a made-up value counts nothing."""
     from app.metrics import metrics
 
     before = dict(metrics.panel_events)
-    for query in ("?panel=chart_open", "?panel=drawer_open", "?panel=drawer_open", "?panel=<script>", "?panel=", ""):
+    for query in ("?panel=chart_open", "?panel=brief_started", "?panel=drawer_open", "?panel=drawer_open", "?panel=<script>", "?panel=", ""):
         assert client.get("/health" + query).json()["status"] == "ok"
     assert metrics.panel_events["chart_open"] - before.get("chart_open", 0) == 1
+    assert metrics.panel_events["brief_started"] - before.get("brief_started", 0) == 1
     assert metrics.panel_events["drawer_open"] - before.get("drawer_open", 0) == 2
-    assert set(metrics.panel_events) <= {"chart_open", "drawer_open"}
+    assert set(metrics.panel_events) <= {"chart_open", "brief_started", "drawer_open"}
     text = metrics.prometheus()
     assert 'copilot_panel_events_total{event="drawer_open"}' in text and "script" not in text
 
