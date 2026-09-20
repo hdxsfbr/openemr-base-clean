@@ -252,7 +252,8 @@ planning 10–12 s on follow-ups with Sonnet 5 (`KEY_METRICS.md`). The owner
 accepted a provisional 30 s p95 for the complete verified response on
 2026-09-15 (ADR-0004), with the 8 s design goal tracked, not gated. Measured on
 the deployment in the latest full run,
-`evals/results/2026-09-17T024919Z-a4a5856.md`: p50 12.5 s, p95 24.1 s, p99
+`evals/results/2026-09-20T051146Z-0f11642.md`: p95 15.8 s over 126
+model-backed turns. The earlier `a4a5856` run measured p50 12.5 s, p95 24.1 s, p99
 30.7 s over 40 model-backed turns; UC-01 first turns p95 16.0 s; follow-ups
 p95 29.7 s. The earlier `--repeat 3` run
 (`evals/results/2026-09-16T073141Z-1ddf824.md`, 120 model-backed turns) gave

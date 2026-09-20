@@ -27,7 +27,7 @@ Baseline: `evals/results/2026-09-17T024919Z-a4a5856.json` (45 cases, 44 passed, 
 14/14, citations 177/177, p95 24.1 s, $0.0127 per model-backed turn; the miss is
 `CONF-NOTE-VS-LIST-N-001`, model recall). Compare with
 `agent/.venv/bin/python evals/compare.py evals/results/2026-09-17T024919Z-a4a5856.json evals/results/<candidate>.json`.
-The M5 release run (`--repeat 3`) supersedes it once it exists; its file name is `<pending M5>`.
+Superseded by the M5 release run `evals/results/2026-09-20T051146Z-0f11642.json`; compare against that one instead.
 
 ## Residuals (verified, not fixed)
 

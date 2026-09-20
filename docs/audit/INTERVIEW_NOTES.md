@@ -283,7 +283,7 @@ edge that forwarded every path."
 | 8 / 6 | fixable Critical CVEs, OpenEMR and Caddy images |
 | 26 | synthetic patients in `af-cohort-v1` |
 | 60 s | PHP execution limit under Apache prefork |
-| 45 / 45 | eval cases on disk / cases in the latest full run (`a4a5856`, 44 passed) |
+| 48 / 48 | eval cases on disk / cases in the latest full run (`0f11642`, three attempts each, 123 of 124 passed) |
 | 24.1 s / $0.0127 | p95 complete verified response / list-price cost per model-backed turn (run `a4a5856`, n=40; the `1ddf824` repeat-3 history was 27.6 s at n=120) |
 | 2 | recall checks that flip run to run: `MISS-AUTHOR-J-001` and `CONF-NOTE-VS-LIST-N-001`, both non-blocking |
 

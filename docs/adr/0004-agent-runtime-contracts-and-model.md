@@ -200,8 +200,8 @@ cache-friendly regardless of orchestration.
   controlled with `monkeypatch`).
 - Cost and latency per turn type are now summarized per run by the eval
   scorecard (`evals/run.py`; latest full run
-  `evals/results/2026-09-17T024919Z-a4a5856.md`: 45 cases, 44 passed, every
-  blocking gate PASS, $0.0127 list price per model-backed turn, p95 24.1 s
+  `evals/results/2026-09-20T051146Z-0f11642.md`: 48 cases x 3, 123 passed, every
+  blocking gate PASS, $0.0104 list price per model-backed turn, p95 15.8 s
   over 40 model-backed turns) and rolled up in `AI_COST_ANALYSIS.md`. The
   `--repeat 3` run at `1ddf824` (p95 27.6 s over 120 model-backed turns) is
   kept as stability history.

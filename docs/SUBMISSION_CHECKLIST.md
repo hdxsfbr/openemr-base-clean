@@ -74,28 +74,31 @@ resumes at line 51).
       `copilot_verification_total{outcome}`, and the two panels over the
       scores are an owner action in the Langfuse UI before the final
       capture.)*
-- [x] Eval suite includes boundary, invariant, and regression cases. *(Release
-      gate: latest full run `evals/results/2026-09-20T051146Z-0f11642.md` (week1-final release run at `0f11642`, whose runtime tree is byte-identical to the deployed `c37b9e6`): 48 cases x 3 attempts, 123 passed, every blocking gate PASS, golden set 29/29, citations 615/615 resolved, model-backed p95 15.8 s, $0.0104 per model-backed turn, no 5xx. The one miss, `CONF-DUP-NAMES-C2-001`, is a holdout-tier hedging flip that passed 2 of 3 attempts. Superseded history begins with the a4a5856 run at
-      a4a5856, all 45 cases, 44 passed, every blocking gate PASS, Golden set
-      integrity 14/14 for the first time, citations 177/177 resolved,
-      model-backed p95 24.1 s, $0.0127 per model-backed turn; the one miss,
-      CONF-NOTE-VS-LIST-N-001, is a model-recall check under the non-blocking
-      task-success gate, which still reported PASS at 95%. Two recall checks
-      flip run to run: MISS-AUTHOR-J-001 (missed at 1ddf824 attempts 1 and 3,
-      and at 69560f05) and CONF-NOTE-VS-LIST-N-001 (missed at a4a5856); the
-      deterministic lines passed every time. Kept as stability history: the
-      same-commit `--repeat 3` report
-      `evals/results/2026-09-16T073141Z-1ddf824` at 1ddf824, 44 cases x 3
-      attempts, 114/116, every blocking gate PASS on all attempts, citations
-      528/528 resolved, model-backed p95 27.6 s. Gates the runner cannot
-      measure read NOT MEASURED, not PASS. 45
-      cases on disk since 2026-09-16 (`CIT-PARAPHRASE-ADVICE-001` added with
-      the widened advice lexicon),
-      one per cohort defect; a 14-case golden tier with a blocking "Golden
-      set integrity" gate and a 4-case holdout tier (`evals/README.md`); a
-      full run's exit code follows the release gates. Every results file
-      opens with the KEY_METRICS release-gate table and a quality scorecard.
-      Seven full single runs on 2026-09-16 after the sweep fixes (41, 43, 43, 43, 43, 41, then 44 of 44); every earlier failure was either an assertion stricter than the required behavior, corrected, or a real gap fixed the same day (lab result with no unit, vague rejection details, model called on a denied turn, analyte-with-code match, same-day comparison as a trend, field-level absences); final single run `evals/results/2026-09-16T054701Z-a7641e9` at commit a7641e9: 44/44, every release gate PASS, citations 169/169, model-backed p95 23.3 s, $0.012 per turn. `evals/results/`.)*
+- [x] Eval suite includes boundary, invariant, and regression cases.
+      *(Release gate: `evals/results/2026-09-20T051146Z-0f11642.md`, the
+      week1-final release run at `0f11642`, whose runtime tree is
+      byte-identical to the deployed `c37b9e6`. 48 cases x 3 attempts, 123
+      passed, every blocking gate PASS, golden set 29/29, citations 615/615
+      resolved, model-backed p95 15.8 s, $0.0104 per model-backed turn, no
+      5xx. The one miss, `CONF-DUP-NAMES-C2-001`, is a holdout-tier hedging
+      flip that passed the other two attempts. Against the early-submission
+      baseline (`…-0f11642-vs-a4a5856.md`): p95 24.1 s to 15.8 s, task success
+      95% to 100%, cost $0.0127 to $0.0104, and `CONF-NOTE-VS-LIST-N-001`
+      FAIL to pass.
+      Suite shape: 48 cases on disk, one per cohort defect, in three tiers —
+      a 29-case golden set with a blocking "Golden set integrity" gate, a
+      12-case holdout tier, and behavioural coverage by category
+      (`evals/README.md`). A full run's exit code follows the release gates;
+      gates the runner cannot measure read NOT MEASURED, never PASS. Every
+      results file opens with the KEY_METRICS gate table and a scorecard.
+      Flakiness is confined to model wording: `MISS-AUTHOR-J-001`,
+      `CONF-NOTE-VS-LIST-N-001` and `CONF-DUP-NAMES-C2-001` have each flipped
+      run to run, while every deterministic assertion has passed every time.
+      History kept in `evals/results/`: 44/45 at `a4a5856` (the early
+      submission), 44/44 at `a7641e9`, 114/116 over a same-commit `--repeat 3`
+      at `1ddf824`, and `2026-09-20T041411Z-6c787bd.md`, the run that failed
+      `ISO-RECENT-PATIENT-RESUME-001` three times of three and exposed the
+      split-clock regression.)*
 - [x] `/health` and meaningful `/ready` endpoints pass expected tests.
       *(`agent/tests/test_health.py`: liveness echoes or mints the correlation
       id, `/ready` is 503 when a dependency fails and 200 when all pass; runs

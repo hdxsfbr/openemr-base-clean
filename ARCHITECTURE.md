@@ -1021,7 +1021,7 @@ reject; every failure row above has a fault-injection eval; the trace export
 is grepped for fixture PHI (**planned**); and the Bruno collection's
 deterministic subset runs in CI against the local stack (**planned**).
 
-**What exists (2026-09-17).** 46 cases under `evals/cases/`, one YAML per
+**What exists (2026-09-20).** 48 cases under `evals/cases/`, one YAML per
 case, every `AF-DQ-*` patient covered, in three tiers drawn from the same
 files: a 14-case **golden set** (`tier: golden`, deterministic, no
 model-wording checks, reported first and gated at 100%), **behavioral
@@ -1043,16 +1043,24 @@ hedge-language near-miss rate) and sanitized per-turn records. `--repeat N`
 reports flaky cases; `evals/compare.py` diffs two reports for A/B
 experiments; `evals/error_analysis.py` samples unscripted questions into a
 manual review journal and `evals/review_ui.py` is a local browser UI for
-filling it in. Results are versioned under `evals/results/` (eleven reports at this
-commit). The latest full run is `evals/results/2026-09-20T051146Z-0f11642.md` (week1-final release run at `0f11642`, whose runtime tree is byte-identical to the deployed `c37b9e6`): 48 cases x 3 attempts, 123 passed, every blocking gate PASS, golden set 29/29, citations 615/615 resolved, model-backed p95 15.8 s, $0.0104 per model-backed turn, no 5xx. The one miss, `CONF-DUP-NAMES-C2-001`, is a holdout-tier hedging flip that passed 2 of 3 attempts
-(2026-09-17): 45 ran, 44 passed, every blocking gate PASS, Golden set
-integrity 14/14 for the first time, citations 177/177, model-backed p95
-24.1 s, $0.0127 per model-backed turn; the one miss,
-`CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking
-task-success gate, which still reported PASS at 95%. Earlier, as history:
-44/44 at `a7641e9` and 114/116 across a same-commit `--repeat 3` at
-`1ddf824` (citations 528/528), whose one recall miss was
-`MISS-AUTHOR-J-001`. The offline subset runs in GitLab CI on every push; the
+filling it in. Results are versioned under `evals/results/` (twenty-five reports at this commit).
+The latest full run is `evals/results/2026-09-20T051146Z-0f11642.md`, the
+week1-final release run at `0f11642`, whose runtime tree is byte-identical to
+the deployed `c37b9e6`: 48 cases x 3 attempts, 123 passed, every blocking gate
+PASS, golden set 29/29, citations 615/615 resolved, model-backed p95 15.8 s,
+$0.0104 per model-backed turn, no 5xx. The one miss,
+`CONF-DUP-NAMES-C2-001`, is a holdout case that passed the other two
+attempts, where the summary called a duplicate medication a duplicate rather
+than a possible one and the verifier's hedging lexicon caught it. Against the
+early-submission baseline
+(`evals/results/2026-09-20T051146Z-0f11642-vs-a4a5856.md`): p95 24.1 s to
+15.8 s, task success 95% to 100%, cost $0.0127 to $0.0104, and
+`CONF-NOTE-VS-LIST-N-001` FAIL to pass. Earlier, as history: 44/45 at
+`a4a5856`, 44/44 at `a7641e9`, and 114/116 across a same-commit `--repeat 3`
+at `1ddf824` (citations 528/528). The run immediately before the release run,
+`2026-09-20T041411Z-6c787bd.md`, is kept deliberately: it failed
+`ISO-RECENT-PATIENT-RESUME-001` three times of three and is what exposed the
+split-clock regression. The offline subset runs in GitLab CI on every push; the
 full suite runs as the manual `test:evals-live` job.
 
 ## Decisions and Tradeoffs

@@ -213,12 +213,12 @@ exist; the journal's review fields are still blank. GitLab CI runs on a
 dedicated runner Droplet (`infra/digitalocean/runner/`); the first green
 pipeline and a manual `test:evals-live` job against the deployment are
 recorded in `docs/SUBMISSION_CHECKLIST.md`. The latest full run recorded in
-the tree, `evals/results/2026-09-17T024919Z-a4a5856.md`, is on the full
-45-case suite: 45 ran, 44 passed, every blocking gate PASS, Golden set
-integrity 14/14 for the first time, citations 177/177, model-backed p95
-24.1 s, $0.0127 per model-backed turn. Its one miss,
-`CONF-NOTE-VS-LIST-N-001`, is a model-recall check under the non-blocking
-task-success gate.
+the tree, `evals/results/2026-09-20T051146Z-0f11642.md`, ran the full 48-case
+suite three times against the deployment: 123 of 124 attempts passed, every
+blocking gate PASS, golden set 29/29, citations 615/615, model-backed p95
+15.8 s, $0.0104 per model-backed turn. Its one miss,
+`CONF-DUP-NAMES-C2-001`, is a holdout-tier hedging flip that passed the other
+two attempts.
 
 ### Thursday–Friday, September 17–18: deepen reliability
 
