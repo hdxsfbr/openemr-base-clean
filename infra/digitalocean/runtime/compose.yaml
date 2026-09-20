@@ -22,12 +22,6 @@ services:
       MARIADB_USER: openemr
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MARIADB_PASSWORD_FILE: /run/secrets/mysql_password
-      # Must match the openemr service. PHP writes created_at/last_turn_at and
-      # MariaDB writes NOW() into the same columns, so if the two containers
-      # disagree the column holds two different clocks and every "most recent"
-      # comparison over it is wrong -- which is exactly what happened when the
-      # clinic clock was set on openemr alone (ISO-RECENT-PATIENT-RESUME-001).
-      TZ: ${TZ:-America/Los_Angeles}
     secrets:
       - mysql_root_password
       - mysql_password
@@ -66,11 +60,15 @@ services:
       MYSQL_DATABASE: openemr
       MYSQL_USER: openemr
       OE_USER: challenge-admin
-      # The clock OpenEMR books and reads dates on. The base image pins PHP to UTC;
-      # openemr-entrypoint.sh applies this to PHP, and OpenEMR re-points the MySQL
-      # session at PHP's offset per request. A demo box wants its operator's day,
-      # not UTC's, or the calendar turns over mid-afternoon.
-      TZ: ${TZ:-America/Los_Angeles}
+      # Every container here runs UTC, deliberately, and nothing sets TZ.
+      # Setting the clinic clock on this service alone split one datetime column
+      # across two clocks: OpenEMR re-points the MySQL session at PHP's offset per
+      # request (interface/globals.php), so rows written afterwards were seven
+      # hours behind every earlier row, and conversation resume started returning
+      # a stale transcript (ISO-RECENT-PATIENT-RESUME-001). A real clinic does need
+      # its own day -- see the Known Limitations note -- but it needs it on every
+      # container that writes a date, openemr, database, demo-seed, copilot-setup
+      # and the agent together, not on one of them.
       # When the panel prepares the UC-01 brief for a chart being opened, instead of
       # waiting to be asked (BriefPolicy): always | visit_today | off.
       # The module's own default is `visit_today`, which is the product decision
@@ -169,12 +167,11 @@ services:
       COPILOT_GATEWAY_BASE_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway
       COPILOT_GATEWAY_PING_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php
       COPILOT_STATE_DIR: /var/lib/copilot
-      # The same clinic day OpenEMR runs on: `date.today()` decides which encounter
-      # counts as "the last visit" for the UC-01 window, so the two halves must not
-      # disagree about when today started. Log timestamps are unaffected -- they are
-      # explicitly UTC with a `Z` (`logging_setup.py`), which is what correlates
-      # with Langfuse and the gateway's audit rows.
-      TZ: ${TZ:-America/Los_Angeles}
+      # No TZ, for the same reason as openemr above: `date.today()` here decides
+      # which encounter counts as "the last visit" for the UC-01 window, and it has
+      # to mean the same day the database means. Log timestamps were always UTC with
+      # an explicit `Z` (`logging_setup.py`), which is what correlates with Langfuse
+      # and the gateway's audit rows.
       # Model for narration and planning (ADR-0004: claude-sonnet-5, accepted 2026-09-15 on measured latency).
       COPILOT_MODEL_ID: ${COPILOT_MODEL_ID:-claude-sonnet-5}
       # Optional override for the plan call only; empty falls back to COPILOT_MODEL_ID
