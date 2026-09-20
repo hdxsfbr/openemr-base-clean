@@ -236,11 +236,38 @@ task-success gate.
 
 ### Saturday, September 19: production evidence
 
-- Run realistic 10- and 50-concurrent-user tests.
-- Record CPU, memory, throughput, p50, p95, p99, and error-rate baselines.
-- Complete actual and projected cost analysis.
-- Test deployment from a clean environment, backup/restore, and rollback.
-- Finalize documentation and evaluator-facing evidence.
+- [x] Run realistic 10- and 50-concurrent-user tests. *(2026-09-18, a day
+      early: `docs/audit/evidence/performance/load-test-2026-09-18.md`. Ten
+      users turn p95 45.0 s at 10% errors; fifty users p95 43.8 s at 5.6%,
+      with 76% of turns degrading to `partial`. A `--fault model` control run
+      making zero model calls reproduced the same shape, placing the ceiling
+      in OpenEMR's Apache/PHP and MariaDB rather than the agent.)*
+- [x] Record CPU, memory, throughput, p50, p95, p99, and error-rate
+      baselines. *(`baseline-2026-09-18.md`: at fifty users `openemr` peaks
+      103.2% and `database` 111.0% of a vCPU while `agent` stays under 44%;
+      throughput 13.5 turns/min at ten users, 32.2 at fifty; memory never a
+      constraint, so ADR-0001's 8 GiB trigger did not fire.)*
+- [x] Test deployment from a clean environment, backup/restore, and
+      rollback. *(Rehearsed 2026-09-18 on a throwaway Droplet in its own
+      Terraform workspace: clean deploy 2m36s, rollback to `week1` 2m36s,
+      roll forward 1m13s, restore 3m19s, destroy 25s. The restore was proven
+      not to be a no-op. Timings in `docs/deployment/digitalocean.md`.)*
+- [x] Complete actual and projected cost analysis. *(`AI_COST_ANALYSIS.md`:
+      Part B measured per turn with the per-tier "what breaks first" table
+      grounded in the load data; Part A recounted at the final commit.)*
+- [x] Finalize documentation and evaluator-facing evidence. *(2026-09-19/20:
+      `AUDIT.md` summary cut to the gate, "Known gaps at submission" in
+      `docs/INTERVIEW_NOTES.md`, the demo script pointed at evidence that
+      exists, and the checklist re-verified against the tree rather than its
+      own prose.)*
+
+One unplanned item landed here. Setting the clinic timezone on a subset of
+containers put two clocks in one `datetime` column and silently broke
+conversation resume; the eval suite caught it, the deployment was returned
+to UTC, and the incident is written up in
+`docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10. It is the
+clearest thing this week produced in favour of keeping a deterministic suite
+that runs against the real deployment.
 
 ### Sunday, September 20: final submission
 
