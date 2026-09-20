@@ -100,11 +100,44 @@ here distinguishes the two paths. It would matter the first time someone sets
 settle it then is to set the value and watch `brief_on_open` change for a
 patient with no visit today.
 
-## 5. Still to record
+## 5. The brief itself, end to end
 
-- The panel behaviour in a browser: the drawer opening on a finished brief,
-  the "Pre-visit brief" header rather than a question the physician did not
-  type, and the wall time from chart open to a readable answer.
-- `visit_today` with real visits on today's schedule: a prepared brief for a
-  patient being seen, and none for a patient who is not.
-- `brief_started` against `drawer_open` in `/metrics` over a session.
+The sequence `maybeStartBrief()` fires, driven directly against the
+deployment on AF-DQ-A2 (900001): `session.php` → `conversation.resume` →
+`conversation.start` → `ticket.php` → `POST /v1/conversations/{id}/turns` with
+the UC-01 starter question.
+
+```
+pid 900001: brief_on_open=True
+HTTP 200 in 14620 ms | ref 9fcb6a7309c22b96.1
+turn_type=uc01_first status=complete basis=model claims=7 withheld=0 repair=False
+```
+
+> Since the last visit, Hyperlipidemia was added to the problem list on
+> 2026-09-01 and Metformin 500 mg twice daily was started on 2026-08-26.
+> Amlodipine 5 mg has an end date of 2026-08-26 but remains listed as active,
+> a status conflict. Hemoglobin A1c resulted 6.8% (down from 7.4%) and LDL
+> cholesterol resulted 162 mg/dL, both flagged abnormal on 2026-09-01.
+
+One sample, not a distribution: 14.6 s sits above the suite's 9.2 s first-turn
+p50 (`evals/results/2026-09-19T230512Z-f4f69ab4.md`) and well under its 24.8 s
+p95, on a cold conversation. The point is not the number but who waits for it:
+under the old flow those 14.6 s were spent by a physician watching a progress
+line, and they are now spent while the chart page is still rendering. Nothing
+else about the turn changed — same classification (`uc01_first`), same
+retrieval, same verifier, and the model's summary passed the gate with nothing
+withheld.
+
+## 6. Still to record
+
+Everything above was driven server-side. What no check here covers is the
+panel's own JavaScript — that `maybeStartBrief()` fires on chart load, renders
+under the "Pre-visit brief" header rather than as a question the physician did
+not type, and that the drawer opens on a finished answer. The sequence it
+fires is verified (section 5); the wiring that fires it is not. That needs a
+browser on a chart with a visit today, and it is the one open item.
+
+- `brief_started` against `drawer_open` in `/metrics` over a session, once
+  there are real sessions to count.
+- Whether `visit_today` is the right default against a real schedule, rather
+  than the two visits added here.
