@@ -223,7 +223,46 @@ the change: AF-HEAVY (no visit today) now prepares a brief, and
 were created while the box was on UTC. Under the corrected clock they are
 tomorrow, not today.
 
-## 8. Still to record
+## 8. What the physician actually waits for
+
+Measured 2026-09-19 with `evals/brief_latency.py`, 12 briefs, 4 charts, 3 each,
+12/12 complete and no repair rounds
+(`docs/audit/evidence/performance/brief-latency-2026-09-19.md`).
+
+The comparison is controlled by construction: the baseline is not another run,
+it is *these same twelve turns* accounted the old way, where nothing starts
+until the click and the wait is the whole turn. Chart mix and model variance
+therefore cancel.
+
+| Reading lag L | wait p50 | wait p95 | old flow p50 | old flow p95 |
+|---|---|---|---|---|
+| 0 s | 13.4 s | 17.5 s | 12.7 s | 16.9 s |
+| 5 s | 8.4 s | 12.5 s | 12.7 s | 16.9 s |
+| 10 s | 3.4 s | **7.5 s** | 12.7 s | 16.9 s |
+| 15 s | 0.0 s | 2.5 s | 12.7 s | 16.9 s |
+| 20 s | 0.0 s | **0.0 s** | 12.7 s | 16.9 s |
+
+`T_ready` (chart open to a verified brief) is p50 13.4 s, p95 17.5 s, of which
+the panel's own setup — session, conversation, ticket — is 0.61 s on average.
+That 0.61 s is the whole cost and the whole crossover: it is what a brief
+nobody reads wastes, and it is the reading lag below which the old click flow
+was faster. Above it the gain is exactly the lag, up to the point where the
+wait is zero.
+
+Per chart, `T_ready` p50: AF-DQ-I 6.6 s, AF-DQ-N 10.5 s, AF-HEAVY 14.1 s,
+AF-DQ-A2 17.5 s. The five-year chart is not the slow one here; the happy-path
+chart is, because it has the most to say (7-8 claims, ~2,000 output tokens
+against AF-DQ-I's 5 claims and ~560).
+
+**What this does not show.** `L` is a parameter, not an observation: no real
+physician session has been timed between chart open and drawer open, so the
+row that matters is chosen, not measured. The funnel counters record *whether*
+the drawer is opened, not *when*. Turn latency itself is unchanged and stays
+gated by the live suite, whose wider chart mix puts first-turn p95 at 24.8 s
+against this run's 16.9 s — a 12-turn sample on four charts, not a new
+baseline.
+
+## 9. Still to record
 
 - `brief_started` against `drawer_open` in `/metrics` over a session, once
   there are real sessions to count.
