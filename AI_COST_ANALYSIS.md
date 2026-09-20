@@ -1,7 +1,7 @@
 # AI Cost Analysis
 
 Cost deliverable for the AgentForge Clinical Co-Pilot. Part A is what the
-project has cost to build through 2026-09-15. Part B is what one co-pilot turn
+project has cost to build through 2026-09-20. Part B is what one co-pilot turn
 costs at runtime and what that projects to at 100, 1K, 10K, and 100K users.
 Every number that is not measured is labeled as an assumption or estimate.
 
@@ -21,29 +21,44 @@ No repository file states Sonnet 5 per-token prices (`KEY_METRICS.md`,
 `ARCHITECTURE.md`, and `docs/` were checked), so the published page is the
 source.
 
-## Part A: development cost through 2026-09-15
+## Part A: development cost through 2026-09-20
 
-Measured from `git log`, `docs/PROJECT_PLAN.md`, `docs/deployment/digitalocean.md`,
-and `infra/digitalocean/terraform.tfstate`.
+Measured from `git log`, the Terraform state, the DigitalOcean price list, and
+the cost line every eval and load report writes into its own JSON.
 
 | Item | Measured value |
 | --- | --- |
 | First project commit | 2026-09-11 (the base import of 2026-06-27 is upstream OpenEMR, not project work) |
-| Calendar days elapsed | 5 (2026-09-11 to 2026-09-15), 4 with commits |
-| Project commits | 36 by Andre Batista; 24 carry the `Assisted-by: Claude Code` trailer |
-| Commit-bounded working spans | 0.3 h (09-11), 0.1 h (09-13), 6.8 h (09-14), 6.1 h (09-15), about 13 h total |
-| Droplet uptime | Two smoke windows on 2026-09-14 (about 4 and 8 minutes), then one s-2vcpu-4gb Droplet created 2026-09-15 19:11 UTC and kept up for build days |
+| Calendar days elapsed | 10 (2026-09-11 to 2026-09-20), 9 with commits |
+| Project commits | 151 by Andre Batista; 95 carry `Assisted-by: Claude Code` and 136 carry `Co-Authored-By` |
+| Working time | Not reliably derivable from commit timestamps: several commits carry UTC rather than local offsets, which inflates any same-day first-to-last span (one date spans 25 h). The honest figure is the engineer-time estimate below |
+| Droplet uptime | Production `s-2vcpu-4gb` created 2026-09-15 19:12 UTC and kept up since (106 h); CI runner `s-1vcpu-1gb` since 2026-09-16 05:04 UTC (96 h); three tier-comparison Droplets ~30 min each on 2026-09-18; one rehearsal Droplet ~40 min on 2026-09-18; two smoke windows on 2026-09-14 |
 
 | Cost line | Amount | Basis |
 | --- | ---: | --- |
-| Infrastructure (Droplet) | about $0.20 measured to date | 12 minutes on 09-14 at $0.03571/h plus under 5 hours on 09-15; accrues $0.86 per day while kept up |
+| Production Droplet | $3.78 | 106 h at $0.03571/h; accrues $0.86/day while up |
+| CI runner Droplet | $0.86 | 96 h at $0.00893/h |
+| Tier-comparison and rehearsal Droplets | under $0.30 | Three tiers at $0.058–$0.117/h for ~30 min each (`docs/audit/evidence/performance/droplet-tier-comparison-2026-09-18.md`), plus the rehearsal host; all destroyed the same session |
+| Snapshot storage | under $0.50 | `week1-final-2026-09-18` and the final snapshot at $0.06 per GB-month, prorated over days, not months |
 | Observability (Langfuse hosted) | $0 | Hobby tier, per ADR-0007 |
-| Agent model calls during development | Estimate: $1 to $15 | Assumption: 50 to 200 development turns at $0.022 (Part B), up to 2.5x that for the Opus 5 turns measured before ADR-0004 changed the model; console usage was not exported into the repo |
-| AI assistance (Claude Code) | Estimate: $200 to $800 list-price equivalent | No metered figure exists in the repo. Assumption: 20 to 32 assisted hours (5 to 8 h on each of 4 active days; commit spans give 13 h and understate session time) times $10 to $25 per hour at Claude list prices. Usage ran on a subscription, so marginal cash cost may be lower |
-| Engineer time | 20 to 32 h (not priced) | No hourly rate is given in the project |
+| Model calls, eval runs | $9.79 measured | Sum of the `cost_usd_total` each report in `evals/results/` writes, at list price |
+| Model calls, load tests | about $1.55 | The 10- and 50-user real-model runs of 2026-09-18; the `--fault model` control runs cost $0 |
+| Model calls, tier-comparison runs | about $12–21 | 957 model calls across six real-model confirmation runs, priced at the $0.0127–$0.0223 per-call range measured the same day; not a billed figure |
+| Model calls, interactive development | not metered | Hand-typed turns during development were never exported into the repo. The four post-deploy turns in Part B are the only ones with a recorded cost |
+| AI assistance (Claude Code) | Estimate: $200–$800 list-price equivalent | No metered figure exists in the repo. Assumption: 40–70 assisted hours across 9 days at $10–$25/h at list prices. Usage ran on a subscription, so marginal cash cost was lower |
+| Engineer time | 40–70 h (not priced) | No hourly rate is given in the project |
 
-Measured cash spend through 2026-09-15 is under $20; the AI assistance
-estimate dominates any fully loaded figure.
+Measured, attributable cash spend is about $29–$38: roughly
+$5 of infrastructure and $23–$32 of model calls, of which the
+single largest line is not the product at all — it is the tier-comparison
+capacity test, which spent more on the model in one afternoon than every eval
+run of the week combined. The AI-assistance estimate dominates any fully
+loaded figure, and remains an estimate.
+
+**Teardown.** Both Droplets stay up until grading and the final AI interview
+are confirmed, then the rotation checklist in
+`docs/deployment/digitalocean.md` runs and they are destroyed. At $0.86 and
+$0.21 per day they are the only lines still accruing.
 
 ## Part B: runtime cost per turn
 
