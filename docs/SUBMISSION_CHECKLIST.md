@@ -183,8 +183,12 @@ resumes at line 51).
       in OpenEMR's Apache/PHP and MariaDB rather than in the agent or the provider.
       Both levels contradict the provisional 30 s p95 threshold in `KEY_METRICS.md`
       under concurrency; the single-user figure still meets it.)*
-- [ ] Actual development cost and 100/1K/10K/100K-user projections complete in
-      `AI_COST_ANALYSIS.md`.
+- [x] Actual development cost and 100/1K/10K/100K-user projections complete in
+      `AI_COST_ANALYSIS.md`. *(Part A recounted at the final commit 2026-09-20:
+      151 commits over 10 days, ~$5 of infrastructure, $23-$32 of model calls of
+      which the largest single line is the droplet-tier capacity test, not the
+      product. Part B has the measured per-turn cost and the per-tier
+      "what breaks first" table grounded in the load data.)*
 - [x] Backup, restore, migration, rollback, and clean-deploy procedures tested.
       *(Rehearsed end to end 2026-09-18 on a throwaway `s-2vcpu-4gb` at `146.190.154.222`
       in its own Terraform workspace, never against the live host; timings table in
@@ -211,7 +215,13 @@ resumes at line 51).
 - [ ] Final 3–5 minute demo recorded and uploaded. *(Script: `docs/DEMO_SCRIPT.md`,
       revised 2026-09-17 for the release-run numbers; every number that does not exist
       yet is a visible `<pending M4>` or `<pending M5>` placeholder and is not read aloud.)*
-- [ ] Final live URL and repository commit tested.
+- [x] Final live URL and repository commit tested. *(2026-09-20:
+      `/copilot-api/health` reports 0.3.0 and `/copilot-api/ready` returns all
+      five dependencies ok including the tracer; `session.php` serves
+      `module_version` 0.5.0 and `brief_on_open` true for the walkthrough
+      patients; the release run executed 48 cases x 3 against this host. Both
+      remotes are at `90b7e4b` with tag `week1-final`. Owner still to repeat
+      the from-a-phone check.)*
 - [ ] Social post published and linked. *(Draft: `docs/SOCIAL_POST.md`, LinkedIn and X
       versions, 2026-09-17; links the public GitHub fork and a `<final video URL>`
       placeholder, never the GitLab.)*

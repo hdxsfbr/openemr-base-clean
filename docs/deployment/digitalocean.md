@@ -164,6 +164,18 @@ written on the old clock; a partial rollout is worse than UTC because nothing
 errors. Full write-up:
 `docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10.
 
+**Snapshot and edge probe, 2026-09-20.** Snapshot `week1-final-2026-09-20`
+(action 3419196856, 44 s, taken live — the Droplet stayed `active` and
+`/copilot-api/ready` answered through it). The earlier
+`week1-final-2026-09-18` is kept. A restored Droplet gets a new IP and
+`sslip.io` hostname, so this is the rollback of last resort, not the first.
+Terraform state and vars are copied to `~/.config/agentforge/tfstate/2026-09-20/`
+at mode 600. `deploy.sh` re-copies the whole runtime directory including the
+Caddyfile, so the deny-by-default allowlist was re-probed after the final
+deploy: `docs/audit/evidence/security/cloud-probe-2026-09-20-final.txt` — every
+sensitive file path, `/apis` and `/oauth2` return 404, `readyz` stays unrouted,
+and only `meta/health/livez` and the login page answer 200.
+
 **Demo data.** 26 synthetic cohort patients, demo users, and a schedule
 re-seeded for the current UTC day, so `COPILOT_BRIEF_ON_OPEN=visit_today`
 fires for the walkthrough patients; the deployment nonetheless runs `always`

@@ -1,0 +1,65 @@
+# Cloud probe — 2026-09-20T05:21:57Z — host=<sslip hostname> commit=90b7e4b
+
+## 1. File exposure through Caddy (status + bytes only)
+docker/development-easy/docker-compose.yml                               HTTP 404 0B
+docker/library/sql-ssl-certs-keys/easy/server-key.pem                    HTTP 404 0B
+tests/Tests/data/Unit/Common/Auth/Grant/openemr-rsa384-private.key       HTTP 404 0B
+composer.lock                                                            HTTP 404 0B
+composer.json                                                            HTTP 404 0B
+package.json                                                             HTTP 404 0B
+.env.example                                                             HTTP 404 0B
+sites/default/sqlconf.php                                                HTTP 404 0B
+sites/default/documents/                                                 HTTP 404 0B
+admin.php                                                                HTTP 404 0B
+setup.php                                                                HTTP 404 0B
+sql_upgrade.php                                                          HTTP 404 0B
+acl_upgrade.php                                                          HTTP 404 0B
+phpinfo.php                                                              HTTP 404 0B
+interface/main/backup.php                                                HTTP 400 0B
+
+## 2. API / OAuth surface
+apis/default/fhir/metadata                                   HTTP 404 0B
+apis/default/fhir/.well-known/smart-configuration            HTTP 404 0B
+oauth2/default/.well-known/openid-configuration              HTTP 404 0B
+apis/default/api/patient                                     HTTP 404 0B
+apis/default/fhir/Patient                                    HTTP 404 0B
+meta/health/livez                                            HTTP 200 18B
+meta/health/readyz                                           HTTP 404 0B
+openid-configuration: not JSON
+readyz body:
+
+
+## 3. Headers and cookies (values redacted)
+HTTP/2 200 
+content-security-policy: frame-ancestors 'none'
+referrer-policy: same-origin
+set-cookie: App=OpenEMR; expires=Mon, 20 Sep 2027 05:22:00 GMT; Max-Age=N; path=/; HttpOnly; SameSite=strict
+set-cookie: OpenEMR=<REDACTED>; expires=Sun, 20 Sep 2026 13:08:40 GMT; Max-Age=N; path=/; SameSite=Strict
+strict-transport-security: max-age=N; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: DENY
+HTTP→HTTPS redirect:
+HTTP 308 -> https://<host>/
+
+## 4. TLS
+issuer=C=US, O=Let's Encrypt, CN=YE1
+notBefore=Sep 15 18:42:06 2026 GMT
+notAfter=Dec 14 18:42:05 2026 GMT
+tls1     rejected
+tls1_1   rejected
+tls1_2   accepted
+tls1_3   accepted
+
+## 5. Exposed ports from this client (expect 22 restricted, 80/443 open)
+22    open
+80    open
+443   open
+3306  closed/filtered
+8080  closed/filtered
+9300  closed/filtered
+
+## 6. Public-path latency (unauthenticated pages, n=5, sequential)
+page                       p50_ms   p95_ms ttfb_p50     http
+login                       166.8    182.3    166.4   5 200;
+fhir_metadata                90.1     91.9     90.1   5 404;
+readyz                       92.8     93.6     92.7   5 404;
