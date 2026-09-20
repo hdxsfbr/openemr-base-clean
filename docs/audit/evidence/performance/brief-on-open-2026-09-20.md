@@ -128,14 +128,50 @@ else about the turn changed — same classification (`uc01_first`), same
 retrieval, same verifier, and the model's summary passed the gate with nothing
 withheld.
 
-## 6. Still to record
+## 6. The panel, in a browser
 
-Everything above was driven server-side. What no check here covers is the
-panel's own JavaScript — that `maybeStartBrief()` fires on chart load, renders
-under the "Pre-visit brief" header rather than as a question the physician did
-not type, and that the drawer opens on a finished answer. The sequence it
-fires is verified (section 5); the wiring that fires it is not. That needs a
-browser on a chart with a visit today, and it is the one open item.
+As `challenge-admin`, in Chrome against the deployment, navigating only
+through OpenEMR's own UI. The route was the one `USERS.md` describes at
+T−30 s: today's calendar, click the patient's appointment, chart opens.
+
+**Prepared (AF-DQ-A2, 09:15 visit today).** The chart was opened from the
+calendar and left alone for about ten seconds, then the drawer was opened. It
+opened on a *finished* brief — no progress line, nothing to wait for. It
+rendered under the header `PRE-VISIT BRIEF · WHAT CHANGED SINCE THE LAST
+VISIT`, with a `Verified` badge, the model's summary, `6 sources ·
+4 limitations` behind the collapsed disclosure, the answer's own time
+(06:20 PM), and three record-shaped follow-up chips. No question bubble: the
+physician is not shown as having asked something they did not type.
+
+**Not prepared (AF-HEAVY, no visit today).** Same route via the patient
+finder; the chart's own Appointments panel reads "No Appointments". The drawer
+opened on `Nothing is retrieved until you ask. Pick a question or type your
+own.` and the three starter chips. No turn, no spend, no audit row — the
+`visit_today` gate, visible from the user's side.
+
+**No second brief on return.** Going back to AF-DQ-A2's chart from the
+calendar re-rendered the same answer under the "Earlier in this session"
+divider, carrying its original 06:20 PM timestamp, and started nothing new.
+The conversation-has-turns check holds, so returning to a chart does not pay
+for the brief twice.
+
+### One flaw found
+
+On a *restored* transcript the brief is drawn as a user question bubble
+("What changed since the last visit?"), because `restoreHistory` renders every
+past turn through `appendUser(past.question)` and the history the agent
+returns does not say which turn was started by the panel rather than typed.
+The "Pre-visit brief" framing is therefore correct only on the live turn and
+is lost on reload, which is the attribution problem the header exists to
+avoid, in the one place a physician is most likely to be confused by it — a
+transcript they are reading later.
+
+Fixing it properly means the turn record carrying "this one was prepared, not
+asked", which is a contract change (`TurnRequest`/history), not a panel patch:
+the client cannot infer it, because a physician may genuinely type that
+question. Not fixed here; recorded as the open item.
+
+## 7. Still to record
 
 - `brief_started` against `drawer_open` in `/metrics` over a session, once
   there are real sessions to count.
