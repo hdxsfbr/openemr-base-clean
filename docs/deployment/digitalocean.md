@@ -212,11 +212,12 @@ one; an owned hostname is not done for Week 1.
 
 **Before this.** `v0.1.0-skeleton` (2026-09-15) and `v0.2.0-slice`, then
 commit `e1dd331` / tag `week1` for the early submission, which is what the
-2026-09-16 and 2026-09-17 eval reports targeted. Since 2026-09-17 the
-`deploy:production` CI job runs `deploy.sh` on every push to `main` ("What
-the pipeline runs" below), so from then on every push to `main` also
-triggers a deploy (which pipeline or manual run performed each deploy is not
-recorded in this repository). The release run, the snapshot and the edge
+2026-09-16 and 2026-09-17 eval reports targeted. From 2026-09-17 to
+2026-09-20 the `deploy:production` CI job ran `deploy.sh` on every push to
+`main` ("What the pipeline runs" below), so every push in that window also
+triggered a deploy (which pipeline or manual run performed each deploy is not
+recorded in this repository); it is manual since 2026-09-20, so a push no
+longer deploys by itself. The release run, the snapshot and the edge
 probe above were taken while the `c37b9e6` runtime tree (2026-09-20 04:33
 UTC) was deployed; `dbf5372` and then `0471178` were live in between, while
 alert delivery was being proven
@@ -399,18 +400,24 @@ module), `lint:caddy` (`runtime/Caddyfile`), `lint:compose` (`runtime/compose.ya
 with placeholder secrets). `test`: `test:agent` (pytest plus the contract
 export drift check) and `test:evals-offline` (`python evals/run.py
 --offline-only`, results kept as a 30-day artifact). `deploy` and `verify`
-(since 2026-09-17, commit `d7fd6b3`, an owner decision recorded in the file)
-hold two jobs that run only on a push to the branch `main`:
-`deploy:production` runs
+hold two jobs, `deploy:production` and `verify:smoke`. From 2026-09-17
+(commit `d7fd6b3`) to 2026-09-20 both ran automatically on every push to
+`main`: `deploy:production` ran
 `deploy.sh 137.184.4.22 openemr-137-184-4-22.sslip.io "$TLS_EMAIL"` with the
-protected CI variable `DEPLOY_SSH_PRIVATE_KEY`, and `verify:smoke` then runs
-`smoke.sh` and prints `/copilot-api/ready`. The runner holds no
+protected CI variable `DEPLOY_SSH_PRIVATE_KEY`, and `verify:smoke` then ran
+`smoke.sh` and printed `/copilot-api/ready`, so a docs-only push redeployed
+the same runtime tree every time. `deploy:production` is manual since
+2026-09-20 (`when: manual`, `allow_failure: true`), so a push to `main` no
+longer redeploys by itself; `verify:smoke` still runs on every push
+(`needs` marks `deploy:production` optional), checking whatever is currently
+live rather than waiting on a deploy that may not run. The runner holds no
 `~/.config/agentforge/`, so the `push-secrets.sh` call inside `deploy.sh`
 skips every file and the operator-pushed keys on the host stay as they are.
-A docs-only push therefore redeploys the same runtime tree; a tag pipeline
-runs neither job. `tf.sh apply`, `destroy.sh` and a real secret push stay
-human-run. The first green pipeline on this runner, and pipeline 24351 on the
-submission, are recorded in `docs/SUBMISSION_CHECKLIST.md`.
+A tag pipeline runs neither job. `tf.sh apply`, `destroy.sh` and a real
+secret push stay human-run, and `deploy:production` now joins them as a
+deliberate action rather than a push side effect. The first green pipeline
+on this runner, and pipeline 24351 on the submission, are recorded in
+`docs/SUBMISSION_CHECKLIST.md`.
 
 `test:evals-live` is a **manual** job in the `verify` stage (`when: manual`,
 `allow_failure: true`, so an unplayed job does not hold the pipeline)
@@ -481,8 +488,8 @@ each line as it is done, by file name only; never write a value anywhere.
    `DEMO_PASSWORD`, delete it; it named the destroyed host's
    `demo_user_password`. `DEPLOY_SSH_PRIVATE_KEY`, delete it; its public half
    was in the destroyed host's `authorized_keys` for `deployer`, and while it
-   exists every push to `main` still runs `deploy:production` against
-   `137.184.4.22`.
+   exists `deploy:production` (manual since 2026-09-20) can still be
+   triggered by hand against `137.184.4.22`.
 6. `[ ] <date>` DigitalOcean API token, `~/.config/agentforge/do.env`:
    `unset DIGITALOCEAN_TOKEN`; in the control panel (API, Tokens) generate a
    new token and revoke the old; rewrite `do.env` at mode 600 with

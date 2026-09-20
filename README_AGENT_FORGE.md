@@ -149,7 +149,7 @@ Dashed arrows are streamed events or a denial.*
 | `docs/operations/` | Alerts runbook, correlation-id walkthrough with a real turn, Langfuse dashboard notes, usage-funnel counters |
 | `docs/WEEK2_HANDOFF.md` | Week 2 handoff stub: read-first order, code-versus-prose seams, the `evals/compare.py` baseline, residual risks, the two deferred experiments with their eval protocol |
 | `docs/diagrams/` | Chat-flow swimlane diagram (standalone SVG) embedded in this README and `ARCHITECTURE.md` |
-| `.gitlab-ci.yml` | GitLab CI: four lint jobs, agent tests plus schema drift, the offline eval subset on every push; on a push to `main`, `deploy:production` to the Droplet and `verify:smoke`; a manual `test:evals-live` job for the full suite against the deployment |
+| `.gitlab-ci.yml` | GitLab CI: four lint jobs, agent tests plus schema drift, the offline eval subset on every push; `verify:smoke` on every push to `main`, `deploy:production` to the Droplet manual since 2026-09-20 (automatic 2026-09-17 to 2026-09-20); a manual `test:evals-live` job for the full suite against the deployment |
 | `contracts/schema/` | JSON Schema exported from the agent's Pydantic contracts |
 | `infra/` | Terraform, Compose, Caddyfile, deploy and destroy scripts, project OpenEMR image; `infra/digitalocean/runner/` is the CI runner Droplet's own Terraform root |
 | `interface/modules/custom_modules/oe-module-copilot/`, `agent/` | The module (panel, ticket, gateway) and the agent service with its tests |
@@ -207,8 +207,10 @@ whitespace, PHP lint, Caddy and Compose validation, the agent tests, the
 schema drift check, and the offline eval subset on every push
 (`.gitlab-ci.yml`), on a dedicated project runner Droplet
 (`infra/digitalocean/runner/`; `docs/deployment/digitalocean.md`, "CI
-Runner"). A push to `main` also runs `deploy:production`, which deploys that
-commit to the Droplet with `deploy.sh`, and `verify:smoke` after it. The
+Runner"). `deploy:production` deploys a commit to the Droplet with
+`deploy.sh`, then `verify:smoke` checks it; the job ran automatically on
+every push to `main` from 2026-09-17 to 2026-09-20 and is manual since, so a
+push no longer redeploys by itself. The
 manual `test:evals-live` job runs the full suite against the deployment and
 keeps the results as a 90-day artifact; it needs the masked CI variable
 `DEMO_PASSWORD`.

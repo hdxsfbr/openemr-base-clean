@@ -643,12 +643,15 @@ validation) and a `test` stage with `test:agent` (agent pytest plus
 cases delegate to pytest node ids and need no stack), so Week 2's
 PR-blocking gate is a threshold change, not new infrastructure. A manual
 `test:evals-live` job runs the full suite against the deployment; it sits in
-the `verify` stage, after `deploy:production` (which runs on a push to `main`
-only), so on a push pipeline it exercises the commit just deployed. It needs
-the masked CI variable `DEMO_PASSWORD`, labels the report `gitlab-ci
-<pipeline id>`, keeps `evals/results/` as a 90-day artifact, and costs about
-$0.55 and 12 minutes per run (per the job comment, written at 45 cases; the
-last committed single pass, `4d2a9fd`, cost $0.47, and job 79057 on pipeline
-24351 took 761 s on 2026-09-20), which is why it never runs on push. A CI
+the `verify` stage after `deploy:production`, which was automatic on every
+push to `main` from 2026-09-17 to 2026-09-20 and is manual since, so a
+`test:evals-live` run now exercises whatever is currently live rather than
+necessarily the commit just pushed. It needs the masked CI variable
+`DEMO_PASSWORD`, labels the report `gitlab-ci <pipeline id>`, keeps
+`evals/results/` as a 90-day artifact, and costs about $0.47 and 12-13
+minutes per run (the job comment is written at 45 cases; the suite is 48;
+the last committed single pass, `4d2a9fd`, cost $0.47, and job 79057 on
+pipeline 24351 took 761 s on 2026-09-20), which is why it never runs on
+push. A CI
 run's report is an artifact, not a commit: the reports labelled `gitlab-ci
 24160` and `gitlab-ci 24166` were committed afterwards, job 79057's was not.

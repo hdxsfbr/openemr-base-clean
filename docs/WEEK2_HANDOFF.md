@@ -24,8 +24,9 @@ re-pointed to that tree, and `ARCHITECTURE.md` is cited by section because its l
   week1-final -- agent interface/modules/custom_modules/oe-module-copilot infra` is empty). Agent
   `/health` reports 0.3.0 (`agent/app/__init__.py:3`); the module is `Bootstrap::VERSION` 0.5.0
   (`src/Bootstrap.php:33`), served as `module_version` by `public/api/session.php:37`. The module's
-  `version.php` and `info.txt` were never bumped and still say 0.1.0. **A push to `main` deploys
-  to that Droplet** (`.gitlab-ci.yml:85-99`, `deploy:production`, then `verify:smoke`).
+  `version.php` and `info.txt` were never bumped and still say 0.1.0. **A push to `main` can
+  deploy to that Droplet** (`.gitlab-ci.yml:85-99`, `deploy:production`, then `verify:smoke`) --
+  automatic 2026-09-17 to 2026-09-20, manual since.
 - **Brief on chart open (module 0.5.0, ADR-0003 amendment 2026-09-19).** The panel starts the
   UC-01 brief itself when a chart finishes loading, through the same path as a click; no new
   endpoint or authorization. `BriefPolicy::mode()` (`src/BriefPolicy.php:45-62`): unset means

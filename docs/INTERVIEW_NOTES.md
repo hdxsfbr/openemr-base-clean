@@ -320,9 +320,11 @@ small conventional commits (81 at `0fba313` on 2026-09-17, 167 at
 `week1-final`), and every push runs the fast deterministic checks in
 `.gitlab-ci.yml`: whitespace, `php -l` over the module, `caddy validate`,
 `docker compose config`, the pytest suite (91 cases on 2026-09-17, 145 at
-`week1-final`), the contract drift check and the offline eval subset; since
-2026-09-17 a push to `main` also deploys to the Droplet (`deploy:production`)
-and smoke-checks it (`verify:smoke`); the live suite is a manual job so a push
+`week1-final`), the contract drift check and the offline eval subset; from
+2026-09-17 to 2026-09-20 a push to `main` also deployed to the Droplet
+(`deploy:production`) and smoke-checked it (`verify:smoke`); `deploy:production`
+is manual since, so a push alone no longer deploys, though `verify:smoke`
+still runs on every push. The live suite is a manual job so a push
 never spends model budget by itself. The standing rule is
 evals-before-tuning — no change to the prompt, the model id, the effort
 setting or the verifier lexicon without a baseline run, the change, a second
@@ -1065,10 +1067,12 @@ dated where they were.
   (`infra/digitalocean/main.tf:67-82`). A second $6 Droplet runs CI.
 - **CI/CD.** Lints, contract schema check, agent tests, and the offline evals
   on every push. Deployment is the same script either way
-  (`infra/digitalocean/deploy.sh`): since 2026-09-17 a push to `main` runs it
-  from CI (`deploy:production`, then `verify:smoke`), an owner decision to
-  deploy continuously once the early submission was in; the live suite stays
-  a manual job after the deploy stage, so it exercises the commit just
+  (`infra/digitalocean/deploy.sh`): from 2026-09-17 to 2026-09-20 a push to
+  `main` ran it from CI (`deploy:production`, then `verify:smoke`), an owner
+  decision to deploy continuously once the early submission was in;
+  `deploy:production` is manual since 2026-09-20 so a docs-only push stops
+  redeploying the Droplet. The live suite stays a manual job, so it
+  exercises whatever is currently live, not necessarily the commit just
   deployed (`.gitlab-ci.yml:73-135`).
 - **Monitoring and alerting.** Langfuse dashboard (nine panels), `/health`,
   `/metrics`, and `/ready`. `/ready` really probes the gateway (`ping.php`)

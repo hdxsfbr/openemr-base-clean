@@ -33,10 +33,10 @@ git tag -n3 week1-final   # the tag message names 478f432 as the deployed tree
 
 **The commit and the tag.** The deployed runtime tree is `478f432`, the last
 commit that touches anything but Markdown under `agent/`, the module, or
-`infra/`. Every commit after it changes only docs and eval results, so
-whichever of them was deployed last (by hand, or by `deploy:production` in
-`.gitlab-ci.yml`, which runs on every push to `main`), the running code is
-`478f432`'s: the first command keeps printing `478f432`, and
+`infra/`. `deploy:production` in `.gitlab-ci.yml` is manual since 2026-09-20
+(it ran on every push to `main` from 2026-09-17 until then), so a docs-only
+push no longer redeploys the Droplet, and `478f432` stays live until someone
+triggers the job by hand: the first command keeps printing `478f432`, and
 `git diff --stat 478f432 week1-final -- agent interface/modules/custom_modules/oe-module-copilot infra evals/cases evals/fixtures ':!*.md'`
 prints nothing. The `':!*.md'` pathspec keeps a docs edit under `agent/`
 (`agent/README.md`) from reading as a runtime change. `week1-final` is an

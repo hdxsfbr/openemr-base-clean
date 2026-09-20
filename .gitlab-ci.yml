@@ -82,11 +82,17 @@ test:evals-offline:
 # push-secrets.sh (inside deploy.sh) finds no ~/.config/agentforge/ on the runner and
 # skips every secret push, so it never overwrites the operator-pushed model/tracer
 # keys already on the host.
+# Manual since 2026-09-20 (was automatic on every push to main from
+# 2026-09-17 until then): a docs-only push no longer redeploys the live
+# Droplet. Trigger it by hand from the pipeline view when a runtime change
+# actually needs shipping.
 deploy:production:
   stage: deploy
   image: alpine:3.21
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      when: manual
+      allow_failure: true
   before_script:
     - apk add --no-cache openssh-client bash
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -104,19 +110,24 @@ deploy:production:
 verify:smoke:
   stage: verify
   image: alpine:3.21
-  needs: ["deploy:production"]
+  needs:
+    - job: "deploy:production"
+      optional: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      when: on_success
   before_script:
     - apk add --no-cache bash curl
   script:
     - bash infra/digitalocean/smoke.sh openemr-137-184-4-22.sslip.io
     - curl -sS --max-time 20 https://openemr-137-184-4-22.sslip.io/copilot-api/ready || true
 
-# The full suite against the deployment: 45 cases, ~40 model-backed turns, about $0.55 and
-# 12 minutes per run. Manual so a push never spends model budget by itself, and it runs
-# after the deploy stage so it exercises the commit just deployed, not whatever was live
-# before it. Needs the masked CI variable DEMO_PASSWORD (the demo clinician password).
+# The full suite against the deployment: 48 cases, ~42 model-backed turns, about $0.47 and
+# 12-13 minutes per run. Manual so a push never spends model budget by itself. Since
+# deploy:production is also manual (2026-09-20), this exercises whatever is currently
+# live, not necessarily the commit just pushed -- trigger deploy:production first if
+# the two need to match. Needs the masked CI variable DEMO_PASSWORD (the demo clinician
+# password).
 test:evals-live:
   stage: verify
   image: python:3.12-slim

@@ -1091,9 +1091,11 @@ required by the audit (`AUDIT.md` §7.2) and this design:
   (2026-09-18), `week1-rc2` and `week1-rc3` (2026-09-19), and `week1-final`
   (2026-09-20). What is deployed is commit `478f432`; `week1-final` is later
   by documents and eval results only and its runtime directories are
-  byte-identical (its annotation says so). Since 2026-09-17 a push to `main`
-  deploys through the pipeline (`deploy:production`, then `verify:smoke`), so
-  what is live follows `main`, not a tag. The rollback rehearsal ran on
+  byte-identical (its annotation says so). From 2026-09-17 to 2026-09-20 a
+  push to `main` deployed through the pipeline (`deploy:production`, then
+  `verify:smoke`), so what was live followed `main`, not a tag;
+  `deploy:production` is manual since 2026-09-20, so a push alone no longer
+  moves what is live. The rollback rehearsal ran on
   2026-09-18 (rollback to `week1` in 2m36s, roll forward in 1m13s;
   `docs/deployment/digitalocean.md`, `docs/SUBMISSION_CHECKLIST.md`).
 - **Backup, restore, rollback:** `infra/digitalocean/backup.sh` (one
@@ -1121,9 +1123,10 @@ required by the audit (`AUDIT.md` §7.2) and this design:
   runner token is read from a local file by `register.sh` and never enters
   state), separate from the demo host. `.gitlab-ci.yml`: whitespace, PHP
   lint, Caddy and Compose validation, agent tests plus schema drift, and the
-  offline eval subset on every push; on a push to `main`,
-  `deploy:production` runs `deploy.sh` against the Droplet and `verify:smoke`
-  probes it; the manual `test:evals-live` job runs
+  offline eval subset on every push; `verify:smoke` probes the Droplet on
+  every push to `main`, and `deploy:production` (manual since 2026-09-20,
+  automatic 2026-09-17 to 2026-09-20) runs `deploy.sh` against it when
+  triggered; the manual `test:evals-live` job runs
   the full suite against the deployment with the masked `DEMO_PASSWORD`
   variable and keeps the report as a 90-day artifact (it is not committed
   under `evals/results/`).
