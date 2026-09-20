@@ -312,6 +312,25 @@ UI step recorded field-by-field in `docs/operations/langfuse-dashboard.md`.
 
 **Release run.** <<RELEASE_RUN>>
 
+**The deployment runs UTC, and that is a limitation, not a preference.** A
+clinic needs its own day: `BriefPolicy` asks "is this patient being seen
+today", and in UTC an evening chart open in Pacific is already asking about
+tomorrow. We set the clinic timezone on 2026-09-19 and reverted it the same
+night. The reason is the interesting part. OpenEMR re-points the MySQL
+session at PHP's offset on every connect, so setting `TZ` on the `openemr`
+container alone made application writes resolve in PDT while every row
+already in the table stayed UTC — one `datetime` column, two clocks, seven
+hours apart. `findResumable` orders by `last_turn_at DESC`, so a stale
+conversation outranked the one just created and resume returned the wrong
+transcript; `isIdle` read the old rows as future-dated and never retired
+them. Nothing errored. The eval suite caught it
+(`ISO-RECENT-PATIENT-RESUME-001`, three failures of three, having passed at
+`f4f69ab4`), which is the argument for the suite in one sentence. Doing it
+properly means the timezone on every container that touches a date plus a
+migration of rows written on the old clock; doing it partially is worse than
+UTC. Full write-up:
+`docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10.
+
 **Two gates read NOT MEASURED, by design, not by omission.** Citation
 correctness needs gold source ids per case — the runner can prove every
 citation resolves to a retrieved record (and does, on every run), but not that

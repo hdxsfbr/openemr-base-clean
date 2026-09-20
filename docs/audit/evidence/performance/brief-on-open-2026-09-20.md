@@ -268,3 +268,68 @@ baseline.
   there are real sessions to count.
 - Whether `visit_today` is the right default against a real schedule, rather
   than the two visits added here.
+
+## 10. The clinic clock was reverted (2026-09-20, 04:30 UTC)
+
+Section 7 set `TZ=America/Los_Angeles` so the calendar would stop showing
+tomorrow on a Saturday evening. That is reverted. Every container is back on
+UTC, and no service sets `TZ`.
+
+**What went wrong.** The variable was set on `openemr` and `agent`, not on
+`database`, `demo-seed` or `copilot-setup`. OpenEMR re-points the MySQL
+session at PHP's offset on every connect
+(`interface/globals.php`, `SET time_zone = ?`), so from that deploy onward
+application writes resolved in PDT while every row already in the table was
+UTC. One `datetime` column, two clocks, seven hours apart:
+
+```
+mysql NOW()  2026-09-20 04:20:26     (UTC, my own root session)
+php   date() 2026-09-19 21:20:27     (America/Los_Angeles)
+```
+
+`copilot_conversation` ended up with 1,588 rows, 188 of them on the new
+clock and sorting *below* the old ones.
+
+**What it broke.** `ConversationRepository::findResumable` takes
+`ORDER BY last_turn_at DESC LIMIT 1`, so a stale pre-change conversation
+outranked the one just created and resume returned the wrong transcript.
+`isIdle` then compared those rows against PHP's local now, read them as
+future-dated, and never retired them — so the stale rows would have won
+indefinitely. `ISO-RECENT-PATIENT-RESUME-001` failed three attempts of three
+after passing at `f4f69ab4`; it passes again at `c37b9e6`.
+
+The seeder had the same split from the other side: `demo-seed` had no `TZ`,
+so it booked "today's" appointments on its own UTC day while the application
+called that tomorrow.
+
+**Why revert rather than finish the rollout.** Finishing it means `TZ` on
+five services and another re-seed — and because the cohort's appointments are
+seeded relative to the seeder's day, a third re-seed after midnight Pacific,
+or `visit_today` is false for every patient on submission day. On UTC the
+seeded schedule stays today until 17:00 Pacific on Sunday, and from midnight
+Pacific the two dates agree anyway, so the calendar reads correctly for the
+whole recording and submission window. The reason section 7 gave for the
+change is real, but it is an evening-only cosmetic problem on a demo box.
+
+**What a real deployment needs**, and this is the limitation to state rather
+than the bug to hide: the clinic's timezone on *every* container that writes
+or reads a date — `openemr`, `database`, `demo-seed`, `copilot-setup` and
+`agent` together — plus a one-time migration of rows already written on the
+old clock. Setting it on a subset is worse than leaving it at UTC, because
+the damage is silent: nothing errors, the ordering just quietly inverts.
+
+**State after the revert**, read back from the deployment:
+
+| Check | Value |
+|---|---|
+| host / mariadb / php / agent clocks | all `2026-09-20 04:33:36`, identical |
+| `CURDATE()` | `2026-09-20` |
+| appointments today | 15 |
+| cohort patients | 26 |
+| `copilot_conversation` rows | 0 (truncated; a 79 MB dump was taken first) |
+| 900001, 900018, 900023 have a visit today | yes, `pc_apptstatus` not `x` |
+
+`visit_today` therefore fires for all three demo patients. The deployment
+still runs `COPILOT_BRIEF_ON_OPEN=always`, now as a robustness choice for
+graders opening the box on any later day, not because `visit_today` cannot
+work.
