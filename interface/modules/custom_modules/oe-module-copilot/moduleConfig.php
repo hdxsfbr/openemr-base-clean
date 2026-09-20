@@ -13,7 +13,7 @@
 return [
     'name' => 'AgentForge Clinical Co-Pilot',
     'description' => 'Read-only, source-cited pre-visit assistant embedded in the patient dashboard. See ARCHITECTURE.md and USERS.md in the repository root.',
-    'version' => '0.1.0',
+    'version' => '0.5.0',
     'author' => 'Andre Batista',
     'license' => 'GPL-3.0',
     'acl_category' => 'patients',
