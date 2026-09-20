@@ -169,18 +169,26 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         """One gateway request serving every call in `calls`: one OpenEMR
         bootstrap (translation/ACL/layout lookups, PERF-MED-002) instead of
         one per tool. Fault-injected and invalid-params tools are resolved
-        locally without ever reaching the gateway, exactly as before; each
-        live tool still gets its own tracing observation and metric even
-        though the network call is shared."""
+        locally without ever reaching the gateway, exactly as before; every
+        tool is counted either way, and each live tool additionally gets its
+        own tracing observation even though the network call is shared.
+
+        Counting the locally-resolved ones matters: `invalid_params` is a real
+        production failure -- the model emitting a parameter the contract
+        rejects -- and the PRD tool-failure alert reads
+        `copilot_tool_calls_total`, so skipping the increment here left that
+        alert unable to fire for a failure mode it exists to catch."""
         results: list[ToolResponse | None] = [None] * len(calls)
         live: list[tuple[int, str, dict[str, Any]]] = []
         for i, (tool, params) in enumerate(calls):
             if state.get("fault") == f"tool:{tool}":
                 results[i] = unavailable(tool, "fault_injected", state["correlation_id"])
+                metrics.tool_call(tool, "unavailable", "fault_injected")
                 continue
             clean = _clean_params(tool, params)
             if clean is None:
                 results[i] = unavailable(tool, "invalid_params", state["correlation_id"])
+                metrics.tool_call(tool, "unavailable", "invalid_params")
                 continue
             live.append((i, tool, clean))
 

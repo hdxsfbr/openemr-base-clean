@@ -374,3 +374,28 @@ async def test_a_garbled_optional_plan_parameter_widens_the_retrieval_instead_of
     model, gateway = FakeModel(claims=[good], plan_calls=[("lab_results", {"limit": "many"})]), FakeGateway()
     final = await make_graph(model, gateway).ainvoke(turn_input("Are there earlier A1c results to compare?", turn_id="fb5c2fa60b22e604"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb24"}})
     assert gateway.calls == [("lab_results", {"limit": 50})], "a bad limit falls back to the contract's default rather than cancelling the call"
+
+
+@pytest.mark.anyio
+async def test_locally_resolved_tool_failures_are_counted_in_metrics() -> None:
+    """Regression for the batched-gateway change (046b96e, 2026-09-19).
+
+    `_call_batch` resolves fault-injected and invalid-params tools locally and
+    `continue`d past the `metrics.tool_call` increment, which only ran for tools
+    that actually reached the gateway. The PRD tool-failure alert reads
+    `copilot_tool_calls_total`, so its numerator was structurally zero for both:
+    an injected fault could not page (it did on 2026-09-18, before batching),
+    and a real `invalid_params` failure -- the model emitting a parameter the
+    contract rejects -- was invisible to it.
+    """
+    from app.metrics import metrics
+
+    before = dict(metrics.tool_status)
+    budget.daily.reset()
+    good = {"id": "c1", "type": "lab_result", "text": "Hemoglobin A1c 6.8 % on 2026-08-31, flagged abnormal.", "facts": {"analyte": "Hemoglobin A1c", "value_text": "6.8", "unit": "%", "date": "2026-08-31", "flag": "abnormal"}, "source_ids": [A1C_LATEST]}
+    await make_graph(FakeModel(claims=[good]), FakeGateway()).ainvoke(
+        turn_input("What changed since the last visit?", turn_id="fb5c2fa60b22e610", fault="tool:medications"),
+        {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb30"}},
+    )
+    delta = {k: v - before.get(k, 0) for k, v in metrics.tool_status.items() if v - before.get(k, 0) > 0}
+    assert ("medications", "unavailable", "fault_injected") in delta, f"faulted tool not counted; counted {sorted(delta)}"
