@@ -246,6 +246,8 @@ services:
       # without a restart, and an empty file simply means no delivery.
       - --webhook-file
       - /run/secrets/slack_alert_webhook
+      - --webhook-channel
+      - "#andre-batista-alerts"
     secrets:
       - slack_alert_webhook
     volumes:

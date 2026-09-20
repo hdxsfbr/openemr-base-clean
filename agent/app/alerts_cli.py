@@ -85,23 +85,31 @@ def resolve_webhook(args: argparse.Namespace) -> str | None:
     return args.webhook
 
 
-def webhook_payload(record: dict[str, Any]) -> dict[str, Any]:
-    """The alert record plus a `text` summary.
+def webhook_payload(record: dict[str, Any], channel: str | None = None) -> dict[str, Any]:
+    """The alert record plus a `text` summary, and optionally a `channel`.
 
     Slack incoming webhooks reject any body without `text` or `blocks` with
     `invalid_payload`, and ignore keys they do not know. Sending the structured
     record *and* a one-line summary means the same payload renders in Slack and
     still carries every field a generic receiver would want to parse.
+
+    `channel` is honoured only by legacy custom-integration webhooks. An
+    app-based `hooks.slack.com/services/...` webhook is bound to the channel
+    chosen when it was created and ignores this field, so setting it is a
+    convenience for the legacy case, never a guarantee of where a page lands.
     """
     severity = str(record.get("severity", "")).upper()
     name = record.get("name", "alert")
     message = record.get("message", "")
-    return {"text": f"[{severity}] {name}: {message}", **record}
+    payload: dict[str, Any] = {"text": f"[{severity}] {name}: {message}", **record}
+    if channel:
+        payload["channel"] = channel
+    return payload
 
 
-def post_webhook(url: str, payload: dict[str, Any], client: httpx.Client) -> bool:
+def post_webhook(url: str, payload: dict[str, Any], client: httpx.Client, channel: str | None = None) -> bool:
     try:
-        client.post(url, json=webhook_payload(payload)).raise_for_status()
+        client.post(url, json=webhook_payload(payload, channel)).raise_for_status()
         return True
     except httpx.HTTPError:
         return False
@@ -134,7 +142,7 @@ def run_once(args: argparse.Namespace, client: httpx.Client, now: float | None =
     for alert in alerts:
         record = {"ts": now, "event": "alert", "rate_window_seconds": interval, **alert.to_dict()}
         if webhook:
-            record["webhook_delivered"] = post_webhook(webhook, record, client)
+            record["webhook_delivered"] = post_webhook(webhook, record, client, getattr(args, "webhook_channel", None))
         emit(record, out)
     if not alerts:
         emit({"ts": now, "event": "heartbeat", "rate_window_seconds": interval, "turns_5m": sample.get("copilot_turn_latency_count_5m", 0.0)}, out)
@@ -157,6 +165,15 @@ def build_parser() -> argparse.ArgumentParser:
             "deployment: a Slack incoming webhook is a credential, and an argv value is visible to "
             "`docker inspect` and every process listing on the host. An absent or empty file means "
             "no webhook, so the deploy works before the secret is pushed."
+        ),
+    )
+    parser.add_argument(
+        "--webhook-channel",
+        default=None,
+        help=(
+            "Optional Slack channel override, e.g. '#alerts'. Honoured only by legacy "
+            "custom-integration webhooks; an app-based hooks.slack.com/services webhook "
+            "is bound to its own channel and ignores this."
         ),
     )
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds")

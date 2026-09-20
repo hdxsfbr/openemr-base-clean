@@ -290,6 +290,7 @@ def _args(tmp_path: Path, **overrides) -> argparse.Namespace:
         "ready_url": None,
         "webhook": None,
         "webhook_file": None,
+        "webhook_channel": None,
     }
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -407,3 +408,11 @@ def test_webhook_payload_carries_a_text_summary_for_slack() -> None:
     # Every structured field survives for a non-Slack receiver.
     for key, value in record.items():
         assert payload[key] == value
+
+
+def test_webhook_payload_channel_override_is_opt_in() -> None:
+    from app.alerts_cli import webhook_payload
+
+    record = {"event": "alert", "name": "turn_latency", "severity": "warn", "message": "slow"}
+    assert "channel" not in webhook_payload(record)
+    assert webhook_payload(record, "#andre-batista-alerts")["channel"] == "#andre-batista-alerts"
