@@ -1,9 +1,9 @@
 # Social Post (LinkedIn and X)
 
-Published by the owner after the final video is uploaded (plan M5, "Owner-only":
-Saturday night or Sunday 06:00 PT, with the 20 to 30 s clip). Replace
-`<final video URL>` in both versions before posting. Links go to the public
-GitHub fork only; the lab GitLab is login-only and is never linked. Every
+For the owner to publish now that the final video is up
+(`https://youtu.be/ZBzNHUv8fps`, recorded 2026-09-20). Both versions below
+carry that link already. Links go to the public GitHub fork only; the lab
+GitLab is login-only and is never linked. Every
 number below exists today and is cited to the week1-final release run,
 `evals/results/2026-09-20T051146Z-0f11642.md` (48 cases with `--repeat 3`: 38
 live cases x 3 plus 10 offline cases x 1 = 124 attempts, 123 passed; golden
@@ -60,25 +60,21 @@ closed. Read the framework's helpers before trusting them.
 
 Synthetic cohort only; no real patient data anywhere. Code and audit:
 https://github.com/hdxsfbr/openemr-base-clean
-Demo: <final video URL>
+Demo: https://youtu.be/ZBzNHUv8fps
 
 ## X
 
 <!-- x-start -->
-90 seconds between patient rooms. Read-only OpenEMR co-pilot: every claim cites a chart record and a deterministic verifier checks it. 48 evals x3, 615/615 citations resolved, 1.04 cents/turn. @GauntletAI https://github.com/hdxsfbr/openemr-base-clean <final video URL>
+90 seconds between patient rooms. Read-only OpenEMR co-pilot: every claim cites a chart record and a deterministic verifier checks it. 48 evals x3, 615/615 citations resolved, 1.04 cents/turn. @GauntletAI https://github.com/hdxsfbr/openemr-base-clean https://youtu.be/ZBzNHUv8fps
 <!-- x-end -->
 
 Character count commands (run from the repository root). The markers are
 matched as whole lines, so the commands do not count themselves. The first
-prints the raw count of the text above, placeholder included; it must be
-under 280, and it stays under 280 with a 28-character `https://youtu.be/...`
-link in place of the 17-character placeholder. The second prints the count X
-applies (every URL, and the placeholder standing in for one, weighs 23
-characters under t.co wrapping); that is the governing number for a longer
-link such as `https://www.youtube.com/watch?v=...`. Re-run both after
-replacing the placeholder.
+prints the raw count of the text above; it must be under 280. The second
+prints the count X actually applies (every URL weighs 23 characters under
+t.co wrapping, regardless of its real length); that is the governing number.
 
 ```bash
 sed -n '/^<!-- x-start -->$/,/^<!-- x-end -->$/p' docs/SOCIAL_POST.md | sed '1d;$d' | tr -d '\n' | wc -m
-sed -n '/^<!-- x-start -->$/,/^<!-- x-end -->$/p' docs/SOCIAL_POST.md | sed '1d;$d' | tr -d '\n' | sed -E 's#https?://[^ ]+#XXXXXXXXXXXXXXXXXXXXXXX#g; s#<final video URL>#XXXXXXXXXXXXXXXXXXXXXXX#' | wc -m
+sed -n '/^<!-- x-start -->$/,/^<!-- x-end -->$/p' docs/SOCIAL_POST.md | sed '1d;$d' | tr -d '\n' | sed -E 's#https?://[^ ]+#XXXXXXXXXXXXXXXXXXXXXXX#g' | wc -m
 ```

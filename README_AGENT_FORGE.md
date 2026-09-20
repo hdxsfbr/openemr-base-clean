@@ -24,9 +24,10 @@ come from `USERS.md`:
 
 ## Demo video
 
-Early-submission demo, 3–5 minutes, recorded 2026-09-16:
-<https://youtu.be/oxm9xqJpiY8>. The script and the proof points it covers are in
-`docs/DEMO_SCRIPT.md`.
+Final submission demo, 3–5 minutes, recorded 2026-09-20:
+<https://youtu.be/ZBzNHUv8fps>. The script and the proof points it covers are
+in `docs/DEMO_SCRIPT.md`. Early-submission demo, recorded 2026-09-16:
+<https://youtu.be/oxm9xqJpiY8>.
 
 ## Live deployment
 

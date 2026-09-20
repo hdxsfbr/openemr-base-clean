@@ -1,8 +1,6 @@
 # Demo Script (3 to 5 minutes), final recording
 
-For the owner to record (still open as of 2026-09-20), after the M5 release
-run (`docs/FINAL_PUSH_PLAN.md`, MILESTONE M5 step 3) and the single-pass
-re-verification at the deployed tree. Every proof point in
+Recorded from 2026-09-20: <https://youtu.be/ZBzNHUv8fps>. Every proof point in
 `docs/SUBMISSION_CHECKLIST.md` "Demo Proof Points" appears once, in this
 order. Times are targets.
 

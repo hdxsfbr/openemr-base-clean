@@ -763,19 +763,13 @@ changes gateway, verifier, prompt or model merges after the release run.
   commit, and cite it from `digitalocean.md:367-372` and
   `ARCHITECTURE.md:698-703`.
 
-- [ ] **Record, verify, upload and link the final demo video** (P0, M; after the release run)
+- [x] **Record, verify, upload and link the final demo video** (P0, M; after the release run)
   Why: PRD p.9 demo video 3 to 5 minutes; checklist :133 and the eight
-  proof points :139-148; synthetic data only. Do: dry-run every beat once;
-  use AF-DQ-N only if the dry run cites both the note and the list,
-  otherwise the AF-DQ-A2 amlodipine row; `audit-physician` on pid 900001,
-  Langfuse filtered to the last hour with the sidebar collapsed, the Bruno
-  tool-outage request ready; never run `git remote -v` on camera (token in
-  the URL) and never `cat` a secrets file; play back with sound on; confirm
-  3:00 to 5:00 and no password, token or session id beyond the `ref` the
-  script shows; upload unlisted; write the URL into `README_AGENT_FORGE.md`
-  "Demo video" (keep the early link labelled), `DEMO_SCRIPT.md:6`,
-  checklist :133, traceability row 39; tick each proof point with its
-  timestamp. Budget a second take.
+  proof points :139-148; synthetic data only.
+  Status 2026-09-20: recorded and uploaded, <https://youtu.be/ZBzNHUv8fps>;
+  linked from `README_AGENT_FORGE.md` "Demo video" (early link kept
+  labelled), `DEMO_SCRIPT.md`, `docs/SUBMISSION_CHECKLIST.md`, and
+  `docs/REQUIREMENTS_TRACEABILITY.md` row 40.
 
 - [x] **Trim the `AUDIT.md` Executive Summary toward the 500-word gate** (P2, S)
   Measured 635 words (`ARCHITECTURE.md` summary is 594). Move the

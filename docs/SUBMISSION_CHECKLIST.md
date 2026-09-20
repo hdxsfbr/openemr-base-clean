@@ -289,11 +289,8 @@ it describes has grown since.
       purge unimplemented, unrestricted egress accepted for Week 1, and the disposable
       hostname. Every document repeats the same sentence: demo system, synthetic data
       only, not for real PHI, not HIPAA-certified.)*
-- [ ] Final 3–5 minute demo recorded and uploaded. *(Script `docs/DEMO_SCRIPT.md`
-      is ready to record from as of 2026-09-20: no placeholders remain, every
-      number in it is measured, the three beats that pointed at evidence files
-      which were never written now point at the real ones, and the release-run
-      figures are in. Owner action.)*
+- [x] Final 3–5 minute demo recorded and uploaded. *(Recorded from
+      `docs/DEMO_SCRIPT.md` 2026-09-20: <https://youtu.be/ZBzNHUv8fps>.)*
 - [x] Final live URL and repository commit tested. *(2026-09-20:
       `/copilot-api/health` reports 0.3.0 and `/copilot-api/ready` returns all
       five dependencies ok including the tracer; `session.php` serves
@@ -311,10 +308,10 @@ it describes has grown since.
       left the Caddyfile unchanged. Both remotes and the tag are as in the
       repository note above. Owner still to repeat the from-a-phone check.)*
 - [ ] Social post published and linked. *(Draft `docs/SOCIAL_POST.md`, LinkedIn
-      and X versions, numbers refreshed to the release run 2026-09-20; the X
-      version is 252 characters with the video URL counted. Links the public
-      GitHub fork, never the GitLab. Only `<final video URL>` is left to fill,
-      once the video exists. Owner action.)*
+      and X versions, numbers refreshed to the release run 2026-09-20, video
+      URL filled in (<https://youtu.be/ZBzNHUv8fps>): X version is 279
+      characters raw, 252 t.co-weighted. Links the public GitHub fork, never
+      the GitLab. Owner action: publish and paste the link back here.)*
 - [ ] Final AI interview completed within its required window.
 - [ ] Final submission completed before the portal deadline.
 
