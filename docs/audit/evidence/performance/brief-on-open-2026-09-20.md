@@ -73,7 +73,34 @@ returns HTTP 200, 36,958 bytes, containing `maybeStartBrief`, `brief_on_open`
 and `brief_started` — so the deploy carried the new panel, and the version
 bump busts the browser cache for `0.4.4`.
 
-## 4. Still to record
+## 4. `visit_today` as the default
+
+Commit `4127593`, pipeline 24198, deployed 2026-09-20. The container carries
+the setting (`docker compose exec openemr printenv COPILOT_BRIEF_ON_OPEN` →
+`visit_today`), and the same session.php probe as section 1:
+
+| Who | Chart | Visit today? | `brief_on_open` | Expected |
+|---|---|---|---|---|
+| `audit-physician` | 900001 (AF-DQ-A2) | yes | **true** | brief |
+| `audit-physician` | 900018 (AF-DQ-N) | yes | **true** | brief |
+| `audit-physician` | 900023 (AF-HEAVY) | **no** | **false** | no visit, no brief |
+| `audit-physician` | none open | — | false | no chart, no brief |
+| `audit-frontdesk` | 900001 (AF-DQ-A2) | yes | **false** | no clinical section, no brief |
+
+The last row is the interaction worth keeping: the patient is being seen
+today, and the role gate still refuses. The two conditions are `&&`, not a
+precedence question.
+
+**What this does not prove.** Both the compose file and `BriefPolicy`'s own
+fallback now say `visit_today`, so the behaviour above is the same whether
+PHP read the environment variable or fell back. `printenv` shows the variable
+in the container, and mod_php inherits the container environment, but no test
+here distinguishes the two paths. It would matter the first time someone sets
+`always` or `off` on a deployment and expects it to take effect; the way to
+settle it then is to set the value and watch `brief_on_open` change for a
+patient with no visit today.
+
+## 5. Still to record
 
 - The panel behaviour in a browser: the drawer opening on a finished brief,
   the "Pre-visit brief" header rather than a question the physician did not
