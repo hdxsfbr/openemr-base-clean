@@ -66,6 +66,25 @@ def emit(record: dict[str, Any], out=None) -> None:
     print(json.dumps(record, sort_keys=True), file=out or sys.stdout, flush=True)
 
 
+def resolve_webhook(args: argparse.Namespace) -> str | None:
+    """The webhook URL for this cycle, or None.
+
+    `--webhook-file` is read every cycle rather than once at startup, so pushing
+    the secret to a running deployment takes effect without a restart. A missing
+    or empty file is "no webhook", not an error: the alerts service has to come
+    up on a host where the operator has not supplied one.
+    """
+    path = getattr(args, "webhook_file", None)
+    if path:
+        try:
+            url = Path(path).read_text().strip()
+        except OSError:
+            return args.webhook
+        if url:
+            return url
+    return args.webhook
+
+
 def post_webhook(url: str, payload: dict[str, Any], client: httpx.Client) -> bool:
     try:
         client.post(url, json=payload).raise_for_status()
@@ -97,10 +116,11 @@ def run_once(args: argparse.Namespace, client: httpx.Client, now: float | None =
     save_state(state_path, {"previous": sample.to_json(), "ready_failing_since": failing_since})
 
     interval = None if previous is None else round(now - previous.fetched_at, 1)
+    webhook = resolve_webhook(args)
     for alert in alerts:
         record = {"ts": now, "event": "alert", "rate_window_seconds": interval, **alert.to_dict()}
-        if args.webhook:
-            record["webhook_delivered"] = post_webhook(args.webhook, record, client)
+        if webhook:
+            record["webhook_delivered"] = post_webhook(webhook, record, client)
         emit(record, out)
     if not alerts:
         emit({"ts": now, "event": "heartbeat", "rate_window_seconds": interval, "turns_5m": sample.get("copilot_turn_latency_count_5m", 0.0)}, out)
@@ -115,6 +135,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--interval", type=float, default=0.0, help="Seconds between scrapes; 0 (default) runs once and exits")
     parser.add_argument("--ready-url", default=None, help="Optional /ready URL for the 'not ready for 2 minutes' page rule")
     parser.add_argument("--webhook", default=None, help="Optional URL that receives each alert as a JSON POST (off by default)")
+    parser.add_argument(
+        "--webhook-file",
+        default=None,
+        help=(
+            "Optional file holding the webhook URL, read at each cycle. Preferred over --webhook on a "
+            "deployment: a Slack incoming webhook is a credential, and an argv value is visible to "
+            "`docker inspect` and every process listing on the host. An absent or empty file means "
+            "no webhook, so the deploy works before the secret is pushed."
+        ),
+    )
     parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds")
     return parser
 

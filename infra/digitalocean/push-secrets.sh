@@ -9,6 +9,7 @@
 #   ~/.config/agentforge/anthropic_workspace_id   (only for an organization-level key)
 #   ~/.config/agentforge/langfuse_public_key
 #   ~/.config/agentforge/langfuse_secret_key
+#   ~/.config/agentforge/slack_alert_webhook   (Slack incoming webhook for runtime alerts)
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
@@ -25,7 +26,7 @@ ssh_options=(-o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
 source_dir="${AGENTFORGE_SECRETS_DIR:-${HOME}/.config/agentforge}"
 
 pushed=0
-for name in anthropic_api_key anthropic_workspace_id langfuse_public_key langfuse_secret_key; do
+for name in anthropic_api_key anthropic_workspace_id langfuse_public_key langfuse_secret_key slack_alert_webhook; do
     path="${source_dir}/${name}"
     if [[ ! -s "${path}" ]]; then
         printf 'skip   %s (no local file)\n' "${name}"

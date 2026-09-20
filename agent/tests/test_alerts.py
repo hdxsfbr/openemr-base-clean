@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from app import alerts as A
-from app.alerts_cli import EXIT_FETCH_FAILED, EXIT_OK, EXIT_PAGE, run_once
+from app.alerts_cli import EXIT_FETCH_FAILED, EXIT_OK, EXIT_PAGE, resolve_webhook, run_once
 from app.metrics import Metrics
 
 
@@ -284,7 +284,13 @@ def _client(texts: dict[str, str], ready_status: int = 200, posted: list | None 
 
 
 def _args(tmp_path: Path, **overrides) -> argparse.Namespace:
-    base = {"url": "http://agent/metrics", "state": str(tmp_path / "state.json"), "ready_url": None, "webhook": None}
+    base = {
+        "url": "http://agent/metrics",
+        "state": str(tmp_path / "state.json"),
+        "ready_url": None,
+        "webhook": None,
+        "webhook_file": None,
+    }
     base.update(overrides)
     return argparse.Namespace(**base)
 
@@ -328,3 +334,58 @@ def test_cli_reports_fetch_failure_without_touching_state(tmp_path: Path) -> Non
     assert code == EXIT_FETCH_FAILED
     assert json.loads(out.getvalue())["event"] == "fetch_failed"
     assert not (tmp_path / "state.json").exists()
+
+
+def test_resolve_webhook_prefers_the_file_and_treats_absence_as_off(tmp_path: Path) -> None:
+    """The deployment passes --webhook-file so the URL stays out of argv.
+
+    Absent and empty both mean "no webhook" rather than an error: the alerts
+    service has to start on a host where the operator never supplied one.
+    """
+    missing = tmp_path / "nope"
+    assert resolve_webhook(_args(tmp_path, webhook_file=str(missing))) is None
+
+    empty = tmp_path / "empty"
+    empty.write_text("")
+    assert resolve_webhook(_args(tmp_path, webhook_file=str(empty))) is None
+
+    configured = tmp_path / "hook"
+    configured.write_text("  https://hooks.example/services/T/B/xyz\n")
+    assert resolve_webhook(_args(tmp_path, webhook_file=str(configured))) == "https://hooks.example/services/T/B/xyz"
+
+    # The file wins over an argv value when both are present, and an empty file
+    # falls back rather than silently disabling a webhook the operator did pass.
+    assert resolve_webhook(_args(tmp_path, webhook="https://argv/x", webhook_file=str(configured))) == "https://hooks.example/services/T/B/xyz"
+    assert resolve_webhook(_args(tmp_path, webhook="https://argv/x", webhook_file=str(empty))) == "https://argv/x"
+
+
+def test_cli_posts_to_the_webhook_named_by_the_file(tmp_path: Path) -> None:
+    hook = tmp_path / "hook"
+    hook.write_text("http://hooks/from-file\n")
+    out = io.StringIO()
+    # The shared mock records bodies, not URLs, and the URL is the point here.
+    seen: list[str] = []
+
+    def client_for(text: str) -> httpx.Client:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                seen.append(str(request.url))
+                return httpx.Response(204)
+            return httpx.Response(200, text=text)
+
+        return httpx.Client(transport=httpx.MockTransport(handler))
+
+    # Prime the state file so the second sample has a window to compute a rate over.
+    run_once(_args(tmp_path), client_for(metrics_text(turn_2xx=100, turn_5xx=0)), now=0.0, out=io.StringIO())
+
+    code = run_once(
+        _args(tmp_path, webhook_file=str(hook)),
+        client_for(metrics_text(turn_2xx=110, turn_5xx=5)),
+        now=300.0,
+        out=out,
+    )
+
+    assert code == EXIT_PAGE
+    assert seen == ["http://hooks/from-file"]
+    record = json.loads(out.getvalue().splitlines()[0])
+    assert record["webhook_delivered"] is True
