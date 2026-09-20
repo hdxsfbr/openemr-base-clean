@@ -333,3 +333,22 @@ the damage is silent: nothing errors, the ordering just quietly inverts.
 still runs `COPILOT_BRIEF_ON_OPEN=always`, now as a robustness choice for
 graders opening the box on any later day, not because `visit_today` cannot
 work.
+
+**What was deliberately not cleaned.** Two residues are left in place and
+stated rather than scrubbed.
+
+The OpenEMR `log` table keeps its audit rows. Roughly three hours of them —
+those written between the 18:45 PDT deploy and the 21:33 PDT revert — are
+stamped on the clinic clock among UTC neighbours, so within that window the
+table's own ordering places them about seven hours earlier than they
+happened. The row counts either side are continuous (301,660 on 2026-09-19,
+30,363 so far on 2026-09-20; no gap, an overlap), and nothing the co-pilot
+does reads that column for ordering. Deleting audit rows to tidy a
+timestamp seam is not a trade a project that argues about audit integrity in
+`AUDIT.md` §5 should make, so they stay, and this paragraph is the record.
+
+The agent's SQLite checkpointer (`agent_state` volume) still holds
+checkpoints for the conversations truncated out of `copilot_conversation`.
+They are unreachable — the module resolves a conversation through the
+database first — but they are not swept, because `sweep()` has no caller
+(ADR-0005, and the Known Limitations list). Week 2 gets the sweeper.

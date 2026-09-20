@@ -61,9 +61,11 @@ seconds long (module 0.5.0, `BriefPolicy`, ADR-0003 amendment). By default
 (`COPILOT_BRIEF_ON_OPEN=visit_today`) it prepares one only for a patient
 today's schedule shows a visit for, which is the moment it is written for;
 `always` prepares one per chart open, and `off` restores
-retrieve-only-when-asked. The demo deployment runs `always`, so a walkthrough
-shows the brief on whichever chart is opened rather than depending on the
-seeded schedule. It also offers three
+retrieve-only-when-asked. The demo deployment runs `always`. `visit_today`
+does work on it — the cohort is re-seeded with a schedule for the current
+day, and all three walkthrough patients have a visit today — but `always`
+keeps the brief visible for anyone opening the deployment on a later day,
+once that schedule has aged out. It also offers three
 starter questions: that one, "Which recent abnormal labs still have no
 later result or documented follow-up?", and "What does the chart say about
 why each current medication is on the list?". Follow-ups are typed in the
@@ -273,7 +275,7 @@ and responses are in `KEY_METRICS.md` and `docs/operations/alerts.md`.
 | Item | Status |
 | --- | --- |
 | Bruno collection against the deployment as `audit-physician` | 21/21 requests passing (2026-09-16) |
-| Agent unit tests (`agent/tests/`) | 96 passed (2026-09-17, `pytest -q`) |
+| Agent unit tests (`agent/tests/`) | 104 passed (2026-09-20, `pytest -q`) |
 | UC-01 turn, follow-up with tool chaining, Langfuse traces | Verified live |
 | Eval cases and results (`evals/cases/`, `evals/results/`) | 46 cases (14 golden, 4 holdout). Latest full run `evals/results/2026-09-18T210912Z-61ed997.md` (2026-09-18, after amending `max_plan_rounds` 3 -> 1): 46 ran, 46 passed, every blocking gate PASS, citations 188/188, model-backed p95 18.0 s, $0.0103 per model-backed turn. History: the immediately-prior `rounds=3` baseline `evals/results/2026-09-18T201618Z-1fda51b.md` (45/46, p95 27.5 s), `evals/results/2026-09-17T024919Z-a4a5856.md` (44/45, Golden 14/14, citations 177/177, p95 24.1 s), 44/44 at `a7641e9`, and 114/116 over a same-commit `--repeat 3` at `1ddf824` (citations 528/528). `MISS-AUTHOR-J-001` is the one recurring, non-deterministic model-recall miss (flips run to run; passed at `61ed997`) |
 | GitLab CI | Green on the dedicated runner (lints, agent tests, offline evals); manual `test:evals-live` job ran 44/44 against the deployment (`docs/SUBMISSION_CHECKLIST.md`) |
