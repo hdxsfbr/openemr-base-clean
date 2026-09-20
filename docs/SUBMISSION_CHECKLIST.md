@@ -158,23 +158,53 @@ resumes at line 51).
       Scheduled on the host by the `alerts` service in
       `infra/digitalocean/runtime/compose.yaml` every 300 s since 2026-09-17;
       live from the M3 deploy.)*
-- [ ] CPU, memory, latency, and throughput baselines recorded.
-- [ ] Load tests run at 10 and 50 concurrent users with p50/p95/p99 and errors.
-      *(Driver `evals/load/run_load.py` and sampler `docs/audit/scripts/droplet-stats.sh`
-      built and tested offline 2026-09-17 (M2); the run is M4 and human-gated. Results
-      will land in `evals/load/results/`; none exist yet. Expected 50-user failure shapes
-      are written down in `evals/load/README.md` before the run.)*
+- [x] CPU, memory, latency, and throughput baselines recorded.
+      *(`docs/audit/evidence/performance/baseline-2026-09-18.md`, sampled every 5 s by
+      `docs/audit/scripts/droplet-stats.sh` during each load level; CSVs in
+      `evals/load/results/`. Idle: `openemr` 0.6%/6.3% CPU, 11 httpd procs, 1,195 MiB
+      host memory. At 50 users `openemr` peaks 103.2% and `database` 111.0% — each
+      alone past a full vCPU — while `agent` never exceeds 43.7%; 58 httpd procs,
+      150 MariaDB connections, `load1` 24.47. Throughput 13.5 turns/min at 10 users,
+      32.2 at 50. Memory was never the constraint, so ADR-0001's 8 GiB fallback
+      trigger did not fire. Measured before the batched-gateway, low-effort-follow-up
+      and brief-on-open changes; the bottleneck they identify is structural and
+      unchanged, the absolute numbers are not re-measured.)*
+- [x] Load tests run at 10 and 50 concurrent users with p50/p95/p99 and errors.
+      *(Run 2026-09-18 against the live Droplet; `docs/audit/evidence/performance/load-test-2026-09-18.md`,
+      raw JSON in `evals/load/results/`. Real model, 10 users: turn p50 18.8 s, p95 45.0 s,
+      p99 45.1 s, 10.0% errors (both 504 on AF-HEAVY), 90% of turns complete. 50 users:
+      p50 8.3 s, p95 43.8 s, p99 45.0 s, 5.6% errors, and the share that matters —
+      18.3% complete, 76.1% partial — because latency alone is gamed by degrading early.
+      A `--fault model` control run making zero model calls reproduced the same shape
+      (chart-open p95 46.15 s, 97.7% tool-gateway unavailability), which puts the ceiling
+      in OpenEMR's Apache/PHP and MariaDB rather than in the agent or the provider.
+      Both levels contradict the provisional 30 s p95 threshold in `KEY_METRICS.md`
+      under concurrency; the single-user figure still meets it.)*
 - [ ] Actual development cost and 100/1K/10K/100K-user projections complete in
       `AI_COST_ANALYSIS.md`.
-- [ ] Backup, restore, migration, rollback, and clean-deploy procedures tested.
-      *(Not yet. `infra/digitalocean/backup.sh` and `restore.sh` (encrypted archive of the
-      database dump, the `openemr_sites` and `agent_state` volumes, secrets and `.env`;
-      restore re-initialises the database volume from the restored secrets) and the
-      rehearsal runbook in `docs/deployment/digitalocean.md` exist since 2026-09-17; the
-      rehearsal on a throwaway Droplet — clean deploy, rollback to `week1`, roll forward,
-      restore, destroy — is M4 and human-gated. Migration is not applicable: the co-pilot
-      is read-only and owns no schema beyond the module's registration.)*
-- [ ] Residual risks and real-clinical-use limitations are explicit.
+- [x] Backup, restore, migration, rollback, and clean-deploy procedures tested.
+      *(Rehearsed end to end 2026-09-18 on a throwaway `s-2vcpu-4gb` at `146.190.154.222`
+      in its own Terraform workspace, never against the live host; timings table in
+      `docs/deployment/digitalocean.md` "Rehearsal Runbook". Clean deploy 2m36s, demo-seed
+      plus a 14/14 golden run 3m10s, `backup.sh` 15s, rollback to tag `week1` 2m36s
+      (14/14 golden there too), roll forward 1m13s, `restore.sh` 3m19s, destroy 25s.
+      The restore was proven to actually restore rather than no-op: a conversation created
+      after the backup came back `Unknown conversation.` afterwards. Two real bugs were
+      found and fixed in the process — `deploy.sh`'s bootstrap wait was too short, and
+      `push-secrets.sh` failing silently inside `deploy.sh` had deployed once with both
+      `llm_provider` and `tracer` unconfigured. Destroy left the account at its
+      pre-rehearsal resource count. Migration is not applicable: the co-pilot is read-only
+      and owns no schema beyond the module's registration.)*
+- [x] Residual risks and real-clinical-use limitations are explicit.
+      *(`AUDIT.md` §9 Residual Risk, the Known Limitations section of `ARCHITECTURE.md`,
+      the limitations block in `README_AGENT_FORGE.md`, and — new for the final —
+      "Known gaps at submission" in `docs/INTERVIEW_NOTES.md`, which states the gaps an
+      evaluator could find before they find them: load and baseline numbers measured
+      before three later performance changes, two dashboard panels still to build, the
+      two gates that read NOT MEASURED by design, tickets not single-use, the 24-hour
+      purge unimplemented, unrestricted egress accepted for Week 1, and the disposable
+      hostname. Every document repeats the same sentence: demo system, synthetic data
+      only, not for real PHI, not HIPAA-certified.)*
 - [ ] Final 3–5 minute demo recorded and uploaded. *(Script: `docs/DEMO_SCRIPT.md`,
       revised 2026-09-17 for the release-run numbers; every number that does not exist
       yet is a visible `<pending M4>` or `<pending M5>` placeholder and is not read aloud.)*
