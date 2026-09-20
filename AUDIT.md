@@ -4,72 +4,68 @@
 
 We audited OpenEMR (commit `fc95374`) before writing any AI code: code tracing,
 read-only SQL, live role tests, image scans, a public deployment probe, timing,
-and a planted synthetic cohort. Each claim below was re-checked against source
-or the database. Five findings changed the design, ranked by their effect on it.
+and a planted synthetic cohort. Every claim below was re-checked against source or the
+database. Five findings changed the design, ranked by effect.
 
 **1. OpenEMR has no patient-level authorization.** Access is decided by role
 and chart section. `AclMain::aclCheckCore` takes no patient argument; only 4 of
-310 service classes reference it, none clinical. API tokens are checked for
-role, scope, and section, never patient. Live, Physician and Clinician
-accounts with no relationship to any patient opened full dashboards of
-arbitrary patients, each logged as an ordinary view.
-*Consequence:* the co-pilot's isolation equals the chart's, by decision
-(ADR-0002): the gateway binds each conversation to the open chart, re-runs
-the chart's section ACLs per tool, audits every read, and never lets the model
-choose a patient. A stricter care-relationship policy is designed and deferred.
+310 service classes reference it, none clinical. API tokens check role, scope, and
+section — never patient. Live, Physician and Clinician accounts
+unrelated to any patient opened arbitrary charts, each logged as an ordinary
+view. *Consequence:* the co-pilot's isolation equals the chart's, by decision
+(ADR-0002): the gateway binds each conversation to the open chart, re-runs its
+section ACLs per tool, audits every read, and never lets the model pick a
+patient. A stricter care-relationship policy is designed and deferred.
 
-**2. The data cannot support the use case, and it contradicts itself.** Three
-demo patients, one 2014 encounter each, no lab results, three placeholder SOAP
-notes under 50 characters, and no onset dates anywhere. The one prescription is
-active in `prescriptions` and inactive in `lists`; the chart greys a medication
-by end date while the API calls it "stopped" by activity flag, so they disagree
-on the same row. *Consequence:* tools normalize status and dates, flag conflicts, and
+**2. The data cannot support the use case, and it contradicts itself.** Three demo
+patients, one 2014 encounter each, no labs, three placeholder SOAP notes under
+50 characters, no onset dates. One prescription is active in `prescriptions` and
+inactive in `lists`; the chart greys a medication by end date while the API
+calls it "stopped" by activity flag — same row, two answers. *Consequence:* tools normalize status and dates, flag conflicts, and
 distinguish "not documented" from "reviewed, none" and "unavailable". A
 versioned synthetic cohort reproduces each defect for evals.
 
-**3. Silent failure exists below the agent.** `ProcedureService::getAll()`
-emits invalid SQL (a dangling `LEFT JOIN`), and `ConditionService` returns one
-row per linked encounter (26 rows for 7 conditions on the synthetic chart). A
-naive tool would say "no labs" or repeat diagnoses. *Consequence:* every
-tool returns `ok | empty | partial | unavailable`, deduplicates by record
-identity, and uses the working `search()` path for labs. The verifier rejects
-absence claims unless retrieval succeeded.
+**3. Silent failure exists below the agent.** `ProcedureService::getAll()` emits
+invalid SQL (a dangling `LEFT JOIN`), and `ConditionService` returns one row per
+linked encounter (26 rows for 7 conditions). A naive tool would say "no labs" or
+repeat diagnoses. *Consequence:* every tool returns
+`ok | empty | partial | unavailable`, deduplicates by record identity, and uses
+the working `search()` path for labs. The verifier rejects absence claims unless
+retrieval succeeded.
 
 **4. Audit logging and telemetry are the likeliest compliance failures.**
 Query-event logging is off, so co-pilot reads would leave no trail unless the
 gateway writes one. Log integrity is an unkeyed SHA3-512 stored beside the rows
 it protects. API logging defaults to "full", copying PHI response bodies into
-the database. Hosted tracing means a business associate with no BAA. *Consequence:* the gateway writes its own audit event before
-returning data, and telemetry is PHI-free or self-hosted.
+the database. Hosted tracing means a business associate with no BAA.
+*Consequence:* the gateway writes its own audit event before returning data;
+telemetry is PHI-free or self-hosted.
 
-**5. The deployment path exposes upstream files.** The official image serves
-its whole repository and our Caddy forwarded every path, so a probe downloaded
-upstream dev private keys and a compose file with token-format strings; none of
-our secrets leaked. *Consequence:* a deny-by-default edge
-allowlist precedes any agent component or LLM key. A configuration fix, not a
-design change.
+**5. The deployment path exposes upstream files.** The official image serves its
+whole repository and our Caddy forwarded every path, so a probe downloaded
+upstream dev private keys and a compose file with token-format strings. None of
+our secrets leaked. *Consequence:* a deny-by-default edge allowlist precedes any
+agent component or LLM key — a configuration fix, not a design change.
 
 **Performance was not the constraint we expected.** A dashboard render takes
-about 360 ms and 1,045 SQL statements, mostly translation, layout, and ACL
-lookups, regardless of chart size. Services answer in milliseconds even for a
-five-year synthetic chart, but its raw payload is about 42K tokens. Context size, not OpenEMR, drives latency and cost.
+about 360 ms and 1,045 SQL statements — mostly translation, layout, and ACL
+lookups — regardless of chart size. Services answer in milliseconds even for a
+five-year chart, whose raw payload is about 42K tokens. Context size, not
+OpenEMR, drives latency and cost.
 
-**Residual risk.** Patient isolation equals OpenEMR's, which is none beyond
-role, and rests on our gateway checks until adversarial evals prove them. Both pinned images carry fixable Critical CVEs that
-we document, not patch. Authenticated behavior on the deployment, load
-behavior, and real data distributions are unverified, and the workflow has not
-been validated with a clinician. There are no executed BAAs, backups, retention
-schedule, or tamper-evident audit sink. This is a demo system: not for real
-PHI, and not HIPAA-certified.
-
-*Status 2026-09-16: the findings above are unchanged observations of commit
-`fc95374`. What has since been implemented and verified in the co-pilot is
-recorded per row in §7 and per bullet in §9; nothing in OpenEMR itself was
-changed.*
-
+**Residual risk.** Patient isolation equals OpenEMR's — none beyond role — and
+rests on our gateway checks. Both pinned images carry fixable Critical CVEs we
+document rather than patch. Real data distributions are unverified and no
+clinician has validated the workflow. No executed BAAs, retention schedule, or
+tamper-evident audit sink. A demo system: not for real PHI, not HIPAA-certified.
 ---
 
 ## Audit Record
+
+*The Executive Summary's findings are unchanged observations of commit
+`fc95374`. What has since been implemented and verified in the co-pilot is
+recorded per row in §7 and per bullet in §9; nothing in OpenEMR itself was
+changed.*
 
 | Field | Value |
 | --- | --- |
