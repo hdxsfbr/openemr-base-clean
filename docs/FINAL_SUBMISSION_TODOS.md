@@ -36,6 +36,42 @@ cut order at the end of this file; do not stretch the Saturday freeze.
 
 ---
 
+> **Status re-check, 2026-09-20 (Saturday night).** Every item below was
+> re-verified against the tree, the deployment and the live endpoints rather
+> than against its checkbox, because the boxes had not been touched since
+> Friday morning while the work ran through Saturday night.
+>
+> **Verified done since this list was written:** the tracer probe in `/ready`
+> (confirmed `reachable` on the Droplet); the alerts compose service; pinned
+> dependencies; the `start.sh` Caddy recovery and log rotation; the load
+> driver, the 10- and 50-user runs and the CPU/memory baselines (all
+> 2026-09-18, a day early, so they are named `-2026-09-18` and the demo script
+> pointed at dates that never existed); the throwaway-Droplet rehearsal
+> including a restore proven not to be a no-op; `backup.sh`/`restore.sh`;
+> the four control tests the docs cited (104 agent tests now, not 60); the
+> per-tier cost table; `WEEK2_HANDOFF.md`; `ISO-FRESH-REPEAT-001`.
+>
+> **Done tonight:** the version bump so `/health` names the release (0.3.0,
+> module 0.5.0, and `session.php` now serves the real module version); deploy
+> of the frozen tree with image digests recorded; the `AUDIT.md` summary cut
+> from 635 to 555 words; "Known gaps at submission" in the interview notes;
+> the Bruno request for `brief_on_open`; the demo script's dead file paths and
+> every `<pending M4>` number; Terraform state backed up.
+>
+> **Still open, in order:** the `--repeat 3` release run and `compare.py`;
+> redeploy for the `session.php` version fix plus a golden re-run; the
+> deny-by-default edge probe; the Droplet snapshot; `AI_COST_ANALYSIS.md`
+> Part A; the number sweep across the docs; tag and push both remotes.
+> **Owner-only:** the two Langfuse panels (no widget API — field-by-field
+> steps are in `docs/operations/langfuse-dashboard.md`), the demo video, the
+> social post, the form, and the AI interview.
+>
+> `ISO-TWO-USERS-001` and the journal-derived cases are not built and are cut
+> per the cut order; the Friday agent batch is complete except its two
+> dashboard widgets.
+
+---
+
 ## Thursday 2026-09-17 (interview day: docs, tests and local work only; no deploy)
 
 The technical interview with Byron is 12:00 to 12:15 PT. Only two things
@@ -43,7 +79,7 @@ land before it. Everything else is after 12:30 PT.
 
 ### Before 12:00 PT
 
-- [ ] **Write the twelve-question answer sheet in `docs/INTERVIEW_NOTES.md`** (P0, M)
+- [x] **Write the twelve-question answer sheet in `docs/INTERVIEW_NOTES.md`** (P0, M)
   Why: PRD p.10 "Interview Preparation" (audit, architecture, evaluation,
   production thinking). State: `docs/INTERVIEW_NOTES.md` answers the
   Appendix checklist only; none of the twelve questions has a written
@@ -91,7 +127,7 @@ checklist :8-15.
   sheet, `README_AGENT_FORGE.md` and the a4a5856 report on a second screen.
   Then tick a new line under checklist :116 with the time.
 
-- [ ] **Create `docs/INTERVIEW_FEEDBACK.md` and fill it within an hour of the interview** (P1, S)
+- [x] **Create `docs/INTERVIEW_FEEDBACK.md` and fill it within an hour of the interview** (P1, S)
   Why: checklist :124 "Interview feedback addressed or documented as a
   tradeoff". Do: decision rule at the top (docs-only dispositions land by
   Friday; any code change goes through baseline run, change, full run,
@@ -257,7 +293,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   both numbers (never keys) with the date into `digitalocean.md` "Current
   Deployment"; recheck Sunday 06:30 PT. Top up Friday, not Saturday.
 
-- [ ] **Make `/ready` probe Langfuse reachability with the configured keys** (P0, S)
+- [x] **Make `/ready` probe Langfuse reachability with the configured keys** (P0, S)
   Why: PRD p.8 "/ready must actually check that OpenEMR, the LLM provider,
   and the observability backend are reachable". State:
   `agent/app/readiness.py:73-76` returns "configured" when the two key files
@@ -306,7 +342,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   checkpointer, never uvicorn workers), :599-602, `KEY_METRICS.md:32-39`,
   traceability row 30, checklist :61-64, `INTERVIEW_NOTES.md:43-45`.
 
-- [ ] **Schedule the alert evaluator as a compose service in the same deploy** (P1, S)
+- [x] **Schedule the alert evaluator as a compose service in the same deploy** (P1, S)
   State: `alerts.py`, `alerts_cli.py` and 26 tests exist; nothing in
   `compose.yaml`, cloud-init, `start.sh` or `deploy.sh` runs it. Do: an
   `alerts` service (`image: agentforge/copilot-agent:local`,
@@ -319,7 +355,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   lines in `docker compose logs alerts`. Update `ARCHITECTURE.md:606-612`,
   :78-80, ADR-0007:116-118, `alerts.md` "Running the job", traceability row 31.
 
-- [ ] **Pin the agent's Python dependencies from the running container** (P1, S; before the batch deploy)
+- [x] **Pin the agent's Python dependencies from the running container** (P1, S; before the batch deploy)
   State: `agent/pyproject.toml:8-20` has lower bounds only; no lock file;
   `start.sh:62` runs `docker compose build --pull` on every deploy; CI
   installs unpinned; ADR-0004:145 says "pinned". Do:
@@ -328,7 +364,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   CI the same with `'.[dev]'`; fresh venv from the lock passes the tests and
   `export --check`; ADR-0004 status line; refresh procedure in `agent/README.md`.
 
-- [ ] **Make `start.sh` recover a Caddy left in Created state and fail loudly** (P1, S; log rotation P2)
+- [x] **Make `start.sh` recover a Caddy left in Created state and fail loudly** (P1, S; log rotation P2)
   State: `start.sh:61-63` is one `docker compose up --detach --wait
   --wait-timeout 600` with no post-check; `caddy` depends on `openemr`
   healthy with a 180 s start period; no `logging:` block on any service.
@@ -340,7 +376,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   every service; validated by the rehearsal deploy; `digitalocean.md:358`
   says automated.
 
-- [ ] **Build the load driver and the Droplet sampler; smoke at 2 users** (P0, L; the build half)
+- [x] **Build the load driver and the Droplet sampler; smoke at 2 users** (P0, L; the build half)
   Why: PRD p.9 load tests at 10 and 50 concurrent users with p50/p95/p99 and
   error rate, and baselines under those scenarios. State: nothing exists;
   only serial latencies (a4a5856 scorecard, n=40). Do:
@@ -367,7 +403,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   not 5xx; provider 429s open the breaker for 60 s and convert turns to
   fallback.
 
-- [ ] **Rehearse clean deploy, rollback, roll-forward and restore on a throwaway Droplet** (P1, M; Friday evening if the pin and `start.sh` fix land, else Saturday morning)
+- [x] **Rehearse clean deploy, rollback, roll-forward and restore on a throwaway Droplet** (P1, M; Friday evening if the pin and `start.sh` fix land, else Saturday morning)
   Why: checklist :131; `PROJECT_PLAN.md:237`; PRD Appendix 15;
   `INTERVIEW_NOTES.md:277-280` asserts rollback with no evidence. State:
   never rehearsed; `main.tf:11-14` registers the SSH key as a resource
@@ -389,7 +425,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   (replace :309-316), fix `INTERVIEW_NOTES.md:277-280`, tick checklist :131
   and `SETUP.md:239`. About $0.04 per hour.
 
-- [ ] **Add `backup.sh` and `restore.sh`; back up Terraform state; delete stale plans** (P1, M)
+- [x] **Add `backup.sh` and `restore.sh`; back up Terraform state; delete stale plans** (P1, M)
   State: `main.tf:22` `backups = false`; no scripts; `start.sh:32-37`
   generates the MySQL, admin, delegation and demo passwords on the host
   only, so losing `/opt/agentforge/secrets` orphans the database volume and
@@ -431,7 +467,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   model capacity, regional deployment, per-tenant budgets. Rewrite :124-126
   as "linear until the tier levers apply".
 
-- [ ] **Revise `docs/DEMO_SCRIPT.md` for the final video with placeholders** (P1, S)
+- [x] **Revise `docs/DEMO_SCRIPT.md` for the final video with placeholders** (P1, S)
   State: :13-29 is the early script (ends at 4:25; no load, baseline, alert
   or rollback beat); all eight proof points at checklist :139-148 unticked.
   Do: a one-line "since the early submission" opener; replace rows 3:50 to
@@ -444,7 +480,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   refusal at 1:45; keep the commit and tag on screen. If load results slip,
   the script must not claim them.
 
-- [ ] **Draft `docs/SOCIAL_POST.md` (LinkedIn and X) and plan the 20 to 30 s clip** (P1 draft, S; posting is Sunday P0)
+- [x] **Draft `docs/SOCIAL_POST.md` (LinkedIn and X) and plan the 20 to 30 s clip** (P1 draft, S; posting is Sunday P0)
   Why: PRD p.9 "Share on X or LinkedIn: describe the project, show the
   agent, tag @GauntletAI". State: no draft or media anywhere; the lab
   GitLab is login-only, so only the public GitHub fork and the unlisted
@@ -478,7 +514,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   MariaDB and demo passwords stay). Execute only after the final AI
   interview window.
 
-- [ ] **Add the tests that prove controls the docs already cite** (P1, S; lint and tracer-down P2)
+- [x] **Add the tests that prove controls the docs already cite** (P1, S; lint and tracer-down P2)
   State: 60 tests; nothing covers checkpoint content (ADR-0005:128-130
   claims it; `ARCHITECTURE.md:851` says still to add), the 429 rate limit,
   the circuit breaker, or the LangSmith guard. Do (tests only, excluded
@@ -493,7 +529,7 @@ recovery command (`docs/deployment/digitalocean.md:349-357`) at hand.
   checkpoint test finds a raw record shape, that is an ADR-0005 breach to
   fix before the freeze.
 
-- [ ] **Write `docs/WEEK2_HANDOFF.md`** (P1, M; keep to one page if time is short)
+- [x] **Write `docs/WEEK2_HANDOFF.md`** (P1, M; keep to one page if time is short)
   Why: PRD p.2 "good architecture will compound"; Week 2 adds ingestion,
   hybrid RAG, a supervisor with two workers, a 50-case golden set and a
   PR-blocking eval gate. Do: read-first order; a seams table honest about
@@ -549,7 +585,7 @@ changes gateway, verifier, prompt or model merges after the release run.
   restored Droplet gets a new IP and hostname, so this is the rollback of
   last resort, not the first.
 
-- [ ] **Run the load tests at 10 and 50 concurrent users** (P0, L; the run half)
+- [x] **Run the load tests at 10 and 50 concurrent users** (P0, L; the run half)
   Only after the rehearsal, restore test and snapshot; never during an
   eval run or the demo. Five-minute idle baseline with the sampler, then
   `--users 10` and `--users 50` with the real model (about 20 and 100
@@ -563,7 +599,7 @@ changes gateway, verifier, prompt or model merges after the release run.
   concurrency-1 row; commit the JSON. Never resize the Droplet or change
   `tool_concurrency` inside the window.
 
-- [ ] **Capture CPU, memory, throughput, Apache-worker and DB-connection baselines** (P0, M)
+- [x] **Capture CPU, memory, throughput, Apache-worker and DB-connection baselines** (P0, M)
   Why: PRD p.9 baselines under the load scenarios; checklist :127;
   traceability row 35; `KEY_METRICS.md:43`. Do: `droplet-stats.sh` for the
   idle window and each level and scenario; turns per minute and requests
@@ -669,12 +705,12 @@ changes gateway, verifier, prompt or model merges after the release run.
   checklist :133, traceability row 39; tick each proof point with its
   timestamp. Budget a second take.
 
-- [ ] **Trim the `AUDIT.md` Executive Summary toward the 500-word gate** (P2, S)
+- [x] **Trim the `AUDIT.md` Executive Summary toward the 500-word gate** (P2, S)
   Measured 635 words (`ARCHITECTURE.md` summary is 594). Move the
   2026-09-15/16 status and remediation sentences into §7 and cut to about
   550; remove no finding; set traceability row 13 to the real count.
 
-- [ ] **Add "Known gaps at submission" to `docs/INTERVIEW_NOTES.md` and the two evals notes** (P1, S)
+- [x] **Add "Known gaps at submission" to `docs/INTERVIEW_NOTES.md` and the two evals notes** (P1, S)
   Load and baseline status, the recall-miss state after the release run,
   cost gate state, hostname, backup and egress outcomes (for both AI
   interviews). Add to `evals/README.md:66-76` and `KEY_METRICS.md:82`, :93
