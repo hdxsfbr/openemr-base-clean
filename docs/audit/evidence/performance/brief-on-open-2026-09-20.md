@@ -171,7 +171,59 @@ asked", which is a contract change (`TurnRequest`/history), not a panel patch:
 the client cannot infer it, because a physician may genuinely type that
 question. Not fixed here; recorded as the open item.
 
-## 7. Still to record
+## 7. The deployment was running on UTC (found 2026-09-19 evening, local)
+
+Raised by the owner from a symptom that looked cosmetic: the calendar said
+Sunday 2026-09-20 while it was Saturday 18:30 Pacific. It was not cosmetic.
+
+The base image pins PHP's `date.timezone` to UTC (`ini=UTC`), and PHP does not
+read `TZ` for it, so the whole deployment booked and read dates in UTC. Three
+consequences, in order of how quietly they fail:
+
+1. **`visit_today` stops firing during the working afternoon.** The policy
+   compared `pc_eventDate` against the database's `CURDATE()`. From 17:00
+   Pacific the UTC day has already rolled over, so a patient being seen that
+   evening is "tomorrow" and no brief is prepared — with nothing in any log
+   saying why.
+2. **Appointments booked late in the day land on the wrong date.**
+3. Audit and calendar timestamps read in UTC.
+
+Fixed at the source. `openemr-entrypoint.sh` writes `date.timezone` from `TZ`,
+validated against PHP's own identifier list; the image ships no tzdata, so the
+system clock stays UTC and only PHP moves, which is what OpenEMR reads. The
+MySQL server's own zone is left alone: OpenEMR re-points the session at PHP's
+offset per request, and changing the server's would have reinterpreted every
+existing `TIMESTAMP` column. The agent takes the same `TZ`, because its
+`date.today()` chooses which encounter counts as "the last visit" and the two
+halves must not disagree about when today began; its log stamps are explicitly
+`gmtime` with a `Z` and did not move.
+
+`BriefPolicy` no longer asks the database for the date at all. It takes
+PHP's day as a parameter, so the answer does not depend on OpenEMR's session
+re-pointing having run, and a test can pin it.
+
+Read back after pipeline 24208:
+
+```
+openemr php : America/Los_Angeles  now=2026-09-19 18:49
+openemr env : TZ=America/Los_Angeles  COPILOT_BRIEF_ON_OPEN=always
+agent       : date.today()=2026-09-19 | log stamp: 2026-09-20T01:49:17Z
+```
+
+Verified in a throwaway container before deploying: the same function turns
+`UTC 2026-09-20 01:46` into `America/Los_Angeles 2026-09-19 18:46`, and an
+unknown zone is refused with a message rather than breaking startup.
+
+**Mode is now `always` on this deployment**, overriding the module default so
+a walkthrough shows the brief on whichever chart is opened. Re-checked after
+the change: AF-HEAVY (no visit today) now prepares a brief, and
+`audit-frontdesk` still does not — the role gate is independent of the mode.
+
+**Left behind:** the two visits in section 2 are dated 2026-09-20 because they
+were created while the box was on UTC. Under the corrected clock they are
+tomorrow, not today.
+
+## 8. Still to record
 
 - `brief_started` against `drawer_open` in `/metrics` over a session, once
   there are real sessions to count.
