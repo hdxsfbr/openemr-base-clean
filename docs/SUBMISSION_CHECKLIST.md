@@ -155,7 +155,18 @@ resumes at line 51).
 ## Final Submission — Sunday, September 20 at Noon
 
 - [ ] Early checklist rerun against the final commit and deployment.
-- [ ] Interview feedback addressed or documented as a tradeoff.
+- [x] Interview feedback addressed or documented as a tradeoff.
+      *(`docs/INTERVIEW_FEEDBACK.md`, filled 2026-09-20 for the 2026-09-17
+      technical interview. Early submission graded 100%. Three substantive
+      questions, all three closed `fix-now`/done: the 8 s → 30 s latency
+      threshold, now backed by work that took p95 from 24.1 s to 15.8 s plus
+      the brief prepared on chart open; a real bug the interviewer found in
+      the cost helper, where a clamped subtraction priced uncached input at $0
+      on every recorded eval turn and under-counted cost by ~10%, fixed in
+      `fbea630` the same day; and the 50/300-user capacity question, answered
+      then as an explicit guess and since measured — the guess named the
+      database, and the database does peak at 111% of a vCPU, but OpenEMR's
+      own Apache/PHP saturates beside it at 103%.)*
 - [x] Three required alert definitions, on-call responses, and working delivery.
       *(`docs/operations/alerts.md`, `agent/app/alerts.py`, 2026-09-16.
       Scheduled on the host by the `alerts` service in
