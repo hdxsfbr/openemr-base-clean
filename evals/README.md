@@ -85,7 +85,13 @@ report in the repo) with:
   rate, repair rate, status share, share of turns showing the model's
   summary, suggestions per turn and starter share, model calls, tokens and
   list-price cost per turn, latency p50/p95/p99 overall and by turn type,
-  and the verifier rejection rules by count. This is what a model, effort,
+  and the verifier rejection rules by count. Two of those read the opposite
+  way to how they look: **repair rate** is the fraction of model-backed turns
+  where the verifier rejected something on the *first* pass and asked for a
+  repair round, so a high number means the verifier is working, not that the
+  answer was wrong; and the **rejection-rule table** counts only rejections
+  that *survived* the repair, so a rule that fires often and is always fixed
+  on the second pass does not appear there at all. Read them together. This is what a model, effort,
   prompt, or planning change moves before any pass/fail does; compare two
   runs with `python evals/compare.py <baseline>.json <candidate>.json`.
 - **Per-turn records** (question, status, claim types and text, rejections,

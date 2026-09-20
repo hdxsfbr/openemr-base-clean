@@ -288,6 +288,51 @@ the right-hand column is implemented.
 | `CONF-NOTE-VS-LIST-N-001` | **Missed** in the 2026-09-17 run: the model did not raise the planted note-versus-list conflict. Non-blocking task-success gate, 95%, PASS | A deterministic note-versus-list conflict detector | `evals/results/2026-09-17T024919Z-a4a5856.md:19`, `:123` |
 | Error-analysis journal | **Unreviewed.** 20 traces across 14 patients are sampled and committed; all 20 First-issue and Notes fields are blank | Fill all 20, run the report, commit the issue list | `evals/error_analysis/2026-09-16T190727Z-journal.md:23`; `evals/README.md:197-199` |
 
+## Known gaps at submission (2026-09-20)
+
+Written for both AI interviews. If an evaluator finds one of these, it should
+already be on this list; nothing here is discovered on camera.
+
+**Measured on an older tree.** The load tests, the CPU and memory baselines,
+and the droplet-tier comparison all ran 2026-09-18. Three performance changes
+landed after them: the batched gateway, follow-up turns at low effort, and the
+brief prepared on chart open. The bottleneck they identified — OpenEMR's
+Apache/PHP and MariaDB CPU, not the agent — is structural and unchanged, but
+the absolute per-level numbers are from before those changes and were not
+re-measured. The serial release-run latency is current; the concurrent numbers
+are not.
+
+**The dashboard is two panels short of the PRD minimum.** Verification
+pass/fail rate and error rate are not widgets yet. The underlying scores
+(`verification_passed`, `turn_error`) are emitted on every turn and confirmed
+flowing — 8,709 scores on the project as of 2026-09-20 — and `/metrics`
+carries `copilot_verification_total{outcome}`, so the data exists and the
+alert job reads it. Langfuse Cloud exposes no widget API; the two panels are a
+UI step recorded field-by-field in `docs/operations/langfuse-dashboard.md`.
+
+**Release run.** <<RELEASE_RUN>>
+
+**Two gates read NOT MEASURED, by design, not by omission.** Citation
+correctness needs gold source ids per case — the runner can prove every
+citation resolves to a retrieved record (and does, on every run), but not that
+it is the *right* record; that is the Week 2 gold-source-id plan. Time to first
+useful evidence needs the SSE path, and the runner uses non-streaming turns.
+Both are stated as NOT MEASURED in every report rather than being quietly
+folded into a pass.
+
+**Still true from the audit, and accepted for Week 1.** Patient isolation
+equals OpenEMR's, which is none beyond role; ours rests on the gateway's
+per-tool checks. Delegation tickets are not single-use — one is valid for 90
+seconds and outlives logout by at most that. The 24-hour conversation purge is
+a design target: `ConversationRepository::sweep()` exists with no caller.
+Egress from the agent container is unrestricted; the risk acceptance is in
+`AUDIT.md` §9. The hostname is still the disposable `sslip.io` one. There are
+no executed BAAs, and no real PHI has ever been in the system.
+
+**Repository.** GitLab is the system of record. The public GitHub fork exists
+so the PRD's "forked from OpenEMR" requirement points at a real fork; both
+carry the same commits and tags at submission.
+
 ## The Pre-Search Checklist
 
 The PRD Appendix checklist, one section per heading, as built and measured
