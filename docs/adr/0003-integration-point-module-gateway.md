@@ -86,10 +86,17 @@
   before a visit, so a patient with no visit today is spend with no moment
   behind it; the cost is that it does nothing on a chart whose site has no
   schedule for today, including a cohort seeded at a past `DEMO_ANCHOR`, where
-  `always` is the setting that shows the feature at all. No mode prepares a
-  brief for a role the chart hides every clinical section from, or for a
+  `always` is the setting that shows the feature at all — which is why the
+  demo Droplet's compose file overrides it to `always`, a deployment choice
+  against the module's product default, not a revision of it. No mode prepares
+  a brief for a role the chart hides every clinical section from, or for a
   break-glass login, so front desk does not generate a denied turn per chart
-  open. *Not an ADR-0002
+  open. *"Today" is PHP's day, not the database's `CURDATE()`* (amended
+  2026-09-20): the two agree only through OpenEMR re-pointing the MySQL
+  session at PHP's offset per request, and the day this has to agree with is
+  the one on the physician's calendar. The container's `TZ` sets PHP's clock
+  (`openemr-entrypoint.sh`); on UTC, a site in the Americas would roll the
+  brief over to tomorrow's schedule in the middle of the afternoon. *Not an ADR-0002
   widening:* the only chart read is the one already open; the schedule
   question is "does this open chart have a visit today", never "which
   patients are on my schedule", so there is no patient lookup and no read of

@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OpenEMR\Modules\Copilot;
 
+use DateTimeImmutable;
 use OpenEMR\Common\Database\QueryUtils;
 use OpenEMR\Modules\Copilot\Gateway\ContextBuilder;
 
@@ -61,7 +62,7 @@ final class BriefPolicy
     }
 
     /** Whether the open chart's panel should prepare the brief for this user now. */
-    public static function startsOnOpen(string $username, int $pid): bool
+    public static function startsOnOpen(string $username, int $pid, ?DateTimeImmutable $now = null): bool
     {
         $mode = self::mode();
         if ($mode === BriefMode::Off || $pid <= 0 || $username === '') {
@@ -71,7 +72,7 @@ final class BriefPolicy
             $mode,
             !ContextBuilder::isBreakGlass($username) && self::hasClinicalAccess($username),
             // Only the mode that reads the schedule asks the schedule.
-            $mode === BriefMode::VisitToday && self::hasVisitToday($pid),
+            $mode === BriefMode::VisitToday && self::hasVisitToday($pid, $now ?? new DateTimeImmutable()),
         );
     }
 
@@ -92,12 +93,19 @@ final class BriefPolicy
      * by the `pc_eventDate` index and today's schedule, so it reads a handful
      * of rows (AUDIT.md 2.2 flagged unindexed whole-schedule prefetch; this
      * is neither).
+     *
+     * "Today" is PHP's, passed in, not the database's `CURDATE()`. The two are
+     * the same clock only because OpenEMR re-points the MySQL session at PHP's
+     * offset per request, which depends on a `gbl_time_zone` row existing to
+     * run that branch (interface/globals.php). A brief is not worth that
+     * chain: the appointment the physician sees on their calendar is the one
+     * this must agree with, and that is PHP's day.
      */
-    private static function hasVisitToday(int $pid): bool
+    private static function hasVisitToday(int $pid, DateTimeImmutable $today): bool
     {
         $rows = QueryUtils::fetchRecords(
-            "SELECT 1 FROM openemr_postcalendar_events WHERE pc_eventDate = CURDATE() AND pc_pid = ? AND pc_apptstatus != 'x' LIMIT 1",
-            [(string) $pid]
+            "SELECT 1 FROM openemr_postcalendar_events WHERE pc_eventDate = ? AND pc_pid = ? AND pc_apptstatus != 'x' LIMIT 1",
+            [$today->format('Y-m-d'), (string) $pid]
         );
         return $rows !== [];
     }

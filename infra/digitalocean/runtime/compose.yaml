@@ -60,13 +60,19 @@ services:
       MYSQL_DATABASE: openemr
       MYSQL_USER: openemr
       OE_USER: challenge-admin
+      # The clock OpenEMR books and reads dates on. The base image pins PHP to UTC;
+      # openemr-entrypoint.sh applies this to PHP, and OpenEMR re-points the MySQL
+      # session at PHP's offset per request. A demo box wants its operator's day,
+      # not UTC's, or the calendar turns over mid-afternoon.
+      TZ: ${TZ:-America/Los_Angeles}
       # When the panel prepares the UC-01 brief for a chart being opened, instead of
       # waiting to be asked (BriefPolicy): always | visit_today | off.
-      # `visit_today` is the default because it spends only on patients who are
-      # actually being seen, which is the moment the brief is for. It reads today's
-      # schedule, so it does nothing on a cohort seeded at a past `DEMO_ANCHOR`:
-      # seed with the current date, or add visits for today, or set `always`.
-      COPILOT_BRIEF_ON_OPEN: ${COPILOT_BRIEF_ON_OPEN:-visit_today}
+      # The module's own default is `visit_today`, which is the product decision
+      # (ADR-0003 amendment): spend only on a patient being seen today. This
+      # deployment overrides it to `always` on purpose, because it is a demo box
+      # whose cohort carries whatever schedule was last seeded, and a walkthrough
+      # has to show the brief on whichever chart is opened.
+      COPILOT_BRIEF_ON_OPEN: ${COPILOT_BRIEF_ON_OPEN:-always}
     secrets:
       - mysql_root_password
       - mysql_password
@@ -157,6 +163,12 @@ services:
       COPILOT_GATEWAY_BASE_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway
       COPILOT_GATEWAY_PING_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php
       COPILOT_STATE_DIR: /var/lib/copilot
+      # The same clinic day OpenEMR runs on: `date.today()` decides which encounter
+      # counts as "the last visit" for the UC-01 window, so the two halves must not
+      # disagree about when today started. Log timestamps are unaffected -- they are
+      # explicitly UTC with a `Z` (`logging_setup.py`), which is what correlates
+      # with Langfuse and the gateway's audit rows.
+      TZ: ${TZ:-America/Los_Angeles}
       # Model for narration and planning (ADR-0004: claude-sonnet-5, accepted 2026-09-15 on measured latency).
       COPILOT_MODEL_ID: ${COPILOT_MODEL_ID:-claude-sonnet-5}
       # Optional override for the plan call only; empty falls back to COPILOT_MODEL_ID

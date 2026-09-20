@@ -61,7 +61,9 @@ seconds long (module 0.5.0, `BriefPolicy`, ADR-0003 amendment). By default
 (`COPILOT_BRIEF_ON_OPEN=visit_today`) it prepares one only for a patient
 today's schedule shows a visit for, which is the moment it is written for;
 `always` prepares one per chart open, and `off` restores
-retrieve-only-when-asked. It also offers three
+retrieve-only-when-asked. The demo deployment runs `always`, so a walkthrough
+shows the brief on whichever chart is opened rather than depending on the
+seeded schedule. It also offers three
 starter questions: that one, "Which recent abnormal labs still have no
 later result or documented follow-up?", and "What does the chart say about
 why each current medication is on the list?". Follow-ups are typed in the
