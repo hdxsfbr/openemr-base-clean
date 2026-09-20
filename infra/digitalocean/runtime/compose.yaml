@@ -61,11 +61,12 @@ services:
       MYSQL_USER: openemr
       OE_USER: challenge-admin
       # When the panel prepares the UC-01 brief for a chart being opened, instead of
-      # waiting to be asked (BriefPolicy): always | visit_today | off. `visit_today`
-      # needs today's schedule to be real, so the cohort must be seeded with
-      # `DEMO_ANCHOR` set to the current date; with the fixed demo anchor no patient
-      # has a visit today and no brief is ever prepared.
-      COPILOT_BRIEF_ON_OPEN: ${COPILOT_BRIEF_ON_OPEN:-always}
+      # waiting to be asked (BriefPolicy): always | visit_today | off.
+      # `visit_today` is the default because it spends only on patients who are
+      # actually being seen, which is the moment the brief is for. It reads today's
+      # schedule, so it does nothing on a cohort seeded at a past `DEMO_ANCHOR`:
+      # seed with the current date, or add visits for today, or set `always`.
+      COPILOT_BRIEF_ON_OPEN: ${COPILOT_BRIEF_ON_OPEN:-visit_today}
     secrets:
       - mysql_root_password
       - mysql_password

@@ -68,7 +68,7 @@ final class BriefPolicyTest extends TestCase
             putenv(BriefPolicy::ENV_VAR . '=sometimes');
             self::assertSame(BriefMode::Off, BriefPolicy::mode(), 'a typo must not spend on every chart open');
             putenv(BriefPolicy::ENV_VAR);
-            self::assertSame(BriefMode::Always, BriefPolicy::mode(), 'unset is the shipped default');
+            self::assertSame(BriefMode::VisitToday, BriefPolicy::mode(), 'unset is the shipped default');
         } finally {
             if (is_string($original)) {
                 putenv(BriefPolicy::ENV_VAR . '=' . $original);

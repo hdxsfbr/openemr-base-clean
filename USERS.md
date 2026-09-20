@@ -345,9 +345,12 @@ and the parity model ("open a chart and be logged") intact. What is given up
 is the spend and audit floor: a brief prepared for a chart whose drawer is
 never opened costs about $0.011 and writes its audit rows anyway, which
 `brief_started` against `drawer_open` measures
-(`docs/operations/usage-funnel.md`). Mode `visit_today`
-(`COPILOT_BRIEF_ON_OPEN`) spends only on patients today's schedule shows a
-visit for; mode `off` restores the click.
+(`docs/operations/usage-funnel.md`). That is why the default
+(`COPILOT_BRIEF_ON_OPEN=visit_today`) prepares one only for a patient today's
+schedule shows a visit for — the sweep's scope argument, applied to spend:
+the brief is for the 90 seconds before a visit, so a chart opened for any
+other reason is not the moment. Mode `always` prepares one per chart open;
+mode `off` restores the click.
 
 ## Rejected and Deferred Use Cases
 

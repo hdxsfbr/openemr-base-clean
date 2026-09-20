@@ -57,9 +57,11 @@ Open a patient from the synthetic cohort (`pubpid` `AF-*`, defined in
 The panel at the top of the dashboard prepares the pre-visit brief ("What
 changed since the last visit?") as the chart loads, so it is waiting rather
 than typed for: a first turn takes p50 9.2 s and the moment it serves is 90
-seconds long (module 0.5.0, `BriefPolicy`, ADR-0003 amendment; the mode is
-`COPILOT_BRIEF_ON_OPEN`, where `off` restores retrieve-only-when-asked and
-`visit_today` limits it to patients on today's schedule). It also offers three
+seconds long (module 0.5.0, `BriefPolicy`, ADR-0003 amendment). By default
+(`COPILOT_BRIEF_ON_OPEN=visit_today`) it prepares one only for a patient
+today's schedule shows a visit for, which is the moment it is written for;
+`always` prepares one per chart open, and `off` restores
+retrieve-only-when-asked. It also offers three
 starter questions: that one, "Which recent abnormal labs still have no
 later result or documented follow-up?", and "What does the chart say about
 why each current medication is on the list?". Follow-ups are typed in the

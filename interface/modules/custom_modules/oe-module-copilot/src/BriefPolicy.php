@@ -45,7 +45,11 @@ final class BriefPolicy
     {
         $raw = getenv(self::ENV_VAR);
         if (!is_string($raw) || trim($raw) === '') {
-            return BriefMode::Always;
+            // The same default the runtime compose file sets, so there is one
+            // answer to "what does it do here", and it is the cheap one: a brief
+            // for a patient being seen today. A site with no schedule for today
+            // prepares nothing until it sets `always`.
+            return BriefMode::VisitToday;
         }
         $mode = BriefMode::tryFrom(strtolower(trim($raw)));
         if ($mode === null) {

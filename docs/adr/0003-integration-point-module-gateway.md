@@ -79,13 +79,17 @@
   happened only for a chart that was asked about; `USERS.md`'s "nothing is
   retrieved before the click" holds only in mode `off`. The rows are still
   the physician's own read of a chart they opened, audited under their name.
-  *Modes* (`COPILOT_BRIEF_ON_OPEN`, default `always`): `off` restores the
+  *Modes* (`COPILOT_BRIEF_ON_OPEN`, default `visit_today`): `off` restores the
   previous behaviour; `always` prepares a brief per chart open; `visit_today`
-  prepares one only when the schedule shows a visit today for that patient,
-  which is the cost-shaped mode and needs the cohort seeded at a current
-  `DEMO_ANCHOR` to do anything. No mode prepares a brief for a role the chart
-  hides every clinical section from, or for a break-glass login, so front
-  desk does not generate a denied turn per chart open. *Not an ADR-0002
+  prepares one only when the schedule shows a visit today for that patient.
+  `visit_today` is the default because the brief exists for the 90 seconds
+  before a visit, so a patient with no visit today is spend with no moment
+  behind it; the cost is that it does nothing on a chart whose site has no
+  schedule for today, including a cohort seeded at a past `DEMO_ANCHOR`, where
+  `always` is the setting that shows the feature at all. No mode prepares a
+  brief for a role the chart hides every clinical section from, or for a
+  break-glass login, so front desk does not generate a denied turn per chart
+  open. *Not an ADR-0002
   widening:* the only chart read is the one already open; the schedule
   question is "does this open chart have a visit today", never "which
   patients are on my schedule", so there is no patient lookup and no read of
