@@ -124,33 +124,55 @@ the disposable test; use an owned hostname for the evaluator deployment.
 Set `KEEP_INFRA=1` only when intentionally retaining the environment for
 debugging. It remains billable until `./destroy.sh --yes` succeeds.
 
-## Current Deployment (2026-09-16)
+## Current Deployment (2026-09-20)
 
-The deployment is live at `https://openemr-137-184-4-22.sslip.io` (Droplet
-`137.184.4.22`). The deployed tag since 2026-09-16 is `week1` at commit
-`e1dd331`, which is what the early submission was made from; `v0.2.0-slice`
-(2026-09-15, superseding `v0.1.0-skeleton`) was the tag before it. Commits
-after `e1dd331` up to `66a6711` touched only documentation; the M2 work on
-branch `week1-final-push` (2026-09-17) changes `agent/` and
-`infra/digitalocean/runtime/` (the `alerts` service, the `start.sh` gates,
-log rotation), so the host keeps running the `week1` tree until the M3
-deploy. No deployed image digest has been recorded yet; the final deploy
-records one. The model and tracer keys
-were pushed with `push-secrets.sh` on 2026-09-15, so turns run with
-`claude-sonnet-5` and trace to Langfuse; the eleven eval reports in
-`evals/results/` (2026-09-16 and 2026-09-17) and the manual CI job `test:evals-live`
-(below) target this hostname, and the Bruno collection passes 21/21 against
-it as `audit-physician` (`docs/SUBMISSION_CHECKLIST.md`). Without the model
-key the narrative falls back to the deterministic source-cited brief
-(`MODEL-OUTAGE-001`). Earlier baseline `v0.1.0-skeleton` was live at the same URL
-(Droplet `137.184.4.22`, kept up during build days at about $0.86/day):
-project OpenEMR image with the co-pilot module, the agent service
-(`/copilot-api/health` 200, `/copilot-api/ready` 503 until the model and
-tracer keys are supplied), deny-by-default edge (probe evidence:
-`docs/audit/evidence/security/cloud-probe-2026-09-15-allowlist.txt`), demo
-users and the 26-patient cohort seeded, and the panel rendering on cohort
-charts for `audit-physician`. The `sslip.io` hostname is still the disposable
-one; an owned hostname is a pre-submission task.
+Live at `https://openemr-137-184-4-22.sslip.io` (Droplet `137.184.4.22`,
+`s-2vcpu-4gb`). Deployed commit `c37b9e6`, pushed 2026-09-20 04:33 UTC from a
+clean clone rather than the working tree, so the deployed tree is a known
+commit and not whatever was checked out. The submission tag `week1-final` is
+a few docs-only commits later and its runtime directories are byte-identical.
+
+| Service | Running image |
+| --- | --- |
+| `openemr` | `sha256:bcb51bc519843c22e3fbac67972c5fb92d6501c86ad0767092bb47d395b802ab` |
+| `agent` | `sha256:2debfe688abbe3d79fb54601a9a708753ee9cb65e7d3d4327bb4c4000e852063` |
+| `alerts` | `sha256:f241b7762225d205ca8ee6523398a7e02865bf831d0072f00a7258f5afe2bb98` |
+| `database` | `mariadb:11.8.8` `sha256:24e76fcec8c0…` |
+| `caddy` | `caddy:2.10.2-alpine` `sha256:4c6e91c6ed0e…` |
+
+`agent` and `alerts` build from the same source; the digests differ only
+because the tag was rebuilt after the agent container had been created.
+
+**Verified on this deployment.** `/copilot-api/health` reports version
+`0.3.0`; `/copilot-api/ready` returns `status: ready` with `openemr_gateway`,
+`llm_provider`, `tracer`, `delegation_secret` and `state_store` all `ok`. The
+release run `evals/results/2026-09-20T051146Z-0f11642.md` ran all 48 cases
+three times against it: 123 of 124 attempts passed, every blocking gate PASS,
+citations 615/615, p95 15.8 s, $0.0104 per model-backed turn. The `alerts`
+service evaluates `/metrics` every 300 s and logged heartbeats throughout
+that run without firing.
+
+**Clocks.** Every container runs UTC and no service sets `TZ`. Setting the
+clinic timezone on `openemr` alone on 2026-09-19 put two clocks in one
+`datetime` column — OpenEMR re-points the MySQL session at PHP's offset on
+each connect — and conversation resume silently began returning stale
+transcripts. It was reverted the same night, the conversation table was
+truncated and the cohort re-seeded on one clock. A real clinic deployment
+needs its own timezone on *every* container that writes a date (`openemr`,
+`database`, `demo-seed`, `copilot-setup`, `agent`) plus a migration of rows
+written on the old clock; a partial rollout is worse than UTC because nothing
+errors. Full write-up:
+`docs/audit/evidence/performance/brief-on-open-2026-09-20.md` §10.
+
+**Demo data.** 26 synthetic cohort patients, demo users, and a schedule
+re-seeded for the current UTC day, so `COPILOT_BRIEF_ON_OPEN=visit_today`
+fires for the walkthrough patients; the deployment nonetheless runs `always`
+so the brief still shows once that schedule ages out. The `sslip.io` hostname
+is still the disposable one; an owned hostname is not done for Week 1.
+
+**Before this.** `v0.1.0-skeleton` (2026-09-15) and `v0.2.0-slice`, then
+commit `e1dd331` / tag `week1` for the early submission, which is what the
+2026-09-16 and 2026-09-17 eval reports targeted.
 
 ## Manual Cycle
 

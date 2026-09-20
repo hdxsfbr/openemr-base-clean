@@ -125,7 +125,7 @@ Evidence: `agent/app/verifier.py:98-120`; `docs/adr/0006-verification-strategy.m
 
 **Q7. How do you know it works — what does the suite actually assert?**
 
-46 YAML cases (45 in the latest recorded run, `a4a5856`; `ISO-FRESH-REPEAT-001` was added 2026-09-17 and has not run yet) run against the real deployment, driving the real login, chart
+48 YAML cases, all 48 of them in the latest run (`0f11642`, three attempts each) run against the real deployment, driving the real login, chart
 open, session, ticket and turn handshake as different users; 14 are a golden
 smoke tier and 4 are a holdout tier excluded from filtered runs. The
 assertions are deterministic — HTTP status, authorization outcome, evidence
@@ -157,19 +157,30 @@ Evidence: `evals/fixtures/cohort/README.md`; `evals/fixtures/cohort/seed_cohort.
 
 **Q9. What did you find when you ran it?**
 
-The latest full run (2026-09-17, commit `a4a5856`) executed all 45 cases and
-passed 44, with every blocking gate PASS: golden set 14 of 14, citations 177
-of 177 resolved, no unsupported displayed claim, zero 5xx, model-backed p95
-24.1 s against the 30 s warn line, $0.0127 per model-backed turn. The single
-failure is `CONF-NOTE-VS-LIST-N-001` under the non-blocking task-success gate
-at 95%: the model did not raise a planted note-versus-list medication
-conflict. Flakiness is confined to model recall — two cases have flipped run
-to run, `MISS-AUTHOR-J-001` and `CONF-NOTE-VS-LIST-N-001` — while every
-deterministic assertion has passed every time. The scorecard, not the pass
-count, is the signal I read: 32.5% of turns needed a repair round, 2.6% of
-statements were withheld, 3.75 claims and 2.33 model calls per turn.
+The latest full run (2026-09-20, commit `0f11642`, whose runtime tree is
+byte-identical to the deployed `c37b9e6`) executed all 48 cases three times
+and passed 123 of 124 attempts, with every blocking gate PASS: golden set 29
+of 29, citations 615 of 615 resolved, no unsupported displayed claim, zero
+5xx, model-backed p95 15.8 s against the 30 s warn line, $0.0104 per
+model-backed turn. The single failure is `CONF-DUP-NAMES-C2-001`, a holdout
+case that passed the other two attempts: on one attempt the summary called a
+duplicate medication a duplicate rather than a possible one, which the
+verifier's hedging lexicon caught. Flakiness stays confined to model wording —
+`MISS-AUTHOR-J-001`, `CONF-NOTE-VS-LIST-N-001` and now this one have each
+flipped run to run — while every deterministic assertion has passed every
+time. The scorecard, not the pass count, is the signal I read: over 126
+model-backed turns, 12.7% needed a repair round, 1.1% of statements were
+withheld, 4.25 claims and 1.56 model calls per turn, 293 in / 897 out / 4,413
+cache-read tokens.
 
-Evidence: `evals/results/2026-09-17T024919Z-a4a5856.md:3`, `:8-23`, `:26-53`, `:80-94`, `:123`.
+The run before this one is the one worth telling. At `6c787bd` it failed
+`ISO-RECENT-PATIENT-RESUME-001` three times out of three, which turned out to
+be a half-applied timezone putting two clocks in one column and silently
+breaking conversation resume. Nothing errored; only the suite noticed.
+
+Evidence: `evals/results/2026-09-20T051146Z-0f11642.md`, and the baseline
+comparison `evals/results/2026-09-20T051146Z-0f11642-vs-a4a5856.md`: p95
+24.1 s to 15.8 s, task success 95% to 100%, cost $0.0127 to $0.0104.
 
 ### Production thinking
 
@@ -310,7 +321,17 @@ carries `copilot_verification_total{outcome}`, so the data exists and the
 alert job reads it. Langfuse Cloud exposes no widget API; the two panels are a
 UI step recorded field-by-field in `docs/operations/langfuse-dashboard.md`.
 
-**Release run.** <<RELEASE_RUN>>
+**Release run.** `evals/results/2026-09-20T051146Z-0f11642.md`, at a commit
+whose runtime tree is byte-identical to the deployed one: 48 cases x 3
+attempts, 123 passed, every blocking gate PASS, golden 29/29, citations
+615/615 resolved, model-backed p95 15.8 s, $0.0104 per turn, no 5xx. One
+miss, `CONF-DUP-NAMES-C2-001`, flaky at 2 of 3 and in the holdout tier: on
+one attempt the summary called a duplicate medication a duplicate rather
+than a possible one, which the hedging lexicon caught. Two gates read NOT
+MEASURED by design (below). Against the a4a5856 baseline
+(`evals/results/2026-09-20T051146Z-0f11642-vs-a4a5856.md`): p95 24.1 s to
+15.8 s, task success 95% to 100%, cost $0.0127 to $0.0104, and
+`CONF-NOTE-VS-LIST-N-001` FAIL to pass.
 
 **The deployment runs UTC, and that is a limitation, not a preference.** A
 clinic needs its own day: `BriefPolicy` asks "is this patient being seen

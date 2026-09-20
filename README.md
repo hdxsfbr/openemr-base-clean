@@ -5,17 +5,35 @@ evaluator-facing README for the co-pilot (deployed URL, demo credentials,
 architecture overview, test and eval commands, limitations). This file keeps
 OpenEMR's own README below the deliverables table.
 
-**Deployment:** commit `e1dd331`, tag `week1`, is live at
-<https://openemr-137-184-4-22.sslip.io> on a single DigitalOcean Droplet
-(deployed 2026-09-16; `/copilot-api/health` and `/copilot-api/ready` answered
-200 that day, and the deployment was exercised end to end on
-2026-09-17 by the eval run `evals/results/2026-09-17T024919Z-a4a5856.md`,
-45 cases, 44 passed, every blocking gate PASS, plus the 21/21 Bruno collection
-run of 2026-09-16).
-No runtime directory changed between `831e1d8` and `e1dd331`, so the running
-code is the same as at `831e1d8`. The older `v0.2.0-slice` tag is not what is
-deployed, and `c7253ed` is the `week1` tag object, not a commit sha. No image
-digest has been recorded for this deploy yet.
+**Deployment:** commit `c37b9e6` is live at
+<https://openemr-137-184-4-22.sslip.io> on a single DigitalOcean Droplet,
+deployed 2026-09-20 04:33 UTC. The submission tag `week1-final` sits a few
+docs-only commits later; the runtime directories (`agent/`, the module,
+`infra/`, the cohort fixtures) are byte-identical between the two, so the tag
+and the running code differ only in documentation and eval results.
+
+Verified on that deployment: `/copilot-api/health` reports `0.3.0`,
+`/copilot-api/ready` returns all five dependencies `ok` including the
+observability tracer, and the release run
+`evals/results/2026-09-20T051146Z-0f11642.md` executed all 48 cases three
+times against it — 123 of 124 attempts passed, every blocking gate PASS,
+golden set 29/29, citations 615/615 resolved, model-backed p95 15.8 s,
+$0.0104 per turn, no 5xx. The one miss is a hedging-wording flip on a
+holdout case that passed the other two attempts.
+
+Running image digests:
+
+| Service | Image |
+| --- | --- |
+| `openemr` | `sha256:bcb51bc519843c22e3fbac67972c5fb92d6501c86ad0767092bb47d395b802ab` |
+| `agent` | `sha256:2debfe688abbe3d79fb54601a9a708753ee9cb65e7d3d4327bb4c4000e852063` |
+| `alerts` | `sha256:f241b7762225d205ca8ee6523398a7e02865bf831d0072f00a7258f5afe2bb98` |
+| `database` | `mariadb:11.8.8`, `sha256:24e76fcec8c003a0362d0dd53f4806e7e79458d7fdeaf47437760e19496f5a9c` |
+| `caddy` | `caddy:2.10.2-alpine`, `sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d` |
+
+`agent` and `alerts` run the same source from the same build; their digests
+differ because the tag was rebuilt after the agent container was created.
+
 It runs the project's own OpenEMR image carrying the co-pilot module behind a
 deny-by-default Caddy path allowlist, as the audit required before an
 evaluator deployment (`AUDIT.md` SEC-HIGH-500; runbook sections "Current

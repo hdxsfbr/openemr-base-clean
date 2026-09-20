@@ -1044,7 +1044,7 @@ reports flaky cases; `evals/compare.py` diffs two reports for A/B
 experiments; `evals/error_analysis.py` samples unscripted questions into a
 manual review journal and `evals/review_ui.py` is a local browser UI for
 filling it in. Results are versioned under `evals/results/` (eleven reports at this
-commit). The latest full run is `evals/results/2026-09-17T024919Z-a4a5856.md`
+commit). The latest full run is `evals/results/2026-09-20T051146Z-0f11642.md` (week1-final release run at `0f11642`, whose runtime tree is byte-identical to the deployed `c37b9e6`): 48 cases x 3 attempts, 123 passed, every blocking gate PASS, golden set 29/29, citations 615/615 resolved, model-backed p95 15.8 s, $0.0104 per model-backed turn, no 5xx. The one miss, `CONF-DUP-NAMES-C2-001`, is a holdout-tier hedging flip that passed 2 of 3 attempts
 (2026-09-17): 45 ran, 44 passed, every blocking gate PASS, Golden set
 integrity 14/14 for the first time, citations 177/177, model-backed p95
 24.1 s, $0.0127 per model-backed turn; the one miss,
