@@ -31,6 +31,35 @@ are committed for evaluators without project access under
 | Verification pass rate (**to build**) | Average of the trace score `verification_passed` over `copilot.turn` traces per time bucket (scores emitted since 2026-09-17 by `finish_turn_trace`; absent on turns where the verifier did not run) | Verification pass/fail rate — not yet on the dashboard |
 | Turn error rate (**to build**) | Average of the trace score `turn_error` over `copilot.turn` traces per time bucket (1.0 for a failed or timed-out turn) | Error rate — not yet on the dashboard; `/metrics` `copilot_requests_total{status="5xx"}` is the alert-job source |
 
+### The two panels still to build
+
+These are the last two of the PRD's dashboard minimum (p.8, "verification
+pass/fail rate" and "error rate"). Everything they need already exists; only
+the two widgets are missing, and Langfuse Cloud exposes no widget API, so
+they are built in the UI.
+
+Verified 2026-09-20 against `GET /api/public/v2/scores`: 8,709 scores are
+recorded on the project, and a 50-score sample carried `verification_passed`
+and `turn_error` on `copilot.turn` traces. Both panels will have history the
+moment they are created — they are not waiting on new traffic.
+
+For each: **Dashboards → Clinical Co-Pilot → Add widget**, then
+
+| Field | Verification pass rate | Turn error rate |
+| --- | --- | --- |
+| View | Scores | Scores |
+| Metric | `value`, aggregation Average | `value`, aggregation Average |
+| Filter | Score Name = `verification_passed` | Score Name = `turn_error` |
+| Breakdown | none | none |
+| Chart | Line chart over time | Line chart over time |
+| Name | Verification pass rate | Turn error rate |
+
+Read the first as "fraction of turns whose verifier passed" (1.0 is all
+passed) and the second as "fraction of turns that errored" (0.0 is none).
+After saving both, re-render the panel set into
+`docs/audit/evidence/observability/` so the committed evidence matches the
+live dashboard, and strike the two "**to build**" rows above.
+
 The Langfuse Agent Dashboard adds p95 latency per tool and observation
 types; the Latency dashboard adds p95 by trace name and by model.
 

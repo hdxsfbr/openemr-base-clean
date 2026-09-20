@@ -1,0 +1,37 @@
+meta {
+  name: 06 Brief on chart open
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{openemr_base}}{{module_path}}/api/session.php
+  body: none
+  auth: none
+}
+
+docs {
+  The panel does not decide for itself that a pre-visit brief should be
+  prepared: `BriefPolicy` decides server-side, under the physician's own
+  session, and `brief_on_open` is the answer the panel obeys (ADR-0003
+  amendment, module 0.5.0).
+
+  Run this after `02 Open Chart`. With the default
+  `COPILOT_BRIEF_ON_OPEN=visit_today`, the flag is true only for a chart
+  whose patient has a visit today, so on the seeded cohort it is normally
+  false — that is the correct, cheap answer, not a failure. The assertions
+  below check the contract (the field exists and is a boolean tied to an
+  open chart), never a particular day's schedule.
+
+  To see the true branch without waiting for a scheduled visit, an operator
+  can set `COPILOT_BRIEF_ON_OPEN=always` on the openemr service; a front
+  desk role gets `false` in every mode, because a brief it is not allowed
+  to read would cost a denied turn and an audit row on every chart open.
+}
+
+assert {
+  res.status: eq 200
+  res.body.chart_open: eq true
+  res.body.brief_on_open: isBoolean
+  res.body.module_version: isString
+}

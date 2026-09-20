@@ -16,6 +16,7 @@ require_once __DIR__ . '/../../../../../globals.php';
 
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Session\SessionWrapperFactory;
+use OpenEMR\Modules\Copilot\Bootstrap;
 use OpenEMR\Modules\Copilot\BriefPolicy;
 use OpenEMR\Modules\Copilot\Compat;
 use OpenEMR\Modules\Copilot\Http\Json;
@@ -33,6 +34,6 @@ Json::send(200, [
     'csrf_token' => CsrfUtils::collectCsrfToken($session, 'copilot'),
     'chart_open' => $pid > 0,
     'brief_on_open' => BriefPolicy::startsOnOpen($username, $pid),
-    'module_version' => '0.1.0',
+    'module_version' => Bootstrap::VERSION,
     'correlation_id' => $correlationId,
 ], $correlationId);
