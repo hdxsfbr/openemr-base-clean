@@ -1,0 +1,1043 @@
+<div id="af-source-review" aria-label="Interactive prototype of the OpenEMR Clinical Co-Pilot source review flow">
+  <style>
+    #af-source-review {
+      color-scheme: light dark;
+      --af-canvas: light-dark(#eef3f4, #101719);
+      --af-surface: light-dark(#ffffff, #172124);
+      --af-surface-2: light-dark(#f5f8f8, #1d2a2d);
+      --af-surface-3: light-dark(#e9f2f2, #223438);
+      --af-text: light-dark(#172326, #edf5f5);
+      --af-muted: light-dark(#5f7074, #a9babc);
+      --af-line: light-dark(#cbd8da, #34474b);
+      --af-teal: light-dark(#0b6f73, #63cbd0);
+      --af-teal-soft: light-dark(#dceff0, #15383b);
+      --af-blue: light-dark(#275ea8, #87b6ff);
+      --af-blue-soft: light-dark(#e8f0fb, #1c304d);
+      --af-amber: light-dark(#8a5a00, #f3c563);
+      --af-amber-soft: light-dark(#fff3cf, #3d3117);
+      --af-red: light-dark(#a13737, #ff9d9d);
+      --af-red-soft: light-dark(#fbe7e7, #432323);
+      --af-green: light-dark(#176a45, #79d6a7);
+      --af-green-soft: light-dark(#e1f3e9, #18382a);
+      --af-paper: light-dark(#fffef9, #f4f0e5);
+      --af-paper-text: #253032;
+      --af-shadow: light-dark(rgba(29, 55, 59, .16), rgba(0, 0, 0, .42));
+      width: 100%;
+      color: var(--af-text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    #af-source-review * { box-sizing: border-box; }
+    #af-source-review button,
+    #af-source-review input { font: inherit; }
+    #af-source-review button { color: inherit; }
+    #af-source-review [hidden] { display: none !important; }
+
+    #af-source-review .proto-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px;
+    }
+
+    #af-source-review .proto-label {
+      color: var(--af-muted);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .02em;
+      margin-right: 2px;
+    }
+
+    #af-source-review .proto-button,
+    #af-source-review .af-button,
+    #af-source-review .citation,
+    #af-source-review .icon-button,
+    #af-source-review .mobile-tab {
+      border: 1px solid var(--af-line);
+      border-radius: 7px;
+      background: var(--af-surface);
+      min-height: 34px;
+      padding: 6px 10px;
+    }
+
+    #af-source-review .proto-button[aria-pressed="true"],
+    #af-source-review .mobile-tab[aria-pressed="true"] {
+      border-color: var(--af-teal);
+      background: var(--af-teal-soft);
+      color: var(--af-teal);
+      font-weight: 500;
+    }
+
+    #af-source-review .af-window {
+      overflow: hidden;
+      border: 1px solid var(--af-line);
+      border-radius: 12px;
+      background: var(--af-canvas);
+      box-shadow: 0 18px 48px var(--af-shadow);
+    }
+
+    #af-source-review .emr-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 48px;
+      padding: 8px 14px;
+      background: light-dark(#0b5860, #133a3f);
+      color: #f4ffff;
+    }
+
+    #af-source-review .brand,
+    #af-source-review .top-actions,
+    #af-source-review .panel-title,
+    #af-source-review .status-line,
+    #af-source-review .claim-heading,
+    #af-source-review .source-toolbar,
+    #af-source-review .review-heading,
+    #af-source-review .row-actions,
+    #af-source-review .footer-actions,
+    #af-source-review .phase {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #af-source-review .brand { font-weight: 500; }
+    #af-source-review .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border-radius: 7px;
+      background: rgba(255,255,255,.17);
+      font-weight: 500;
+    }
+
+    #af-source-review .patient-pill {
+      border-radius: 999px;
+      background: rgba(255,255,255,.14);
+      padding: 4px 9px;
+      font-size: 12px;
+    }
+
+    #af-source-review .emr-body {
+      display: grid;
+      grid-template-columns: 128px minmax(150px, .55fr) minmax(560px, 2.15fr);
+      align-items: stretch;
+    }
+
+    #af-source-review .emr-nav {
+      padding: 14px 10px;
+      border-right: 1px solid var(--af-line);
+      background: var(--af-surface);
+    }
+
+    #af-source-review .nav-title,
+    #af-source-review .eyebrow {
+      color: var(--af-muted);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    #af-source-review .nav-title { margin: 0 5px 9px; }
+    #af-source-review .nav-item {
+      display: block;
+      width: 100%;
+      margin: 2px 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      padding: 8px 7px;
+      text-align: left;
+      color: var(--af-muted);
+    }
+    #af-source-review .nav-item.active { background: var(--af-teal-soft); color: var(--af-teal); }
+
+    #af-source-review .chart-pane {
+      padding: 15px;
+      border-right: 1px solid var(--af-line);
+      background: var(--af-canvas);
+    }
+
+    #af-source-review .chart-pane h2,
+    #af-source-review .copilot h2,
+    #af-source-review .source-pane h3,
+    #af-source-review .claim-lane h3 { margin: 0; font-size: 15px; font-weight: 500; }
+    #af-source-review .chart-pane p { margin: 5px 0 14px; color: var(--af-muted); }
+
+    #af-source-review .chart-card {
+      margin: 0 0 10px;
+      border: 1px solid var(--af-line);
+      border-radius: 8px;
+      background: var(--af-surface);
+      padding: 10px;
+    }
+    #af-source-review .chart-card strong { display: block; font-weight: 500; }
+    #af-source-review .chart-card span { color: var(--af-muted); font-size: 12px; }
+
+    #af-source-review .copilot {
+      min-width: 0;
+      background: var(--af-surface);
+    }
+
+    #af-source-review .copilot-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 51px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--af-line);
+      background: var(--af-surface);
+    }
+
+    #af-source-review .spark {
+      display: grid;
+      place-items: center;
+      width: 29px;
+      height: 29px;
+      border-radius: 8px;
+      background: var(--af-teal-soft);
+      color: var(--af-teal);
+    }
+
+    #af-source-review .panel-title small { display: block; color: var(--af-muted); font-size: 11px; font-weight: 400; }
+    #af-source-review .demo-badge,
+    #af-source-review .lane-badge,
+    #af-source-review .field-state {
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    #af-source-review .demo-badge { background: var(--af-blue-soft); color: var(--af-blue); }
+
+    #af-source-review .mobile-switch {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 8px 10px 0;
+      background: var(--af-surface);
+    }
+
+    #af-source-review .copilot-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, .9fr) minmax(285px, 1.1fr);
+      min-width: 0;
+    }
+
+    #af-source-review .thread-pane,
+    #af-source-review .source-pane { min-width: 0; padding: 12px; }
+    #af-source-review .thread-pane { border-right: 1px solid var(--af-line); }
+    #af-source-review .source-pane { background: var(--af-surface-2); }
+
+    #af-source-review .question {
+      margin: 0 0 10px auto;
+      max-width: 92%;
+      border-radius: 10px 10px 2px 10px;
+      background: var(--af-teal-soft);
+      padding: 9px 10px;
+    }
+
+    #af-source-review .answer-time { color: var(--af-muted); font-size: 11px; margin: 0 0 8px; }
+
+    #af-source-review .partial-banner,
+    #af-source-review .limit-banner,
+    #af-source-review .error-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 0 0 10px;
+      border-radius: 8px;
+      padding: 9px 10px;
+    }
+    #af-source-review .partial-banner,
+    #af-source-review .limit-banner { background: var(--af-amber-soft); color: var(--af-amber); }
+    #af-source-review .error-banner { background: var(--af-red-soft); color: var(--af-red); }
+
+    #af-source-review .claim-lane {
+      margin-bottom: 11px;
+      border-left: 3px solid var(--af-teal);
+      background: var(--af-surface-2);
+      padding: 9px 10px;
+    }
+    #af-source-review .claim-lane.guideline { border-left-color: var(--af-blue); }
+    #af-source-review .claim-heading { justify-content: space-between; margin-bottom: 6px; }
+    #af-source-review .lane-badge.patient { background: var(--af-teal-soft); color: var(--af-teal); }
+    #af-source-review .lane-badge.guideline { background: var(--af-blue-soft); color: var(--af-blue); }
+    #af-source-review .claim-lane p { margin: 0 0 7px; }
+    #af-source-review .claim-lane p:last-child { margin-bottom: 0; }
+    #af-source-review .lane-note { color: var(--af-muted); font-size: 12px; }
+
+    #af-source-review .citation {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 28px;
+      padding: 3px 7px;
+      border-color: transparent;
+      background: var(--af-surface-3);
+      color: var(--af-teal);
+      vertical-align: baseline;
+    }
+    #af-source-review .citation.active { border-color: var(--af-teal); }
+    #af-source-review .guideline .citation { color: var(--af-blue); }
+
+    #af-source-review .review-box {
+      margin-top: 12px;
+      border-top: 1px solid var(--af-line);
+      padding-top: 11px;
+    }
+    #af-source-review .review-heading { justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    #af-source-review .review-heading p { margin: 2px 0 0; color: var(--af-muted); font-size: 12px; }
+
+    #af-source-review .review-row {
+      margin-bottom: 8px;
+      border: 1px solid var(--af-line);
+      border-radius: 8px;
+      background: var(--af-surface);
+      padding: 9px;
+    }
+    #af-source-review .review-row.low { border-left: 3px solid var(--af-amber); }
+    #af-source-review .review-row.unreadable { border-left: 3px solid var(--af-red); }
+    #af-source-review .review-row.resolved { border-left-color: var(--af-green); }
+    #af-source-review .review-row header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    #af-source-review .review-row strong { font-weight: 500; }
+    #af-source-review .printed { color: var(--af-muted); font-size: 12px; margin: 3px 0 8px; }
+    #af-source-review .field-state.warning { background: var(--af-amber-soft); color: var(--af-amber); }
+    #af-source-review .field-state.danger { background: var(--af-red-soft); color: var(--af-red); }
+    #af-source-review .field-state.success { background: var(--af-green-soft); color: var(--af-green); }
+    #af-source-review .row-actions { flex-wrap: wrap; }
+
+    #af-source-review .af-button {
+      background: var(--af-surface);
+      min-height: 31px;
+      padding: 4px 8px;
+    }
+    #af-source-review .af-button.primary { border-color: var(--af-teal); background: var(--af-teal); color: light-dark(#ffffff, #0a1d1f); }
+    #af-source-review .af-button.danger { color: var(--af-red); }
+    #af-source-review .af-button:disabled { opacity: .48; }
+
+    #af-source-review .edit-panel {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      margin-top: 8px;
+      border-top: 1px solid var(--af-line);
+      padding-top: 8px;
+    }
+    #af-source-review .edit-panel label { color: var(--af-muted); font-size: 12px; }
+    #af-source-review .edit-panel input {
+      width: 100%;
+      min-height: 35px;
+      border: 1px solid var(--af-line);
+      border-radius: 6px;
+      background: var(--af-surface);
+      color: var(--af-text);
+      padding: 6px 8px;
+    }
+
+    #af-source-review .footer-actions {
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 9px;
+    }
+    #af-source-review .footer-note { color: var(--af-muted); font-size: 11px; }
+
+    #af-source-review .source-toolbar { justify-content: space-between; align-items: flex-start; margin-bottom: 9px; }
+    #af-source-review .source-subtitle { color: var(--af-muted); font-size: 12px; margin-top: 2px; }
+    #af-source-review .page-controls { display: flex; align-items: center; gap: 5px; }
+    #af-source-review .icon-button { display: grid; place-items: center; min-width: 32px; padding: 5px; }
+    #af-source-review .page-count { min-width: 62px; text-align: center; color: var(--af-muted); font-size: 12px; }
+
+    #af-source-review .pdf-stage {
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--af-line);
+      border-radius: 8px;
+      background: light-dark(#dfe8e9, #11191b);
+      padding: 12px;
+    }
+
+    #af-source-review .pdf-page {
+      position: relative;
+      width: min(100%, 360px);
+      min-height: 410px;
+      color: var(--af-paper-text);
+      background: var(--af-paper);
+      box-shadow: 0 5px 18px rgba(0,0,0,.24);
+      padding: 24px 25px;
+    }
+    #af-source-review .pdf-brand { font-weight: 500; color: #1c5f64; }
+    #af-source-review .pdf-meta { margin: 4px 0 17px; color: #5a686a; font-size: 11px; }
+    #af-source-review .pdf-section { margin: 11px 0 5px; font-weight: 500; color: #34494c; }
+    #af-source-review .pdf-row {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr .8fr;
+      gap: 7px;
+      border-bottom: 1px solid #ced8d7;
+      padding: 8px 3px;
+      font-size: 11px;
+    }
+    #af-source-review .pdf-row.form { grid-template-columns: .9fr 1.4fr; }
+    #af-source-review .pdf-faint { color: #879293; }
+    #af-source-review .focus-box {
+      position: absolute;
+      border: 3px solid #d88100;
+      background: rgba(255, 190, 54, .17);
+      box-shadow: 0 0 0 2px rgba(255,255,255,.84);
+      transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease;
+      pointer-events: none;
+    }
+    #af-source-review .bbox-label {
+      position: absolute;
+      left: -3px;
+      bottom: calc(100% + 3px);
+      border-radius: 4px 4px 4px 0;
+      background: #8a5400;
+      color: #fff;
+      padding: 2px 5px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    #af-source-review .source-detail {
+      margin-top: 9px;
+      border-left: 3px solid var(--af-teal);
+      background: var(--af-surface);
+      padding: 9px 10px;
+    }
+    #af-source-review .source-detail strong { font-weight: 500; }
+    #af-source-review .source-detail p { margin: 3px 0 0; color: var(--af-muted); font-size: 12px; }
+    #af-source-review .corrected-value { color: var(--af-green); }
+    #af-source-review .printed-value { text-decoration: line-through; color: var(--af-muted); }
+
+    #af-source-review .guideline-source-card {
+      border: 1px solid var(--af-line);
+      border-radius: 8px;
+      background: var(--af-surface);
+      padding: 13px;
+    }
+    #af-source-review .guideline-source-card blockquote {
+      margin: 10px 0;
+      border-left: 3px solid var(--af-blue);
+      padding-left: 10px;
+      font-size: 14px;
+    }
+    #af-source-review .meta-list { display: grid; gap: 5px; margin-top: 10px; color: var(--af-muted); font-size: 12px; }
+
+    #af-source-review .loading-scene,
+    #af-source-review .error-scene { padding: 14px; }
+    #af-source-review .loading-scene h3,
+    #af-source-review .error-scene h3 { margin: 0 0 5px; font-size: 16px; font-weight: 500; }
+    #af-source-review .loading-scene > p,
+    #af-source-review .error-scene > p { margin: 0 0 14px; color: var(--af-muted); }
+    #af-source-review .phase-list { display: grid; gap: 8px; margin: 12px 0 16px; }
+    #af-source-review .phase {
+      justify-content: space-between;
+      border-bottom: 1px solid var(--af-line);
+      padding: 8px 0;
+    }
+    #af-source-review .phase-label { display: flex; align-items: center; gap: 8px; }
+    #af-source-review .phase-state { color: var(--af-muted); font-size: 12px; }
+    #af-source-review .phase-state.done { color: var(--af-green); }
+    #af-source-review .phase-state.active { color: var(--af-teal); }
+    #af-source-review .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--af-line);
+      border-top-color: var(--af-teal);
+      border-radius: 50%;
+      animation: af-spin .9s linear infinite;
+    }
+    @keyframes af-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #af-source-review .spinner { animation: none; border-top-color: var(--af-line); } }
+
+    #af-source-review .error-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    #af-source-review .error-panel {
+      border: 1px solid var(--af-line);
+      border-radius: 8px;
+      background: var(--af-surface-2);
+      padding: 11px;
+    }
+    #af-source-review .error-panel h4 { margin: 0 0 5px; font-size: 14px; font-weight: 500; }
+    #af-source-review .error-panel p { margin: 0 0 10px; color: var(--af-muted); }
+
+    #af-source-review[data-density="compact"] .claim-lane,
+    #af-source-review[data-density="compact"] .review-row { padding: 7px; margin-bottom: 6px; }
+    #af-source-review[data-source-position="stacked"] .copilot-grid { grid-template-columns: 1fr; }
+    #af-source-review[data-source-position="stacked"] .thread-pane { border-right: 0; border-bottom: 1px solid var(--af-line); }
+    #af-source-review[data-show-confidence="false"] .confidence-copy { display: none; }
+
+    #af-source-review.is-loading .review-scene,
+    #af-source-review.is-error .review-scene { display: none; }
+    #af-source-review:not(.is-loading) .loading-scene { display: none; }
+    #af-source-review:not(.is-error) .error-scene { display: none; }
+
+    #af-source-review.is-small .af-window { max-width: 390px; margin: 0 auto; }
+    #af-source-review.is-small .emr-body { grid-template-columns: 1fr; }
+    #af-source-review.is-small .emr-nav,
+    #af-source-review.is-small .chart-pane,
+    #af-source-review.is-small .patient-pill { display: none; }
+    #af-source-review.is-small .mobile-switch { display: grid; }
+    #af-source-review.is-small .copilot-grid { grid-template-columns: 1fr; }
+    #af-source-review.is-small .thread-pane { border-right: 0; }
+    #af-source-review.is-small:not(.mobile-source) .source-pane { display: none; }
+    #af-source-review.is-small.mobile-source .thread-pane { display: none; }
+    #af-source-review.is-small .pdf-page { min-height: 390px; padding: 21px 19px; }
+    #af-source-review.is-small .top-actions { display: none; }
+
+    @media (max-width: 900px) {
+      #af-source-review .emr-body { grid-template-columns: 105px 1fr; }
+      #af-source-review .chart-pane { display: none; }
+    }
+    @media (max-width: 680px) {
+      #af-source-review .emr-body { grid-template-columns: 1fr; }
+      #af-source-review .emr-nav,
+      #af-source-review .patient-pill { display: none; }
+      #af-source-review .mobile-switch { display: grid; }
+      #af-source-review .copilot-grid { grid-template-columns: 1fr; }
+      #af-source-review .thread-pane { border-right: 0; }
+      #af-source-review:not(.mobile-source) .source-pane { display: none; }
+      #af-source-review.mobile-source .thread-pane { display: none; }
+      #af-source-review .error-columns { grid-template-columns: 1fr; }
+      #af-source-review .proto-bar { align-items: stretch; }
+      #af-source-review .proto-label { width: 100%; }
+    }
+  </style>
+
+  <div class="proto-bar" aria-label="Prototype states">
+    <span class="proto-label">Prototype state</span>
+    <button class="proto-button cursor-interaction" type="button" data-scene="review" aria-pressed="true">Review</button>
+    <button class="proto-button cursor-interaction" type="button" data-scene="loading" aria-pressed="false">Loading</button>
+    <button class="proto-button cursor-interaction" type="button" data-scene="error" aria-pressed="false">Error</button>
+    <button class="proto-button cursor-interaction" type="button" data-scene="small" aria-pressed="false">Small screen</button>
+  </div>
+
+  <section class="af-window" aria-label="OpenEMR patient chart with Clinical Co-Pilot panel">
+    <header class="emr-top">
+      <div class="brand"><span class="brand-mark">O</span><span>OpenEMR</span></div>
+      <div class="top-actions">
+        <span class="patient-pill">Demo Patient · AF-W2-07</span>
+        <span class="patient-pill">Synthetic data</span>
+      </div>
+    </header>
+
+    <div class="emr-body">
+      <nav class="emr-nav" aria-label="Patient chart sections">
+        <div class="nav-title">Chart</div>
+        <button class="nav-item active cursor-interaction" type="button">Summary</button>
+        <button class="nav-item cursor-interaction" type="button">Visits</button>
+        <button class="nav-item cursor-interaction" type="button">Problems</button>
+        <button class="nav-item cursor-interaction" type="button">Medications</button>
+        <button class="nav-item cursor-interaction" type="button">Labs</button>
+        <button class="nav-item cursor-interaction" type="button">Documents</button>
+      </nav>
+
+      <main class="chart-pane" aria-label="Synthetic patient dashboard">
+        <div class="eyebrow">Patient summary</div>
+        <h2>Demo Patient</h2>
+        <p>Record AF-W2-07 · synthetic</p>
+        <div class="chart-card"><strong>Recent visit</strong><span>Sep 12, 2026 · office visit</span></div>
+        <div class="chart-card"><strong>Documents</strong><span>2 reviewed · 1 awaiting review</span></div>
+        <div class="chart-card"><strong>Laboratory</strong><span>Reviewed external report available</span></div>
+      </main>
+
+      <aside class="copilot" aria-label="Clinical Co-Pilot">
+        <header class="copilot-head">
+          <div class="panel-title">
+            <span class="spark"><i data-lucide="sparkles" aria-hidden="true"></i></span>
+            <div><h2>Clinical Co-Pilot</h2><small>Bound to this open chart</small></div>
+          </div>
+          <span class="demo-badge">Demo only</span>
+        </header>
+
+        <div class="mobile-switch" aria-label="Small-screen panel view">
+          <button class="mobile-tab cursor-interaction" type="button" data-mobile-view="claims" aria-pressed="true">Answer & review</button>
+          <button class="mobile-tab cursor-interaction" type="button" data-mobile-view="source" aria-pressed="false">Source</button>
+        </div>
+
+        <div class="review-scene">
+          <div class="copilot-grid">
+            <section class="thread-pane" aria-label="Verified answer and review queue">
+              <div class="question">What changed, and what evidence supports it?</div>
+              <div class="answer-time">Verified response · 10:42 AM</div>
+
+              <div class="claim-lane patient">
+                <div class="claim-heading">
+                  <h3>Patient record</h3>
+                  <span class="lane-badge patient">Reviewed record</span>
+                </div>
+                <p>
+                  The reviewed external lab record lists LDL cholesterol as
+                  <strong>165 mg/dL</strong>, collected Sep 16, 2026.
+                  <button class="citation cursor-interaction active" type="button" data-cite="ldl" aria-label="Open citation 1, reviewed lab document page 2">Document · p2 <i data-lucide="scan-search" aria-hidden="true"></i></button>
+                </p>
+                <p class="lane-note">Physician-corrected value; the source text remains visible as 185 mg/dL.</p>
+              </div>
+
+              <div class="claim-lane guideline">
+                <div class="claim-heading">
+                  <h3>Guideline evidence</h3>
+                  <span class="lane-badge guideline">Exact excerpt</span>
+                </div>
+                <p>“Clinicians should ask all adults about tobacco use, advise them to stop using tobacco, and provide behavioral interventions.” <button class="citation cursor-interaction" type="button" data-cite="guideline" aria-label="Open citation 2, guideline evidence">Guideline · §Recommendation <i data-lucide="book-open" aria-hidden="true"></i></button></p>
+                <p class="lane-note">For physician review. Patient applicability was not determined.</p>
+              </div>
+
+              <section class="review-box" aria-label="Partial extraction review">
+                <div class="review-heading">
+                  <div><h3>Document review</h3><p>New intake upload · 4 reviewed, 2 need a decision</p></div>
+                  <span class="field-state warning" id="review-progress">Partial extraction</span>
+                </div>
+
+                <div class="partial-banner"><i data-lucide="triangle-alert" aria-hidden="true"></i><span>Two fields were not safely resolved. They cannot enter the patient-record lane until corrected or rejected, then promoted.</span></div>
+
+                <article class="review-row low" data-field-row="potassium">
+                  <header>
+                    <div><strong>Potassium</strong><div class="printed">Printed text: “4.? mmol/L” · page 1</div></div>
+                    <span class="field-state warning" data-field-state="potassium">Low confidence</span>
+                  </header>
+                  <div class="confidence-copy printed">OCR confidence 0.54 · exact region available</div>
+                  <div class="row-actions">
+                    <button class="af-button cursor-interaction" type="button" data-cite="potassium">View region</button>
+                    <button class="af-button cursor-interaction" type="button" data-review-action="approve" data-field="potassium">Approve as printed</button>
+                    <button class="af-button cursor-interaction" type="button" data-review-action="edit" data-field="potassium">Correct</button>
+                    <button class="af-button danger cursor-interaction" type="button" data-review-action="reject" data-field="potassium">Reject field</button>
+                  </div>
+                  <div class="edit-panel" data-editor="potassium" hidden>
+                    <label for="potassium-value">Corrected value</label>
+                    <input id="potassium-value" value="4.2 mmol/L" autocomplete="off">
+                    <label for="potassium-reason">Reason</label>
+                    <input id="potassium-reason" value="Confirmed against source region" autocomplete="off">
+                    <button class="af-button primary cursor-interaction" type="button" data-review-action="save" data-field="potassium">Save correction</button>
+                  </div>
+                </article>
+
+                <article class="review-row unreadable" data-field-row="frequency">
+                  <header>
+                    <div><strong>Medication frequency</strong><div class="printed">Printed text unreadable · page 1</div></div>
+                    <span class="field-state danger" data-field-state="frequency">Unreadable</span>
+                  </header>
+                  <div class="confidence-copy printed">OCR and bounded region retry returned no exact value</div>
+                  <div class="row-actions">
+                    <button class="af-button cursor-interaction" type="button" data-cite="frequency">View region</button>
+                    <button class="af-button cursor-interaction" type="button" data-review-action="edit" data-field="frequency">Enter correction</button>
+                    <button class="af-button danger cursor-interaction" type="button" data-review-action="reject" data-field="frequency">Reject field</button>
+                  </div>
+                  <div class="edit-panel" data-editor="frequency" hidden>
+                    <label for="frequency-value">Corrected value</label>
+                    <input id="frequency-value" placeholder="Enter only what the source supports" autocomplete="off">
+                    <label for="frequency-reason">Reason</label>
+                    <input id="frequency-reason" placeholder="Required for a correction" autocomplete="off">
+                    <div data-editor-error="frequency" role="alert" hidden>Enter a value and correction reason.</div>
+                    <button class="af-button primary cursor-interaction" type="button" data-review-action="save" data-field="frequency">Save correction</button>
+                  </div>
+                </article>
+
+                <div class="footer-actions">
+                  <span class="footer-note" id="promotion-note">Resolve or reject both fields first.</span>
+                  <button class="af-button primary cursor-interaction" id="promote-button" type="button" disabled>Promote reviewed record</button>
+                </div>
+                <div id="review-live" class="sr-only" aria-live="polite"></div>
+              </section>
+            </section>
+
+            <section class="source-pane" aria-label="Activated source">
+              <div id="patient-source">
+                <div class="source-toolbar">
+                  <div><h3 id="source-title">Reviewed lab report · version 1</h3><div class="source-subtitle" id="source-subtitle">Citation 1 · source hash verified</div></div>
+                  <div class="page-controls" aria-label="Document page controls">
+                    <button class="icon-button cursor-interaction" type="button" id="prev-page" aria-label="Previous page"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+                    <span class="page-count" id="page-count">Page 2 of 3</span>
+                    <button class="icon-button cursor-interaction" type="button" id="next-page" aria-label="Next page"><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+
+                <div class="pdf-stage">
+                  <div class="pdf-page" role="img" aria-label="Synthetic document page with highlighted source region">
+                    <div class="pdf-page-content" data-pdf-page="1">
+                      <div class="pdf-brand">DEMO CLINIC · INTAKE FORM</div>
+                      <div class="pdf-meta">Synthetic fixture · uploaded Sep 21, 2026</div>
+                      <div class="pdf-section">Current medications</div>
+                      <div class="pdf-row form"><span>Medication</span><span>Demoformin 500 mg</span></div>
+                      <div class="pdf-row form"><span>Frequency</span><span class="pdf-faint">smudged handwriting</span></div>
+                      <div class="pdf-section">Allergies</div>
+                      <div class="pdf-row form"><span>Substance</span><span>Demo-allergen A</span></div>
+                      <div class="pdf-row form"><span>Reaction</span><span class="pdf-faint">left blank</span></div>
+                    </div>
+                    <div class="pdf-page-content" data-pdf-page="2">
+                      <div class="pdf-brand">DEMO REFERENCE LAB</div>
+                      <div class="pdf-meta">Synthetic external report · collected Sep 16, 2026</div>
+                      <div class="pdf-section">Lipid panel</div>
+                      <div class="pdf-row"><span>Test</span><span>Result</span><span>Reference</span></div>
+                      <div class="pdf-row"><span>Total cholesterol</span><span>224 mg/dL</span><span>&lt; 200</span></div>
+                      <div class="pdf-row"><span>LDL cholesterol</span><span>185 mg/dL</span><span>&lt; 100</span></div>
+                      <div class="pdf-row"><span>HDL cholesterol</span><span>48 mg/dL</span><span>&gt; 40</span></div>
+                      <div class="pdf-section">Reviewer note</div>
+                      <div class="pdf-row form"><span>Corrected value</span><span>165 mg/dL</span></div>
+                    </div>
+                    <div class="pdf-page-content" data-pdf-page="3">
+                      <div class="pdf-brand">DEMO REFERENCE LAB</div>
+                      <div class="pdf-meta">Synthetic external report · page 3</div>
+                      <div class="pdf-section">Footer and signatures</div>
+                      <div class="pdf-row form"><span>Source status</span><span>Final</span></div>
+                      <div class="pdf-row form"><span>Signature</span><span class="pdf-faint">Synthetic fixture</span></div>
+                    </div>
+                    <div class="focus-box" id="focus-box"><span class="bbox-label" id="bbox-label">LDL source text</span></div>
+                  </div>
+                </div>
+
+                <div class="source-detail" id="source-detail">
+                  <strong><span class="corrected-value">Reviewed: 165 mg/dL</span> · <span class="printed-value">Printed: 185 mg/dL</span></strong>
+                  <p>Correction is explicit; the source text is never replaced.</p>
+                </div>
+              </div>
+
+              <div id="guideline-source" hidden>
+                <div class="source-toolbar"><div><h3>Guideline evidence</h3><div class="source-subtitle">Active demo corpus · exact excerpt</div></div></div>
+                <div class="guideline-source-card">
+                  <span class="lane-badge guideline">Publisher evidence</span>
+                  <blockquote>Clinicians should ask all adults about tobacco use, advise them to stop using tobacco, and provide behavioral interventions.</blockquote>
+                  <div class="meta-list">
+                    <span><strong>Source:</strong> Demo preventive-services corpus</span>
+                    <span><strong>Section:</strong> Recommendation · Tobacco cessation in adults</span>
+                    <span><strong>Corpus:</strong> demo-2026-09-21 · hash verified</span>
+                    <span><strong>Boundary:</strong> Relevance retrieved; patient applicability not determined</span>
+                  </div>
+                </div>
+              </div>
+              <div id="source-live" class="sr-only" aria-live="polite"></div>
+            </section>
+          </div>
+        </div>
+
+        <section class="loading-scene" aria-label="Extraction loading state">
+          <div class="eyebrow">Document extraction</div>
+          <h3>Preparing a reviewable extraction</h3>
+          <p>External lab report · synthetic fixture · job stays separate from chat</p>
+          <div class="phase-list">
+            <div class="phase"><span class="phase-label"><i data-lucide="check-circle-2" aria-hidden="true"></i>Upload stored and patient-bound</span><span class="phase-state done">Complete</span></div>
+            <div class="phase"><span class="phase-label"><i data-lucide="check-circle-2" aria-hidden="true"></i>Pages rendered and OCR completed</span><span class="phase-state done">Complete</span></div>
+            <div class="phase"><span class="phase-label"><span class="spinner" aria-hidden="true"></span>Validating values and source regions</span><span class="phase-state active">38 s elapsed</span></div>
+            <div class="phase"><span class="phase-label"><i data-lucide="circle" aria-hidden="true"></i>Physician review</span><span class="phase-state">Waiting</span></div>
+          </div>
+          <div class="limit-banner"><i data-lucide="info" aria-hidden="true"></i><span>You can close the panel. Extraction may take up to 95 seconds and will not appear as a patient fact before review and promotion.</span></div>
+          <button class="af-button cursor-interaction" type="button" id="cancel-job">Cancel pending work</button>
+          <div id="loading-live" aria-live="polite"></div>
+        </section>
+
+        <section class="error-scene" aria-label="Partial error state">
+          <div class="eyebrow">Partial response</div>
+          <h3>Verified patient evidence remains available</h3>
+          <p>Failures stay inside their own source lane.</p>
+          <div class="error-banner"><i data-lucide="shield-alert" aria-hidden="true"></i><span>Document preview failed its page-hash check. No document bytes were shown, and review actions are disabled for that source.</span></div>
+          <div class="error-columns">
+            <article class="error-panel">
+              <span class="lane-badge patient">Patient record</span>
+              <h4>1 independently verified claim</h4>
+              <p>Native OpenEMR encounter: preventive follow-up recorded Sep 12, 2026.</p>
+              <button class="af-button cursor-interaction" type="button">Open chart record</button>
+            </article>
+            <article class="error-panel">
+              <span class="lane-badge guideline">Guideline evidence</span>
+              <h4>Evidence unavailable</h4>
+              <p>The active corpus could not be opened within the 2-second deadline. No guideline claim was rendered.</p>
+              <button class="af-button cursor-interaction" type="button" id="retry-evidence">Retry explicit evidence request</button>
+            </article>
+          </div>
+          <div id="error-live" aria-live="polite"></div>
+        </section>
+      </aside>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const root = document.getElementById('af-source-review');
+      if (!root) return;
+
+      const defaults = {
+        scene: 'review',
+        activeCitation: 'ldl',
+        page: 2,
+        mobileView: 'claims',
+        reviews: { potassium: 'pending', frequency: 'pending' }
+      };
+
+      const saved = globalThis.openai && globalThis.openai.widgetState && globalThis.openai.widgetState.privateContent;
+      const ui = {
+        ...defaults,
+        ...(saved && typeof saved === 'object' ? saved : {}),
+        reviews: { ...defaults.reviews, ...(saved && saved.reviews ? saved.reviews : {}) }
+      };
+
+      const design = { sourcePosition: 'split', density: 'comfortable', showConfidence: true };
+      const citations = {
+        ldl: {
+          kind: 'patient', page: 2, title: 'Reviewed lab report · version 1', subtitle: 'Citation 1 · source hash verified',
+          box: { left: 6.5, top: 38.5, width: 87, height: 11 }, label: 'LDL source text',
+          detail: '<strong><span class="corrected-value">Reviewed: 165 mg/dL</span> · <span class="printed-value">Printed: 185 mg/dL</span></strong><p>Correction is explicit; the source text is never replaced.</p>'
+        },
+        potassium: {
+          kind: 'patient', page: 1, title: 'New intake upload · extraction version 2', subtitle: 'Low-confidence field · not a patient-record claim',
+          box: { left: 6.5, top: 23, width: 87, height: 11 }, label: 'Low-confidence region',
+          detail: '<strong>Proposed: 4.? mmol/L</strong><p>Confidence is diagnostic only. Approval, correction, or rejection remains a physician decision.</p>'
+        },
+        frequency: {
+          kind: 'patient', page: 1, title: 'New intake upload · extraction version 2', subtitle: 'Unreadable field · no value proposed',
+          box: { left: 6.5, top: 32.5, width: 87, height: 11 }, label: 'Unreadable region',
+          detail: '<strong>No extracted value</strong><p>OCR and the single bounded region retry did not resolve this field. Missing content was not imputed.</p>'
+        },
+        guideline: { kind: 'guideline' }
+      };
+
+      const validScenes = new Set(['review', 'loading', 'error', 'small']);
+      if (!validScenes.has(ui.scene)) ui.scene = 'review';
+      if (!citations[ui.activeCitation]) ui.activeCitation = 'ldl';
+      if (![1, 2, 3].includes(Number(ui.page))) ui.page = 2;
+      if (!['claims', 'source'].includes(ui.mobileView)) ui.mobileView = 'claims';
+
+      const persist = () => {
+        if (!globalThis.openai || typeof globalThis.openai.setWidgetState !== 'function') return;
+        globalThis.openai.setWidgetState({
+          modelContent: {
+            prototypeState: ui.scene,
+            activeSource: ui.activeCitation,
+            reviewDecisions: ui.reviews
+          },
+          privateContent: ui
+        }).catch(() => {});
+      };
+
+      const renderDesign = () => {
+        root.dataset.sourcePosition = design.sourcePosition;
+        root.dataset.density = design.density;
+        root.dataset.showConfidence = String(design.showConfidence);
+      };
+
+      const renderScene = () => {
+        root.classList.toggle('is-loading', ui.scene === 'loading');
+        root.classList.toggle('is-error', ui.scene === 'error');
+        root.classList.toggle('is-small', ui.scene === 'small');
+        root.querySelectorAll('[data-scene]').forEach((button) => {
+          button.setAttribute('aria-pressed', String(button.dataset.scene === ui.scene));
+        });
+      };
+
+      const renderMobile = () => {
+        root.classList.toggle('mobile-source', ui.mobileView === 'source');
+        root.querySelectorAll('[data-mobile-view]').forEach((button) => {
+          button.setAttribute('aria-pressed', String(button.dataset.mobileView === ui.mobileView));
+        });
+      };
+
+      const renderPage = () => {
+        root.querySelectorAll('[data-pdf-page]').forEach((page) => {
+          page.hidden = Number(page.dataset.pdfPage) !== Number(ui.page);
+        });
+        const pageCount = root.querySelector('#page-count');
+        if (pageCount) pageCount.textContent = `Page ${ui.page} of 3`;
+        const citation = citations[ui.activeCitation];
+        const focus = root.querySelector('#focus-box');
+        if (!focus) return;
+        const showFocus = citation && citation.kind === 'patient' && Number(citation.page) === Number(ui.page);
+        focus.hidden = !showFocus;
+        if (showFocus) {
+          focus.style.left = `${citation.box.left}%`;
+          focus.style.top = `${citation.box.top}%`;
+          focus.style.width = `${citation.box.width}%`;
+          focus.style.height = `${citation.box.height}%`;
+          root.querySelector('#bbox-label').textContent = citation.label;
+        }
+      };
+
+      const activateCitation = (key, shouldPersist = true) => {
+        const citation = citations[key];
+        if (!citation) return;
+        ui.activeCitation = key;
+        root.querySelectorAll('[data-cite]').forEach((button) => button.classList.toggle('active', button.dataset.cite === key));
+        const patient = root.querySelector('#patient-source');
+        const guideline = root.querySelector('#guideline-source');
+        patient.hidden = citation.kind !== 'patient';
+        guideline.hidden = citation.kind !== 'guideline';
+        if (citation.kind === 'patient') {
+          ui.page = citation.page;
+          root.querySelector('#source-title').textContent = citation.title;
+          root.querySelector('#source-subtitle').textContent = citation.subtitle;
+          root.querySelector('#source-detail').innerHTML = citation.detail;
+          renderPage();
+        }
+        if (ui.scene === 'small' || matchMedia('(max-width: 680px)').matches) {
+          ui.mobileView = 'source';
+          renderMobile();
+        }
+        root.querySelector('#source-live').textContent = citation.kind === 'guideline' ? 'Guideline evidence opened.' : `${citation.title}, page ${citation.page}, source region focused.`;
+        if (shouldPersist) persist();
+      };
+
+      const reviewLabel = (value) => ({ pending: null, approved: 'Approved', corrected: 'Corrected', rejected: 'Rejected' }[value] || null);
+      const renderReviews = () => {
+        Object.entries(ui.reviews).forEach(([field, value]) => {
+          const row = root.querySelector(`[data-field-row="${field}"]`);
+          const badge = root.querySelector(`[data-field-state="${field}"]`);
+          if (!row || !badge) return;
+          const resolved = value !== 'pending';
+          row.classList.toggle('resolved', resolved);
+          if (resolved) {
+            badge.textContent = reviewLabel(value);
+            badge.className = 'field-state success';
+          } else {
+            badge.textContent = field === 'potassium' ? 'Low confidence' : 'Unreadable';
+            badge.className = field === 'potassium' ? 'field-state warning' : 'field-state danger';
+          }
+        });
+        const pending = Object.values(ui.reviews).filter((value) => value === 'pending').length;
+        const progress = root.querySelector('#review-progress');
+        const promote = root.querySelector('#promote-button');
+        const note = root.querySelector('#promotion-note');
+        progress.textContent = pending ? `${pending} decision${pending === 1 ? '' : 's'} needed` : 'Review complete';
+        progress.className = pending ? 'field-state warning' : 'field-state success';
+        promote.disabled = pending > 0;
+        note.textContent = pending ? `Resolve or reject ${pending === 1 ? 'the remaining field' : 'both fields'} first.` : 'All fields have an explicit review decision.';
+      };
+
+      root.querySelectorAll('[data-scene]').forEach((button) => {
+        button.addEventListener('click', () => {
+          ui.scene = button.dataset.scene;
+          if (ui.scene !== 'small') ui.mobileView = 'claims';
+          renderScene();
+          renderMobile();
+          persist();
+        });
+      });
+
+      root.querySelectorAll('[data-mobile-view]').forEach((button) => {
+        button.addEventListener('click', () => {
+          ui.mobileView = button.dataset.mobileView;
+          renderMobile();
+          persist();
+        });
+      });
+
+      root.querySelectorAll('[data-cite]').forEach((button) => {
+        button.addEventListener('click', () => activateCitation(button.dataset.cite));
+      });
+
+      root.querySelector('#prev-page').addEventListener('click', () => {
+        ui.page = Math.max(1, Number(ui.page) - 1);
+        renderPage();
+        persist();
+      });
+      root.querySelector('#next-page').addEventListener('click', () => {
+        ui.page = Math.min(3, Number(ui.page) + 1);
+        renderPage();
+        persist();
+      });
+
+      root.querySelectorAll('[data-review-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const field = button.dataset.field;
+          const action = button.dataset.reviewAction;
+          const editor = root.querySelector(`[data-editor="${field}"]`);
+          if (action === 'edit') {
+            editor.hidden = false;
+            editor.querySelector('input').focus();
+            return;
+          }
+          if (action === 'save') {
+            const inputs = editor.querySelectorAll('input');
+            const value = inputs[0].value.trim();
+            const reason = inputs[1].value.trim();
+            const error = root.querySelector(`[data-editor-error="${field}"]`);
+            if (!value || !reason) {
+              if (error) error.hidden = false;
+              return;
+            }
+            if (error) error.hidden = true;
+            ui.reviews[field] = 'corrected';
+            editor.hidden = true;
+          } else if (action === 'approve') {
+            ui.reviews[field] = 'approved';
+          } else if (action === 'reject') {
+            ui.reviews[field] = 'rejected';
+          }
+          renderReviews();
+          root.querySelector('#review-live').textContent = `${field} marked ${ui.reviews[field]}.`;
+          persist();
+        });
+      });
+
+      root.querySelector('#promote-button').addEventListener('click', (event) => {
+        if (event.currentTarget.disabled) return;
+        event.currentTarget.textContent = 'Promoted as record v1';
+        event.currentTarget.disabled = true;
+        root.querySelector('#promotion-note').textContent = 'Prototype: immutable reviewed record created.';
+        root.querySelector('#review-live').textContent = 'Reviewed record promoted in the prototype.';
+      });
+
+      root.querySelector('#cancel-job').addEventListener('click', () => {
+        root.querySelector('#loading-live').textContent = 'Cancellation requested. Already committed extraction versions would be retained.';
+      });
+      root.querySelector('#retry-evidence').addEventListener('click', () => {
+        root.querySelector('#error-live').textContent = 'A new explicit evidence request would re-enter routing and re-check the active corpus.';
+      });
+
+      const applyIncomingState = (state) => {
+        if (!state || typeof state !== 'object') return;
+        const next = state.privateContent || state;
+        if (next.scene && validScenes.has(next.scene)) ui.scene = next.scene;
+        if (next.activeCitation && citations[next.activeCitation]) ui.activeCitation = next.activeCitation;
+        if ([1, 2, 3].includes(Number(next.page))) ui.page = Number(next.page);
+        if (next.mobileView && ['claims', 'source'].includes(next.mobileView)) ui.mobileView = next.mobileView;
+        if (next.reviews && typeof next.reviews === 'object') ui.reviews = { ...ui.reviews, ...next.reviews };
+        renderScene();
+        renderMobile();
+        renderReviews();
+        activateCitation(ui.activeCitation, false);
+      };
+
+      addEventListener('openai:set_globals', (event) => {
+        const state = event.detail && event.detail.globals && event.detail.globals.widgetState;
+        if (state) applyIncomingState(state);
+      });
+
+      renderDesign();
+      renderScene();
+      renderMobile();
+      renderReviews();
+      activateCitation(ui.activeCitation, false);
+
+      if (globalThis.Tweak) {
+        const tweak = new Tweak({ container: root, onChange: renderDesign });
+        tweak.addSelect(design, 'sourcePosition', {
+          label: 'Source presentation',
+          reference: 'review.source-position',
+          options: [
+            { label: 'Split view', value: 'split' },
+            { label: 'Stacked', value: 'stacked' }
+          ]
+        });
+        tweak.addSelect(design, 'density', {
+          label: 'Information density',
+          reference: 'review.density',
+          options: [
+            { label: 'Comfortable', value: 'comfortable' },
+            { label: 'Compact', value: 'compact' }
+          ]
+        });
+        tweak.addToggle(design, 'showConfidence', { label: 'Show diagnostic confidence', reference: 'review.show-confidence' });
+      }
+    })();
+  </script>
+</div>
