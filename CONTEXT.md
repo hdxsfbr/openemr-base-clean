@@ -1,0 +1,78 @@
+# AgentForge Clinical Evidence Context
+
+This context defines the terms used for document ingestion and clinical evidence
+in the Week 2 Clinical Co-Pilot planning work.
+
+## Clinical document terms
+
+**Source document**:
+The original file explicitly uploaded by a user and stored in OpenEMR as the
+canonical clinical-document artifact.
+_Avoid_: Input, attachment, upload blob.
+
+**Proposed fact**:
+A structured value extracted from a source document, with source and extraction
+provenance, that has not yet been accepted into the patient's clinical record.
+_Avoid_: Observation, verified fact, chart fact.
+
+**Clinical record fact**:
+A reviewed fact persisted as an immutable OpenEMR module record through the
+authorized promotion boundary; it is distinct from OpenEMR's native medication,
+allergy, problem, order, and procedure-result records.
+_Avoid_: Proposed fact, model output, native chart fact.
+
+**Proposed-facts ledger**:
+The reviewable AgentForge persistence for proposed facts and their provenance;
+it is not itself part of the patient's clinical record.
+_Avoid_: Shadow chart, staging chart, source of truth.
+
+**Promotion**:
+The explicit, idempotent creation of a reviewed OpenEMR module record from a
+human review, retaining the proposed value, reviewed value, source, and actor.
+_Avoid_: Sync, publish, auto-write.
+
+## Extraction terms
+
+**Field evidence**:
+The page, normalized bounding box, exact quote or value, and extraction metadata
+that support one proposed fact.
+_Avoid_: Citation, confidence score alone, source link.
+
+**Review-required fact**:
+A proposed fact shown to the physician because evidence exists but ambiguity,
+low confidence, conflict, or incomplete validation prevents safe acceptance.
+_Avoid_: Accepted fact, verified chart fact.
+
+**Extraction version**:
+An immutable attempt to extract proposed facts from one source-document version.
+_Avoid_: Overwrite, latest truth, correction in place.
+
+**Extraction state**:
+The machine-processing result for one proposed fact: schema-valid,
+review-required, rejected, or unavailable. It never records human approval.
+_Avoid_: Accepted, approved, promoted.
+
+**Review decision**:
+The physician's append-only decision on a proposed fact: pending, approved,
+corrected, rejected, or superseded.
+_Avoid_: Extraction status, confidence, automatic acceptance.
+
+## Guideline evidence terms
+
+**Guideline corpus**:
+A versioned, locally available collection of publisher-maintained recommendation
+content that the co-pilot may retrieve as evidence. A corpus is not a license to
+make a recommendation without matching patient evidence and physician judgment.
+_Avoid_: The internet, medical knowledge, current guidelines.
+
+**Evidence chunk**:
+An addressable excerpt from a guideline corpus with publisher, source URL,
+topic or section, corpus version, content hash, and exact text preserved for
+inspection.
+_Avoid_: Citation, passage, search result.
+
+**Retrieval limitation**:
+An explicit user-visible state when the corpus has no matching evidence or is
+unavailable; it prevents the system from presenting an unsupported guideline
+claim.
+_Avoid_: Empty result, fallback answer, best effort.

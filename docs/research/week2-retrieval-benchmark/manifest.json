@@ -1,0 +1,56 @@
+{
+  "corpus_version": "uspstf-recommendations-2026-09-21-v2",
+  "publisher": "U.S. Preventive Services Task Force",
+  "jurisdiction": "US",
+  "retrieved_at": "2026-09-21",
+  "reuse_notice": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation-topics/copyright-notice",
+  "chunking": {
+    "algorithm": "publisher-heading-aware sentence groups; never cross a heading path",
+    "target_words": 160,
+    "minimum_words": 40,
+    "sentence_overlap": 1,
+    "maximum_chunks_per_topic": 20
+  },
+  "sources": [
+    {
+      "topic": "aaa",
+      "title": "Abdominal Aortic Aneurysm: Screening",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/abdominal-aortic-aneurysm-screening"
+    },
+    {
+      "topic": "breast",
+      "title": "Breast Cancer: Screening",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/breast-cancer-screening"
+    },
+    {
+      "topic": "cervical",
+      "title": "Cervical Cancer: Screening",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/cervical-cancer-screening"
+    },
+    {
+      "topic": "colorectal",
+      "title": "Colorectal Cancer: Screening",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/colorectal-cancer-screening"
+    },
+    {
+      "topic": "lung",
+      "title": "Lung Cancer: Screening",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/lung-cancer-screening"
+    },
+    {
+      "topic": "child_obesity",
+      "title": "High Body Mass Index in Children and Adolescents: Interventions",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/obesity-in-children-and-adolescents-screening"
+    },
+    {
+      "topic": "hypertension",
+      "title": "Hypertension in Adults: Screening",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/hypertension-in-adults-screening"
+    },
+    {
+      "topic": "tobacco",
+      "title": "Tobacco Smoking Cessation in Adults, Including Pregnant Persons: Interventions",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/tobacco-use-in-adults-and-pregnant-women-counseling-and-interventions"
+    }
+  ]
+}

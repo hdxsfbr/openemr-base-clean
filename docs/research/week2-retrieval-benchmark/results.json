@@ -1,0 +1,386 @@
+{
+  "build": {
+    "artifact_sizes": {
+      "bge_dense_matrix_bytes": 245760,
+      "bge_faiss_index_bytes": 245805,
+      "dense_matrix_bytes": 40960,
+      "embedding_model_bytes": 133093490,
+      "faiss_index_bytes": 41005,
+      "reranker_model_bytes": 23200716,
+      "sparse_sqlite_bytes": 253952,
+      "svd_transform_bytes": 2574567,
+      "tfidf_vectorizer_bytes": 215493
+    },
+    "cpu_ms": 17887.442418,
+    "cpu_percent_of_one_core": 247.31693938573986,
+    "embedding_cold_load_ms": 132.77888798620552,
+    "embedding_rss_delta_bytes": 186511360,
+    "peak_process_rss_bytes": 507547648,
+    "reranker_cold_load_ms": 50.894302083179355,
+    "reranker_first_query_ms": 177.4927480146289,
+    "reranker_rss_delta_bytes": 23384064,
+    "wall_ms": 7232.598972972482
+  },
+  "concurrency": {
+    "dense_bge_10_workers": {
+      "latency_p50_ms": 14.419558981899172,
+      "latency_p95_ms": 24.256811127997935,
+      "requests": 128,
+      "throughput_qps": 606.6986967650016,
+      "wall_ms": 210.97787201870233,
+      "workers": 10
+    },
+    "dense_bge_1_worker": {
+      "latency_p50_ms": 5.8542569749988616,
+      "latency_p95_ms": 7.237032579723744,
+      "requests": 64,
+      "throughput_qps": 167.42633882272642,
+      "wall_ms": 382.2576570091769,
+      "workers": 1
+    },
+    "sparse_10_workers": {
+      "latency_p50_ms": 1.2608189135789871,
+      "latency_p95_ms": 3.9469127019401604,
+      "requests": 128,
+      "throughput_qps": 6349.868729336326,
+      "wall_ms": 20.15789703000337,
+      "workers": 10
+    },
+    "sparse_1_worker": {
+      "latency_p50_ms": 0.16202096594497561,
+      "latency_p95_ms": 0.216099910903722,
+      "requests": 64,
+      "throughput_qps": 5419.846750221302,
+      "wall_ms": 11.808451963588595,
+      "workers": 1
+    }
+  },
+  "configuration": {
+    "candidate_k_per_leg": 20,
+    "embedding_file": "onnx/model.onnx",
+    "embedding_query_prefix": "Represent this sentence for searching relevant passages: ",
+    "embedding_repo": "BAAI/bge-small-en-v1.5",
+    "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "embedding_sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35",
+    "onnx_threads": 2,
+    "reranker_file": "onnx/model_quint8_avx2.onnx",
+    "reranker_repo": "cross-encoder/ms-marco-MiniLM-L6-v2",
+    "reranker_revision": "233902d25c440f23af6f7d6e94d2946bac0bee0a",
+    "reranker_sha256": "c80a8b34256ea453093d612e3ac48d3d965a0c0a48c7906709af8b8e28461bf9",
+    "return_k": 5,
+    "rrf_k": 60,
+    "svd_seed": 17
+  },
+  "environment": {
+    "cpu_model": "Intel(R) Core(TM) i9-14900KF",
+    "logical_cpus": 32,
+    "memory_total_bytes": 33343209472,
+    "packages": {
+      "beautifulsoup4": "4.13.4",
+      "faiss-cpu": "1.11.0.post1",
+      "huggingface-hub": "1.22.0",
+      "joblib": "1.5.1",
+      "numpy": "2.1.2",
+      "onnxruntime": "1.22.1",
+      "psutil": "7.0.0",
+      "requests": "2.32.4",
+      "scikit-learn": "1.8.0",
+      "tokenizers": "0.22.2"
+    },
+    "physical_cpus": 24,
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "python": "3.13.2"
+  },
+  "inputs": {
+    "corpus_rows": 160,
+    "corpus_sha256": "b4d8dcbf3151c871ec46c43f25cc73a014ed3e3a20bd89a63ab6713c006c3e03",
+    "manifest_sha256": "cd1916a7d34c877403cd53d533f17e685d296d7746676999694c911aec49da7c",
+    "queries": 32,
+    "queries_sha256": "27c33979d46bde6b2b57a6ac2cc95c988bddf7d169e014755092e825d0678e55",
+    "synthetic_only": true
+  },
+  "quality_and_latency": {
+    "dense_bge_faiss": {
+      "cpu_ms_per_query": 11.859060635416677,
+      "latency_p50_ms": 5.886645521968603,
+      "latency_p95_ms": 7.2478172078263015,
+      "mrr": 1.0,
+      "ndcg_at_5": 0.9829800622971921,
+      "recall_at_20": 1.0,
+      "top1_topic_accuracy": 1.0
+    },
+    "dense_lsa_faiss_control": {
+      "cpu_ms_per_query": 0.3587899791666442,
+      "latency_p50_ms": 0.34051999682560563,
+      "latency_p95_ms": 0.380444253096357,
+      "mrr": 0.9180555555555555,
+      "ndcg_at_5": 0.8411275299357357,
+      "recall_at_20": 1.0,
+      "top1_topic_accuracy": 0.875
+    },
+    "hybrid_rrf": {
+      "cpu_ms_per_query": 12.462841520833322,
+      "latency_p50_ms": 6.206236488651484,
+      "latency_p95_ms": 7.245726941619068,
+      "mrr": 1.0,
+      "ndcg_at_5": 0.9321383516054773,
+      "recall_at_20": 1.0,
+      "top1_topic_accuracy": 1.0
+    },
+    "hybrid_rrf_lexical_rerank": {
+      "cpu_ms_per_query": 13.055660385416687,
+      "latency_p50_ms": 6.548010976985097,
+      "latency_p95_ms": 7.6602699991781265,
+      "mrr": 0.9097222222222222,
+      "ndcg_at_5": 0.8149657336242249,
+      "recall_at_20": 1.0,
+      "top1_topic_accuracy": 0.8333333333333334
+    },
+    "hybrid_rrf_onnx_cross_encoder": {
+      "cpu_ms_per_query": 445.5412521250001,
+      "dev_selected_abstention_threshold": -2.960404384881258,
+      "holdout_abstention_accuracy": 0.9166666666666666,
+      "mrr": 1.0,
+      "ndcg_at_5": 0.9625109084601263,
+      "per_query": [
+        {
+          "expected_topic": "aaa",
+          "id": "aaa-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 0.08011963218450546
+        },
+        {
+          "expected_topic": "aaa",
+          "id": "aaa-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 2.7024662494659424
+        },
+        {
+          "expected_topic": "aaa",
+          "id": "aaa-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": 5.169955253601074
+        },
+        {
+          "expected_topic": "breast",
+          "id": "breast-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 6.561854839324951
+        },
+        {
+          "expected_topic": "breast",
+          "id": "breast-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 3.8645687103271484
+        },
+        {
+          "expected_topic": "breast",
+          "id": "breast-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": 3.1383535861968994
+        },
+        {
+          "expected_topic": "cervical",
+          "id": "cervical-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 2.466674327850342
+        },
+        {
+          "expected_topic": "cervical",
+          "id": "cervical-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 3.8679542541503906
+        },
+        {
+          "expected_topic": "cervical",
+          "id": "cervical-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": 3.863590717315674
+        },
+        {
+          "expected_topic": "colorectal",
+          "id": "colorectal-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 7.3346357345581055
+        },
+        {
+          "expected_topic": "colorectal",
+          "id": "colorectal-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 4.793460369110107
+        },
+        {
+          "expected_topic": "colorectal",
+          "id": "colorectal-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": 5.767840385437012
+        },
+        {
+          "expected_topic": "lung",
+          "id": "lung-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 4.657658100128174
+        },
+        {
+          "expected_topic": "lung",
+          "id": "lung-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 7.0573625564575195
+        },
+        {
+          "expected_topic": "lung",
+          "id": "lung-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": 6.582560062408447
+        },
+        {
+          "expected_topic": "child_obesity",
+          "id": "child-obesity-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 9.830945014953613
+        },
+        {
+          "expected_topic": "child_obesity",
+          "id": "child-obesity-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 6.002776145935059
+        },
+        {
+          "expected_topic": "child_obesity",
+          "id": "child-obesity-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": -2.1455228328704834
+        },
+        {
+          "expected_topic": "hypertension",
+          "id": "hypertension-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 9.250509262084961
+        },
+        {
+          "expected_topic": "hypertension",
+          "id": "hypertension-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 5.5829548835754395
+        },
+        {
+          "expected_topic": "hypertension",
+          "id": "hypertension-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": 5.5050482749938965
+        },
+        {
+          "expected_topic": "tobacco",
+          "id": "tobacco-dev-1",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 5.92337703704834
+        },
+        {
+          "expected_topic": "tobacco",
+          "id": "tobacco-dev-2",
+          "passes_threshold": true,
+          "split": "dev",
+          "top_score": 6.123412609100342
+        },
+        {
+          "expected_topic": "tobacco",
+          "id": "tobacco-holdout-1",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": 4.140213489532471
+        },
+        {
+          "expected_topic": null,
+          "id": "none-dev-1",
+          "passes_threshold": false,
+          "split": "dev",
+          "top_score": -6.0009284019470215
+        },
+        {
+          "expected_topic": null,
+          "id": "none-dev-2",
+          "passes_threshold": false,
+          "split": "dev",
+          "top_score": -9.106791496276855
+        },
+        {
+          "expected_topic": null,
+          "id": "none-dev-3",
+          "passes_threshold": false,
+          "split": "dev",
+          "top_score": -10.128571510314941
+        },
+        {
+          "expected_topic": null,
+          "id": "none-dev-4",
+          "passes_threshold": false,
+          "split": "dev",
+          "top_score": -9.272281646728516
+        },
+        {
+          "expected_topic": null,
+          "id": "none-holdout-1",
+          "passes_threshold": false,
+          "split": "holdout",
+          "top_score": -9.46834659576416
+        },
+        {
+          "expected_topic": null,
+          "id": "none-holdout-2",
+          "passes_threshold": true,
+          "split": "holdout",
+          "top_score": -2.859257221221924
+        },
+        {
+          "expected_topic": null,
+          "id": "none-holdout-3",
+          "passes_threshold": false,
+          "split": "holdout",
+          "top_score": -9.098526954650879
+        },
+        {
+          "expected_topic": null,
+          "id": "none-holdout-4",
+          "passes_threshold": false,
+          "split": "holdout",
+          "top_score": -8.019654273986816
+        }
+      ],
+      "recall_at_20": 1.0,
+      "rerank_latency_p50_ms": 176.85615149093792,
+      "rerank_latency_p95_ms": 291.5012142038904,
+      "top1_topic_accuracy": 1.0
+    },
+    "sparse": {
+      "cpu_ms_per_query": 0.16534288541666017,
+      "latency_p50_ms": 0.16209494788199663,
+      "latency_p95_ms": 0.20989449694752693,
+      "mrr": 0.84375,
+      "ndcg_at_5": 0.7422565100137865,
+      "recall_at_20": 1.0,
+      "top1_topic_accuracy": 0.75
+    }
+  }
+}

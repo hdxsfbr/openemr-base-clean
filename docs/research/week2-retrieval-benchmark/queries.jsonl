@@ -1,0 +1,32 @@
+{"id":"aaa-dev-1","split":"dev","topic":"aaa","text":"Should a 67-year-old man who smoked years ago receive a one-time abdominal ultrasound?"}
+{"id":"aaa-dev-2","split":"dev","topic":"aaa","text":"What screening test is used for abdominal aortic aneurysm in older men with smoking history?"}
+{"id":"aaa-holdout-1","split":"holdout","topic":"aaa","text":"Does every 70-year-old man need aneurysm screening if he has never smoked?"}
+{"id":"breast-dev-1","split":"dev","topic":"breast","text":"How often should average-risk women aged 40 to 74 receive mammography?"}
+{"id":"breast-dev-2","split":"dev","topic":"breast","text":"What is the recommended breast cancer screening interval for an average-risk woman?"}
+{"id":"breast-holdout-1","split":"holdout","topic":"breast","text":"Does an average-risk 45-year-old need a screening mammogram?"}
+{"id":"cervical-dev-1","split":"dev","topic":"cervical","text":"What is the cervical cytology screening interval for someone aged 24?"}
+{"id":"cervical-dev-2","split":"dev","topic":"cervical","text":"What cervical cancer screening options apply from age 30 through 65?"}
+{"id":"cervical-holdout-1","split":"holdout","topic":"cervical","text":"How should an average-risk 52-year-old be screened for cervical cancer?"}
+{"id":"colorectal-dev-1","split":"dev","topic":"colorectal","text":"When should colorectal cancer screening begin for an average-risk adult?"}
+{"id":"colorectal-dev-2","split":"dev","topic":"colorectal","text":"What stool-test and colonoscopy options are used for colorectal cancer screening?"}
+{"id":"colorectal-holdout-1","split":"holdout","topic":"colorectal","text":"Should an average-risk 47-year-old start colorectal screening?"}
+{"id":"lung-dev-1","split":"dev","topic":"lung","text":"Is annual low-dose CT appropriate for a 55-year-old current smoker with a 25 pack-year history?"}
+{"id":"lung-dev-2","split":"dev","topic":"lung","text":"What age and smoking exposure determine lung cancer screening eligibility?"}
+{"id":"lung-holdout-1","split":"holdout","topic":"lung","text":"Should a person aged 60 with no smoking history get annual low-dose CT?"}
+{"id":"child-obesity-dev-1","split":"dev","topic":"child_obesity","text":"At what age should children with high BMI be offered intensive behavioral intervention?"}
+{"id":"child-obesity-dev-2","split":"dev","topic":"child_obesity","text":"What behavioral treatment is recommended for children and adolescents with obesity?"}
+{"id":"child-obesity-holdout-1","split":"holdout","topic":"child_obesity","text":"What primary-care intervention applies to a 12-year-old with a high body mass index?"}
+{"id":"hypertension-dev-1","split":"dev","topic":"hypertension","text":"Which adults should be screened for high blood pressure?"}
+{"id":"hypertension-dev-2","split":"dev","topic":"hypertension","text":"Should an elevated office blood pressure be confirmed outside the clinic before treatment?"}
+{"id":"hypertension-holdout-1","split":"holdout","topic":"hypertension","text":"How should hypertension screening be confirmed for a 35-year-old adult?"}
+{"id":"tobacco-dev-1","split":"dev","topic":"tobacco","text":"What counseling and pharmacotherapy should primary care offer adults who use tobacco?"}
+{"id":"tobacco-dev-2","split":"dev","topic":"tobacco","text":"What smoking-cessation counseling is recommended during pregnancy?"}
+{"id":"tobacco-holdout-1","split":"holdout","topic":"tobacco","text":"Should medication automatically be used for tobacco cessation in pregnant patients?"}
+{"id":"none-dev-1","split":"dev","topic":null,"text":"What insulin dose should be prescribed for type 2 diabetes?"}
+{"id":"none-dev-2","split":"dev","topic":null,"text":"Which antibiotic and dose treats bacterial pneumonia?"}
+{"id":"none-dev-3","split":"dev","topic":null,"text":"How should an acute potassium level of 6.2 be treated?"}
+{"id":"none-dev-4","split":"dev","topic":null,"text":"What medication should be prescribed for an acute migraine?"}
+{"id":"none-holdout-1","split":"holdout","topic":null,"text":"Which antibiotic should be used for a urinary tract infection?"}
+{"id":"none-holdout-2","split":"holdout","topic":null,"text":"What drug dose should be started to treat hypertension?"}
+{"id":"none-holdout-3","split":"holdout","topic":null,"text":"How should a new widespread skin rash be treated?"}
+{"id":"none-holdout-4","split":"holdout","topic":null,"text":"What medication should be selected for major depression?"}
