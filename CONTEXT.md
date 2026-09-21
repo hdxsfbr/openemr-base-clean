@@ -122,3 +122,25 @@ _Avoid_: Recommendation agent, applicability agent, medical search agent.
 A typed, status-bearing request and result linking one supervisor route to one
 worker run through identifiers, versions, reasons, timing, and limitations.
 _Avoid_: Prompt, agent conversation, raw worker transcript.
+
+## Evaluation terms
+
+**Release corpus**:
+The complete versioned set of golden, behavioral-coverage, and holdout cases
+used to decide whether a candidate is releasable.
+_Avoid_: Golden set, test count.
+
+**Golden set**:
+The regression-blocking subset of the release corpus whose verdicts are
+produced only by deterministic Boolean rubrics.
+_Avoid_: Entire release corpus, model-judged score, exactly 50 cases.
+
+**Behavioral-coverage case**:
+A release-corpus case that explores harder variations, model behavior, or a
+newly discovered risk without counting toward the golden-set minimum.
+_Avoid_: Optional test, golden case.
+
+**Holdout case**:
+A behavioral-coverage case reserved from tuning and exposed only in the full
+release check.
+_Avoid_: Hidden golden case, skipped case, prompt-tuning example.
