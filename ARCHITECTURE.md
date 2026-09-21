@@ -485,15 +485,22 @@ permitted.
   interpretation`.
   `facts` is typed per claim type (for example `lab_result` carries analyte,
   value, unit, date, flag, range). The enum is open by design: Week 2 adds
-  `document_extract` and `guideline_reference` with their own fact types and
-  verifier rules.
+  a discriminated `patient_record | guideline_evidence` final-claim union under
+  ADR-0012. The accepted design does **not** use the earlier reserved
+  `document_extract` or `guideline_reference` names: only promoted reviewed
+  records support patient claims, and guideline claims are exact excerpts.
+  This remains planned rather than implemented; the exact contract is in
+  `docs/specs/week2-claim-citation-verification-contracts.md`.
 - `SourceId` is a URI, not a table reference: `openemr:{table}:{id}[:{uuid}]`
-  in Week 1 (for example `openemr:procedure_result:9001234`); Week 2 adds
-  `document:{uuid}:page:{n}` and `guideline:{doc}:{chunk}`. The module maps
+  in Week 1 (for example `openemr:procedure_result:9001234`); ADR-0012 accepts
+  the planned Week 2 forms
+  `document:{source}:record:{record}:v:{version}:field:{field}` and
+  `guideline:{corpus_version}:{document}:{chunk}`. The module maps
   the `openemr:` scheme to chart URLs; the verifier resolves a source id
   through `EvidencePack.records`, a flat `source_id -> record` mapping
   (`agent/app/evidence.py:60`). A registry keyed by URI prefix is the Week 2
-  extension point, not what runs today.
+  extension point, not what runs today. Its typed source and citation unions
+  are fixed in `docs/specs/week2-claim-citation-verification-contracts.md`.
 - `Limitation{kind, section, detail, source_ids?}` with `kind` in
   `not_documented | reviewed_none | unavailable | truncated | conflict |
   undated | withheld | out_of_scope | narrative_unavailable |
@@ -580,7 +587,9 @@ claims and the turn's retrieved records; it does not call the model.
 (`agent/app/evidence.py:60`) — to a record retrieved in this turn for this
 conversation. Unknown, cross-patient, or stale ids reject the claim. A
 registry keyed by URI scheme is the Week 2 extension point, not what runs
-today; Week 1 only ever mints `openemr:` ids.
+today; Week 1 only ever mints `openemr:` ids. ADR-0012 fixes that registry's
+planned binding, freshness, claim-class separation, resolver-authored citation,
+and fail-closed rules.
 
 **Fact matching by claim type.**
 
@@ -1263,8 +1272,8 @@ orchestration rewrite in Week 2).
 | Later requirement (syllabus) | What Week 1 leaves in place |
 | --- | --- |
 | Supervisor with two workers, checkpointing, human-in-the-loop | The turn graph is a LangGraph subgraph with a checkpointer; the supervisor becomes the parent graph |
-| Lab PDF and intake-form ingestion; round-tripping derived records without duplicates | `SourceId` URI scheme, open claim types, provenance fields, the reserved `actions/` endpoint class with idempotency keys; a write ADR is still required |
-| Guideline evidence through hybrid RAG | `guideline:` source scheme and `guideline_reference` claim type reserved; the "no general medical knowledge" refusal is Week 1 scope |
+| Lab PDF and intake-form ingestion; round-tripping derived records without duplicates | The Week 1 seams are now specified by ADR-0008, ADR-0009, ADR-0011, and ADR-0012; implementation remains Week 2 work |
+| Guideline evidence through hybrid RAG | ADR-0010 fixes the bounded retrieval pipeline and ADR-0012 fixes exact `guideline_evidence` claims/citations; the "no general medical knowledge" refusal remains the Week 1 as-built scope |
 | 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; 48 cases with a 15-case golden tier and a 4-case holdout already reported separately and gated; the offline subset runs in GitLab CI on every push and the full suite as a manual job |
 | Adversarial platform driving this co-pilot unattended; cost amplification | Headless drive path (agent API, ticket script, eval client); fault-injection switch; loop bounds, rate limit, token budgets, daily halt; PHI-free trace export and audit log as queryable system state |
 

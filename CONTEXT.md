@@ -76,3 +76,25 @@ An explicit user-visible state when the corpus has no matching evidence or is
 unavailable; it prevents the system from presenting an unsupported guideline
 claim.
 _Avoid_: Empty result, fallback answer, best effort.
+
+## Final response terms
+
+**Patient-record claim**:
+A final clinical claim supported only by authorized patient records, including
+a current promoted human-reviewed document record.
+_Avoid_: Extracted claim, proposal, guideline claim.
+
+**Guideline-evidence claim**:
+A final evidence item that reproduces a bounded exact publisher excerpt from
+the active approved corpus without deciding patient applicability.
+_Avoid_: Recommendation, medical advice, guideline reference.
+
+**Clinical citation**:
+Resolver-produced metadata that connects one verified claim to its exact
+record field, document region, or guideline chunk and integrity version.
+_Avoid_: Model citation, source link alone, search result.
+
+**Applicability conclusion**:
+A judgment that guideline evidence applies to a particular patient. It is not
+part of the Week 2 co-pilot; applicability remains physician judgment.
+_Avoid_: Relevant evidence, retrieved excerpt.

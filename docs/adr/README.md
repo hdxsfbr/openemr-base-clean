@@ -21,6 +21,7 @@ accepted records immutable except for status and links to superseding decisions.
 | [0009](0009-bounded-document-extraction-and-review.md) | Bounded document extraction with visible review states | Accepted 2026-09-21; sections 1, 4, 5, and 6 superseded by ADR-0011 |
 | [0010](0010-bounded-local-guideline-retrieval.md) | Bounded local retrieval for guideline evidence | Accepted 2026-09-21 |
 | [0011](0011-canonical-reviewed-document-record-contracts.md) | Canonical reviewed-document record contracts and lifecycle | Accepted 2026-09-21 |
+| [0012](0012-separated-patient-and-guideline-evidence-contracts.md) | Separate patient-record claims from guideline evidence | Accepted 2026-09-21 |
 
 The early decisions this index was expected to cover, and where each landed:
 
