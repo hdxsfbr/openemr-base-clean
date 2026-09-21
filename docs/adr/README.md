@@ -17,9 +17,10 @@ accepted records immutable except for status and links to superseding decisions.
 | [0005](0005-conversation-state-and-delegation.md) | Conversation state, isolation, and per-turn delegation | Accepted 2026-09-15; status notes 2026-09-18 (recent conversation resumed per open chart) and 2026-09-19 (drawer session pinning, module 0.4.4) |
 | [0006](0006-verification-strategy.md) | Deterministic claim verification | Accepted 2026-09-15; decision 7 amended 2026-09-19 (summary grounding and fallback) |
 | [0007](0007-observability-and-telemetry.md) | Observability and PHI-free telemetry | Accepted 2026-09-15; amended 2026-09-19 (content capture mode); status note 2026-09-20 (Slack alert delivery) |
-| [0008](0008-human-reviewed-document-derived-facts.md) | Human-reviewed promotion of document-derived facts | Accepted 2026-09-21 |
-| [0009](0009-bounded-document-extraction-and-review.md) | Bounded document extraction with visible review states | Accepted 2026-09-21 |
+| [0008](0008-human-reviewed-document-derived-facts.md) | Human-reviewed promotion of document-derived facts | Accepted 2026-09-21; sections 3, 6, 7, and 9 superseded by ADR-0011 |
+| [0009](0009-bounded-document-extraction-and-review.md) | Bounded document extraction with visible review states | Accepted 2026-09-21; sections 1, 4, 5, and 6 superseded by ADR-0011 |
 | [0010](0010-bounded-local-guideline-retrieval.md) | Bounded local retrieval for guideline evidence | Accepted 2026-09-21 |
+| [0011](0011-canonical-reviewed-document-record-contracts.md) | Canonical reviewed-document record contracts and lifecycle | Accepted 2026-09-21 |
 
 The early decisions this index was expected to cover, and where each landed:
 
@@ -32,8 +33,9 @@ The early decisions this index was expected to cover, and where each landed:
 - Observability and PHI-redaction strategy: ADR-0007.
 - Public deployment topology: ADR-0001.
 
-No decision has been superseded. Dated status notes inside an accepted record
-mark follow-ups as done or still open without rewriting the decision, and a
+ADR-0011 partially supersedes the listed sections of ADR-0008 and ADR-0009.
+Dated status notes inside an accepted record mark follow-ups as done or still
+open without rewriting the decision, and a
 dated amendment records a shipped change to one. ADR-0001 through ADR-0007
 carry as-built notes from 2026-09-16; the Status column above lists their later
 amendments and notes. Week 2 ADRs remain design decisions until their separate

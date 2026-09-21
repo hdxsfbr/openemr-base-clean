@@ -49,6 +49,24 @@ RRF_K = 60
 TOP_K = 20
 RETURN_K = 5
 SVD_SEED = 17
+EXPECTED_CORPUS_SHA256 = "b4d8dcbf3151c871ec46c43f25cc73a014ed3e3a20bd89a63ab6713c006c3e03"
+EXPECTED_MANIFEST_SHA256 = "cd1916a7d34c877403cd53d533f17e685d296d7746676999694c911aec49da7c"
+EXPECTED_QUERIES_SHA256 = "27c33979d46bde6b2b57a6ac2cc95c988bddf7d169e014755092e825d0678e55"
+EXPECTED_EMBEDDING_SHA256 = "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+EXPECTED_RERANKER_SHA256 = "c80a8b34256ea453093d612e3ac48d3d965a0c0a48c7906709af8b8e28461bf9"
+CITATION_FIELDS = (
+    "chunk_id",
+    "content_sha256",
+    "corpus_version",
+    "publisher",
+    "jurisdiction",
+    "retrieved_at",
+    "section_heading_path",
+    "source_title",
+    "source_url",
+    "topic",
+    "text",
+)
 
 
 def json_lines(path: Path) -> list[dict]:
@@ -66,6 +84,12 @@ def sha256_path(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def assert_sha256(path: Path, expected: str, label: str) -> None:
+    observed = sha256_path(path)
+    if observed != expected:
+        raise RuntimeError(f"{label} SHA-256 mismatch: expected {expected}, observed {observed}")
 
 
 def build_corpus() -> list[dict]:
@@ -348,9 +372,13 @@ def main() -> None:
     args = parser.parse_args()
     if args.offline and args.refresh_corpus:
         parser.error("--offline and --refresh-corpus cannot be combined")
+    manifest = json.loads(MANIFEST_PATH.read_text())
     if args.refresh_corpus:
         corpus = build_corpus()
     else:
+        assert_sha256(MANIFEST_PATH, EXPECTED_MANIFEST_SHA256, "manifest")
+        assert_sha256(CORPUS_PATH, EXPECTED_CORPUS_SHA256, "corpus")
+        assert_sha256(QUERY_PATH, EXPECTED_QUERIES_SHA256, "queries")
         corpus = json_lines(CORPUS_PATH)
     queries = json_lines(QUERY_PATH)
 
@@ -360,6 +388,7 @@ def main() -> None:
         artifact_dir = Path(temporary)
         rss_before_embedding = process.memory_info().rss
         embedder = OnnxEmbedder(args.offline)
+        assert_sha256(embedder.model_path, EXPECTED_EMBEDDING_SHA256, "embedding model")
         rss_after_embedding = process.memory_info().rss
         peak_rss = max(peak_rss, rss_after_embedding)
         build_start = time.perf_counter()
@@ -371,6 +400,7 @@ def main() -> None:
 
         rss_before_model = process.memory_info().rss
         reranker = OnnxCrossEncoder(args.offline)
+        assert_sha256(reranker.model_path, EXPECTED_RERANKER_SHA256, "reranker model")
         rss_after_model = process.memory_info().rss
         peak_rss = max(peak_rss, rss_after_model)
 
@@ -470,6 +500,54 @@ def main() -> None:
                 "latency_p95_ms": percentile(timings, 95),
             }
 
+        def citation_payload(chunk_id: str, rank: int, score: float) -> dict:
+            source = retriever.by_id[chunk_id]
+            return {
+                "chunk_id": source["chunk_id"],
+                "content_sha256": source["content_sha256"],
+                "corpus_version": source["corpus_version"],
+                "publisher": source["publisher"],
+                "jurisdiction": manifest["jurisdiction"],
+                "retrieved_at": manifest["retrieved_at"],
+                "section_heading_path": source["section_heading_path"],
+                "source_title": source["source_title"],
+                "source_url": source["source_url"],
+                "topic": source["topic"],
+                "text": source["text"],
+                "final_rank": rank,
+                "reranker_score": score,
+            }
+
+        def full_pipeline(query_text: str) -> list[dict]:
+            candidates = retriever.hybrid(query_text)
+            documents = [retriever.by_id[item]["text"] for item in candidates]
+            scores = reranker.score(query_text, documents)
+            ranked = sorted(
+                zip(scores, candidates, strict=True),
+                key=lambda pair: (-pair[0], pair[1]),
+            )[:RETURN_K]
+            return [
+                citation_payload(chunk_id, rank, score)
+                for rank, (score, chunk_id) in enumerate(ranked, start=1)
+            ]
+
+        citation_failures: list[dict] = []
+        citation_outputs_checked = 0
+        for query in queries:
+            for payload in full_pipeline(query["text"]):
+                source = retriever.by_id[payload["chunk_id"]]
+                expected = {
+                    **{field: source[field] for field in CITATION_FIELDS if field in source},
+                    "jurisdiction": manifest["jurisdiction"],
+                    "retrieved_at": manifest["retrieved_at"],
+                }
+                citation_outputs_checked += 1
+                mismatched = [field for field in CITATION_FIELDS if payload[field] != expected[field]]
+                if mismatched:
+                    citation_failures.append(
+                        {"query_id": query["id"], "chunk_id": payload["chunk_id"], "fields": mismatched}
+                    )
+
         result = {
             "inputs": {
                 "corpus_rows": len(corpus),
@@ -512,11 +590,22 @@ def main() -> None:
                 },
             },
             "quality_and_latency": quality,
+            "citation_metadata_preservation": {
+                "required_fields": list(CITATION_FIELDS),
+                "outputs_checked": citation_outputs_checked,
+                "outputs_with_exact_metadata": citation_outputs_checked - len(citation_failures),
+                "preservation_rate": (
+                    (citation_outputs_checked - len(citation_failures)) / citation_outputs_checked
+                ),
+                "failures": citation_failures,
+            },
             "concurrency": {
                 "sparse_1_worker": concurrent(retriever.sparse, 1, 64),
                 "sparse_10_workers": concurrent(retriever.sparse, 10, 128),
                 "dense_bge_1_worker": concurrent(retriever.dense_bge, 1, 64),
                 "dense_bge_10_workers": concurrent(retriever.dense_bge, 10, 128),
+                "full_pipeline_1_worker": concurrent(full_pipeline, 1, 32),
+                "full_pipeline_10_workers": concurrent(full_pipeline, 10, 64),
             },
             "environment": {
                 "python": platform.python_version(),

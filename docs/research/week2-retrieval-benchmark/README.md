@@ -4,6 +4,16 @@ This directory freezes the source manifest, synthetic queries, derived corpus,
 executable benchmark, dependency versions, and measured JSON result used by the
 Week 2 retrieval decision. It contains no patient data.
 
+The concurrency section measures sparse retrieval, dense retrieval, and the
+complete sparse + dense + RRF + cross-encoder path with one and ten workers.
+These are host-local engineering measurements, not substitutes for the
+required two-vCPU shared-deployment release run.
+
+The executable also projects the final five results into their citation
+payload and compares every text and metadata field byte-for-byte with the
+frozen corpus/manifest. The aggregate count, preservation rate, and any
+field-level failures are recorded in `results.json`.
+
 The corpus excerpts are reproduced verbatim with source URLs under the
 [USPSTF reuse notice](https://www.uspreventiveservicestaskforce.org/uspstf/recommendation-topics/copyright-notice).
 Do not edit the excerpts. The benchmark is evidence for this non-commercial
@@ -22,6 +32,11 @@ Re-run entirely from the frozen corpus and a previously cached model:
 /tmp/week2-retrieval-benchmark/bin/python \
   docs/research/week2-retrieval-benchmark/benchmark.py --offline
 ```
+
+An offline run fails before measurement if the manifest, corpus, query set, or
+either pinned ONNX model differs from the expected SHA-256. Refresh mode is the
+only path that intentionally creates a new corpus; adopting its new hash
+requires review and an explicit constant update.
 
 Refresh the publisher-derived corpus intentionally, creating a new corpus hash
 that requires review before replacing the committed result:

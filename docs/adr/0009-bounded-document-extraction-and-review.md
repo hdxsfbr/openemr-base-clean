@@ -1,6 +1,7 @@
 # ADR-0009: Bounded document extraction with visible review states
 
-- **Status:** Accepted 2026-09-21; expanded after independent review the same day
+- **Status:** Accepted 2026-09-21; sections 1, 4, 5, and 6 superseded by
+  ADR-0011 on 2026-09-21
 - **Date:** 2026-09-21
 - **Owners:** Andre Batista (document extraction and review workflow)
 - **Related requirements:** Week 2 PRD Stages 1 and 5, Core Agent Requirements
@@ -10,7 +11,8 @@
   laboratory review before a visit.
 - **Related decisions:** ADR-0005 (patient-bound state), ADR-0006
   (deterministic verification), ADR-0007 (PHI-safe telemetry), ADR-0008
-  (human-reviewed promotion).
+  (human-reviewed promotion), ADR-0011 (canonical document contracts;
+  partially supersedes this decision).
 
 ## Context
 

@@ -1,6 +1,7 @@
 # ADR-0008: Human-reviewed promotion of document-derived facts
 
-- **Status:** Accepted 2026-09-21; expanded after independent review the same day
+- **Status:** Accepted 2026-09-21; sections 3, 6, 7, and 9 superseded by
+  ADR-0011 on 2026-09-21
 - **Date:** 2026-09-21
 - **Owners:** Andre Batista (OpenEMR module and clinical write boundary)
 - **Related requirements:** Week 2 PRD “FHIR and OpenEMR integrity” and Core
@@ -11,7 +12,8 @@
   unresolved abnormal laboratory results.
 - **Related decisions:** ADR-0002 (patient-scope authorization), ADR-0003
   (module gateway), ADR-0005 (patient-bound state), ADR-0006 (verification),
-  ADR-0009 (extraction states).
+  ADR-0009 (extraction states), ADR-0011 (canonical record contracts and
+  lifecycle; partially supersedes this decision).
 
 ## Context
 
