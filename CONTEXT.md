@@ -99,6 +99,11 @@ A judgment that guideline evidence applies to a particular patient. It is not
 part of the Week 2 co-pilot; applicability remains physician judgment.
 _Avoid_: Relevant evidence, retrieved excerpt.
 
+**Evidence lane**:
+A contractually and visually separate final-response channel for verified
+patient-record claims or exact guideline-evidence claims.
+_Avoid_: Mixed evidence, combined clinical conclusion, applicability summary.
+
 ## Orchestration terms
 
 **Supervisor**:

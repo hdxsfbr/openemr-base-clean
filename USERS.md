@@ -40,8 +40,11 @@ concrete and link each use case to its evals.
 - Unsupported clinical claims are unacceptable. One fabricated fact ends use
   of the tool.
 - A partial, explicit answer is preferable to a fabricated complete answer.
-- The user must remain the decision-maker; the co-pilot does not diagnose,
-  prescribe, or write to the chart.
+- The user must remain the decision-maker; the model and agent do not diagnose,
+  prescribe, or write to the chart. In UC-05 only, a physician may explicitly
+  review and promote document-derived fields into immutable module-owned
+  reviewed records; this is a human UI action, not an agent write, and it never
+  mutates native medication, allergy, problem, order, or result lists.
 - Evidence must be reachable without leaving the patient workflow: a citation
   opens the record in the chart the physician already has open.
 - Wording must match the chart's status, not soften it: "no follow-up found in
@@ -54,12 +57,13 @@ does not:
 
 - diagnose, recommend treatment, or give dosing, adherence, interaction, or
   discontinuation advice;
-- write to the chart, draft notes, or place orders;
+- write autonomously, draft notes, place orders, or trigger document upload,
+  review, or promotion from chat or model output;
 - answer about any patient other than the open chart, list other patients, or
   read the schedule (ADR-0002: the model never picks a patient);
-- answer general medical-knowledge questions (Week 1 scope: until guideline
-  evidence can be retrieved and cited, scheduled for Week 2, the co-pilot has
-  no source for such an answer);
+- answer general medical-knowledge or patient-applicability questions; UC-06
+  may return an exact excerpt from the approved local guideline corpus for
+  physician review, but it does not turn that excerpt into advice;
 - assert an indication, causal link, or resolution the record does not
   document.
 
@@ -317,6 +321,104 @@ turn's evidence summary. Reference resolution is exercised by name
 the pronoun form ("that blood-pressure medication") or the disambiguation
 reply ("reading that as lisinopril"), and no code path produces that reply.
 
+## Use Case UC-05: Review an Uploaded Lab PDF or Intake Form
+
+UC-04 remains the deliberately deferred schedule-sweep use case below; the
+Week 2 additions therefore begin at UC-05.
+
+**User question:** "What did this uploaded document contain, and what can I
+verify against the source?"
+
+**The moment.** A lab report or patient intake form has arrived as a document
+for the open patient. An authorized staff member may have stored it, but the
+physician is the person who reviews extracted fields before relying on them.
+The physician needs the proposed value beside the exact printed region, with
+missing, ambiguous, conflicting, or unreadable fields called out explicitly.
+
+**Need:** Turn one patient-bound lab PDF or intake form into strict, reviewable
+proposed facts with page/region provenance, then allow an authorized physician
+to approve, correct, or reject every field and explicitly promote the completed
+review into immutable module-owned records.
+
+**Expected behavior:** The patient-bound UI creates an idempotent source
+document, starts a separate bounded extraction job, and presents proposals in a
+review queue. Every field retains the original printed evidence. Confidence is
+diagnostic only: no high-confidence field is auto-approved and no low-
+confidence field is hidden. Promotion remains disabled until every field has a
+terminal review decision, and a later authorized read—not the extraction run—
+may use a promoted record as patient evidence.
+
+**Why an agent, not only a form parser.** Layout and wording vary enough that a
+bounded extraction model is useful, but it is not the authority. Deterministic
+schemas, source-region checks, the physician's review, and the promotion
+transaction decide what becomes a reviewed record. The model never turns OCR
+directly into a final clinical claim.
+
+**Requires of the agent:** CAP-05, CAP-06, CAP-07, CAP-09, CAP-10, CAP-12,
+CAP-13, CAP-14. The intake-extractor worker handles both required document
+types despite its PRD-mandated name.
+
+**Boundaries:** Chat and model output cannot upload, review, promote, amend, or
+withdraw a record. Proposed facts are not patient-record claims. Promotion
+creates only the approved module-owned Observation-shaped lab record or
+QuestionnaireResponse-shaped intake record; native chart lists remain
+authoritative and unchanged.
+
+**Success evidence:** Synthetic lab and intake round trips; duplicate/retry,
+patient-switch, stale-version, shifted-box, quote/hash mismatch, correction,
+partial extraction, write-denial, and PHI-canary cases; visual page and
+bounding-box source resolution; one audit/provenance chain from upload through
+later read-back.
+
+*Status 2026-09-21:* owner-approved design only. ADR-0008, ADR-0009, ADR-0011,
+ADR-0013, and the Week 2 document/source-review specifications define the
+contract; no Week 2 upload, extraction, review, promotion, or document-source
+UI is implemented yet.
+
+## Use Case UC-06: Retrieve Guideline Evidence for a Chart Finding
+
+**User question:** "Show me the source guideline passage for this topic."
+
+**The moment.** While reviewing an item from UC-01 or UC-02, the physician
+explicitly asks for supporting guideline evidence. They need a small number of
+exact, current publisher excerpts they can inspect, not a model-authored
+recommendation or a conclusion that the guidance applies to this patient.
+
+**Need:** Search the approved, versioned local guideline corpus with bounded
+keyword and dense retrieval, rerank the candidates, and return at most five
+exact excerpts with publisher, section, corpus version, and integrity metadata.
+
+**Expected behavior:** The deterministic supervisor dispatches the evidence-
+retriever only for explicit guideline intent. Patient retrieval and guideline
+retrieval may run in parallel, but their outputs remain separate evidence
+lanes and join only before deterministic source resolution and verification.
+No result, stale corpus, integrity failure, or outage produces a typed
+limitation rather than web search, model memory, or an unreranked fallback.
+
+**Why an agent, not web search.** The value is the constrained combination of
+the current chart question and a finite, approved corpus. Open web search would
+widen provenance, freshness, privacy, and latency beyond what can be defended
+in this workflow. The answer model may format verified excerpts but cannot
+change their text or infer applicability.
+
+**Requires of the agent:** CAP-01, CAP-05, CAP-06, CAP-07, CAP-11, CAP-12,
+CAP-13, CAP-14; evidence-retriever worker only.
+
+**Boundaries:** No diagnosis, treatment recommendation, dosing, patient-
+specific applicability conclusion, unrestricted query, web fallback, or
+cross-lane clinical synthesis. The fixed UI boundary states that the evidence
+is for physician review and patient applicability was not determined.
+
+**Success evidence:** Keyword-only and semantic-only hits, rerank ordering,
+topic/filter enforcement, stale and wrong-corpus rejection, exact-quote and
+hash verification, no-result/outage limitations, citation source opening, and
+PHI-free query/handoff telemetry.
+
+*Status 2026-09-21:* owner-approved design only. ADR-0010, ADR-0012,
+ADR-0013, and the Week 2 claim/citation and source-review specifications define
+the contract; no corpus, index, retrieval worker, guideline source resolver, or
+guideline UI lane is implemented yet.
+
 ## Why Per-Chart, Not a Schedule Sweep
 
 The PRD's own example is broader than UC-01: "between 8:50 and 9:00 AM,
@@ -391,24 +493,30 @@ Recorded so the scope is defensible. The interview may add to this list.
 | Cross-patient or population queries | Rejected | ADR-0002: no patient lookup, one patient per conversation. |
 | Care-gap and preventive reminders | Rejected for the agent | A rule-engine job where a list is the right shape; OpenEMR's clinical decision rules already own it. An example where the dashboard wins. |
 | Patient-facing explanations (portal) | Rejected | A different user with different risk and language. |
-| Reading a lab PDF or intake form into the conversation | Scheduled (Week 2) | Same user, same moment: a result that arrived on paper is a change since the last visit. Needs document sources, extraction provenance, and a write decision; not Week 1. |
-| Guideline evidence for a chart finding | Scheduled (Week 2) | Same user, a follow-up to UC-02 ("what does the guideline say about this value?"). Needs retrieved, cited guideline passages; until then it is refused as unsourced. |
+| Reading a lab PDF or intake form into the conversation | Accepted as UC-05 for Week 2 | Same user and chart, but extraction ends at a separate review queue rather than entering the conversation directly. Only a later read of a promoted, human-reviewed record may support chat. |
+| Guideline evidence for a chart finding | Accepted as UC-06 for Week 2 | Same user, an explicit follow-up to UC-01 or UC-02. It returns exact cited passages in a separate lane, never patient-specific advice. |
 
 ## What the Use Cases Require of the Agent
 
 The PRD rule: no multi-turn conversation and no tool chaining without a use
 case that requires it. This table is what `ARCHITECTURE.md` traces to.
 
-| ID | Capability | UC-01 | UC-02 | UC-03 | Why a use case needs it |
-| --- | --- | --- | --- | --- | --- |
-| CAP-01 | Chart-bound multi-turn conversation | yes | yes | yes | Follow-ups ("was that stop documented?"), refinements ("last six months only"), and references ("that medication") depend on the previous turn. |
-| CAP-02 | Dynamic tool selection and chaining | yes | yes | yes | UC-01: encounters, then window, then five tools; UC-02: labs, then same-analyte, then notes; UC-03: medications, then problems, then a bounded note search. The follow-up decides which tools run. |
-| CAP-03 | Reference encounter and time window carried across turns | yes | yes | no | Every UC-01 and UC-02 follow-up is "within the same window" unless the physician changes it. |
-| CAP-04 | Conversational reference resolution within retrieved records | no | yes | yes | "Those labs", "that medication". Resolved against this conversation's records, never by a lookup. |
-| CAP-05 | Per-claim citation that opens the record in the open chart | yes | yes | yes | Evidence reachable without leaving the workflow (tolerance above). |
-| CAP-06 | Explicit absence, conflict, undated, truncated, and unavailable states | yes | yes | yes | The audit's data defects (DQ-*) and silent service failures (PERF-MED-001) would otherwise become confident wrong answers. |
-| CAP-07 | Deterministic verification, including lab comparison rules | yes | yes | yes | The verifier, not the model, decides what is displayed as fact and whether two results are comparable. |
-| CAP-08 | Deterministic sourced fallback when the model is unavailable | yes | no | no | The first turn of UC-01 is fixed-shape and must survive a model outage; UC-02 and UC-03 degrade to "unavailable, scroll to …". |
+| ID | Capability | UC-01 | UC-02 | UC-03 | UC-05 | UC-06 | Why a use case needs it |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| CAP-01 | Chart-bound multi-turn conversation | yes | yes | yes | no | yes | Follow-ups, refinements, references, and explicit guideline requests depend on the current chart-bound conversation. Document extraction is deliberately a separate job. |
+| CAP-02 | Dynamic tool selection and chaining | yes | yes | yes | no | no | UC-01: encounters then window and tools; UC-02: labs then same-analyte and notes; UC-03: medications then problems and notes. Week 2 worker routing is deterministic CAP-12, not model-selected tool chaining. |
+| CAP-03 | Reference encounter and time window carried across turns | yes | yes | no | no | no | Every UC-01 and UC-02 follow-up is within the same window unless the physician changes it. |
+| CAP-04 | Conversational reference resolution within retrieved records | no | yes | yes | no | no | "Those labs" and "that medication" resolve against this conversation's records, never by a patient lookup. |
+| CAP-05 | Per-claim citation that opens the exact source in the open chart | yes | yes | yes | yes | yes | Evidence must be reachable without leaving the workflow; Week 2 adds document regions and guideline chunks to native record sources. |
+| CAP-06 | Explicit absence, conflict, undated, truncated, stale, and unavailable states | yes | yes | yes | yes | yes | Data defects and dependency failures must become visible limitations rather than confident wrong answers. |
+| CAP-07 | Deterministic verification and withholding | yes | yes | yes | yes | yes | The verifier, not a model or worker, decides which final claims and evidence excerpts may display. Extraction proposals remain outside the final-claim verifier until promoted. |
+| CAP-08 | Deterministic sourced fallback when the model is unavailable | yes | no | no | no | no | The fixed UC-01 brief survives a model outage; other lanes degrade explicitly. |
+| CAP-09 | Patient-bound document upload and strict extraction | no | no | no | yes | no | UC-05 needs both required document types stored in OpenEMR and transformed into source-bound proposed facts without becoming chart truth. |
+| CAP-10 | Human field review and idempotent promotion | no | no | no | yes | no | UC-05 requires the physician to approve, correct, or reject every proposal before one narrow UI-only promotion creates immutable module records. |
+| CAP-11 | Bounded hybrid guideline retrieval and reranking | no | no | no | no | yes | UC-06 needs exact current excerpts from the approved corpus; an item seen during UC-01 or UC-02 may motivate that separate explicit request. |
+| CAP-12 | Deterministic supervisor and typed worker handoffs | no | no | no | yes | yes | The two Week 2 workers have different authority, deadlines, and completion conditions; an inspectable route keeps those boundaries explicit. |
+| CAP-13 | Closed multi-class source registry and in-place source review | yes | yes | yes | yes | yes | Native records, reviewed document regions, and guideline chunks resolve differently and must never be conflated by the model or UI. |
+| CAP-14 | PHI-free inspectability and lane-local degradation | yes | yes | yes | yes | yes | The physician still needs independently verified content when one lane fails, while operators need route, latency, cost, and outcome evidence without raw patient content. |
 
 *Status 2026-09-16 (implementation and eval coverage per capability):*
 CAP-01 chart-bound multi-turn conversation: implemented (SQLite checkpointer
@@ -443,14 +551,24 @@ opens, and the first turn's type, not citation clicks;
 `docs/operations/usage-funnel.md`), and no eval asserts the UC-03 pronoun
 form or the UC-02 "no follow-up found in the chart" wording.
 
+*Week 2 planning status 2026-09-21:* CAP-09 through CAP-14 are approved design
+only and are not implemented. Their normative decisions are ADR-0008 through
+ADR-0015 and the contracts under `docs/specs/`. They may be marked implemented
+only after the integrated checkpoint evidence in
+`docs/specs/week2-integrated-implementation-plan.md` is accessible.
+
 Tools required, all read-only and patient-bound: patient context, encounters,
 clinical notes, problems, medications, allergies, laboratory observations. Each
 maps to a chart section the user could open, and each is used by at least one
 use case above (`ARCHITECTURE.md` carries the tool-to-use-case matrix).
 
 Not required by any use case, and therefore not built: patient search or
-lookup, schedule access, any write, memory across conversations, cross-user
-context, streaming voice, file or image input. *(2026-09-19, module 0.5.0:
+lookup, schedule access, autonomous or chat-triggered writes, native-list
+writes, memory across conversations, cross-user context, streaming voice,
+unrestricted file types, open-web medical search, or same-run use of
+unreviewed extraction proposals in an answer. UC-05's two bounded document
+types and human UI-only module-record promotion are the explicit exceptions to
+the Week 1 file/write boundary. *(2026-09-19, module 0.5.0:
 the agent still has no schedule tool. In mode `visit_today` the module's
 `BriefPolicy` asks the schedule one question server-side, whether the open
 chart has a non-cancelled appointment dated today, and nothing about any

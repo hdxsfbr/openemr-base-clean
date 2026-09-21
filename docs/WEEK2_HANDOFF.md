@@ -1,10 +1,40 @@
-# Week 2 Handoff (stub, 2026-09-17; re-checked and extended 2026-09-20)
+# Week 2 implementation handoff
 
-The long form is Week 2 work (plan cut rule 4). Every claim was checked on 2026-09-17 against
-the working tree (HEAD `0fba313`; M2 round 1 committed in `16a5d34..7197ed6`, re-checked in
-round 2); a `file:line` is the proof. No number below is one that does not exist yet.
-Re-checked on 2026-09-20 at tag `week1-final` (`ebaae17`): every code `file:line` below was
-re-pointed to that tree, and `ARCHITECTURE.md` is cited by section because its lines moved.
+**Status:** Planning complete and owner-directed on 2026-09-21; implementation
+has not started.
+
+Start with
+[`docs/specs/week2-integrated-implementation-plan.md`](specs/week2-integrated-implementation-plan.md).
+It is the authoritative execution sequence and evidence handoff from the
+completed Wayfinder map. It reconciles ADR-0008 through ADR-0015, maps every
+capability to `USERS.md` UC-01 through UC-03, UC-05, and UC-06, maps the Week 2
+PRD into `docs/REQUIREMENTS_TRACEABILITY.md`, and defines the exact
+`W2_ARCHITECTURE.md` outline and implementation-ticket dependencies.
+
+The mandatory core is intentionally narrow: two document types, the PRD-named
+intake-extractor and evidence-retriever workers behind a deterministic
+supervisor, the approved bounded guideline corpus/retriever, closed source and
+citation contracts, source-grounded review UI, at least 50 golden and 83 total
+retained eval cases, candidate-matched blocking GitLab CI, and the accepted
+single-host operational budgets. The model and agent remain unable to write;
+only an explicit authorized physician UI action may promote a fully reviewed
+document into immutable module-owned records.
+
+Do not treat any Week 2 design as implemented. Build checkpoints C0 through C8
+in order, and do not mark a requirement complete without the listed accessible
+evidence. `W2_ARCHITECTURE.md` is a synthesis of accepted decisions, not a
+place to silently choose different ones.
+
+## Week 1 baseline inherited by Week 2
+
+The baseline below was first written as a Week 2 stub. Every claim was checked
+on 2026-09-17 against the working tree (HEAD `0fba313`; M2 round 1 committed in
+`16a5d34..7197ed6`, re-checked in round 2); a `file:line` is the proof. It was
+re-checked on 2026-09-20 at tag `week1-final` (`ebaae17`): every code
+`file:line` below was re-pointed to that tree, and `ARCHITECTURE.md` is cited by
+section because its lines moved. These observations remain inherited
+constraints; the accepted integration plan replaces the stub's speculative
+Week 2 seams.
 
 ## Read first, in this order
 

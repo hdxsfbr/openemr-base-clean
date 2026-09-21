@@ -331,15 +331,13 @@ tool version, parameter hash)`, at most 60 s, dropped on conversation end or
 patient switch, is **planned**. Authorization is never cached; a cache hit
 would still require a fresh context (`AUDIT.md` §2.2).
 
-**Endpoint classes.** Gateway endpoints are grouped as `tools/` (read,
-section ACL at view level) and a reserved, empty `actions/` class for
-writes: write-level ACL, an idempotency key per action, provenance fields
-(source document, extraction version, actor) on every derived record, and
-its own audit event. Nothing in `actions/` is built in Week 1; `AGENTS.md`
-requires an explicit ADR before any write. It exists so Week 2's
-round-tripping of extracted records (syllabus: "data authority,
-round-tripping derived records without duplicates") adds endpoints, not a
-new boundary.
+**Endpoint classes.** Week 1 implements only `tools/` reads with section ACLs;
+the earlier architecture prose reserved an `actions/` class, but no such
+directory or endpoint exists in the code. ADR-0008 and ADR-0011 now define the
+planned Week 2 action boundary: UI-only review/promotion commands with fresh
+write authorization, idempotency, provenance, transaction/outbox behavior, and
+their own audit events. The model, agent, supervisor, and workers do not gain a
+write tool.
 
 ## Agent Service
 
@@ -491,16 +489,17 @@ permitted.
   records support patient claims, and guideline claims are exact excerpts.
   This remains planned rather than implemented; the exact contract is in
   `docs/specs/week2-claim-citation-verification-contracts.md`.
-- `SourceId` is a URI, not a table reference: `openemr:{table}:{id}[:{uuid}]`
-  in Week 1 (for example `openemr:procedure_result:9001234`); ADR-0012 accepts
-  the planned Week 2 forms
+- Week 1 exposes a URI-shaped `source_id`, but the implemented `SourceRef`
+  still carries `id: int`, `table`, and optional `uuid`, and resolution is the
+  flat `EvidencePack.records` map. It is therefore not safe to pretend the
+  legacy structure already supports page- or chunk-addressed evidence.
+  ADR-0012 accepts discriminated source/citation unions with the planned forms
   `document:{source}:record:{record}:v:{version}:field:{field}` and
   `guideline:{corpus_version}:{document}:{chunk}`. The module maps
-  the `openemr:` scheme to chart URLs; the verifier resolves a source id
-  through `EvidencePack.records`, a flat `source_id -> record` mapping
-  (`agent/app/evidence.py:60`). A registry keyed by URI prefix is the Week 2
-  extension point, not what runs today. Its typed source and citation unions
-  are fixed in `docs/specs/week2-claim-citation-verification-contracts.md`.
+  native OpenEMR records to chart URLs; the planned closed registry adds
+  reviewed-document and guideline resolvers while retaining a native-record
+  adapter. Its exact unions are fixed in
+  `docs/specs/week2-claim-citation-verification-contracts.md`.
 - `Limitation{kind, section, detail, source_ids?}` with `kind` in
   `not_documented | reviewed_none | unavailable | truncated | conflict |
   undated | withheld | out_of_scope | narrative_unavailable |
@@ -1274,7 +1273,7 @@ orchestration rewrite in Week 2).
 | Supervisor with two workers, checkpointing, human-in-the-loop | The turn graph is a LangGraph subgraph with a checkpointer; the supervisor becomes the parent graph |
 | Lab PDF and intake-form ingestion; round-tripping derived records without duplicates | The Week 1 seams are now specified by ADR-0008, ADR-0009, ADR-0011, and ADR-0012; implementation remains Week 2 work |
 | Guideline evidence through hybrid RAG | ADR-0010 fixes the bounded retrieval pipeline and ADR-0012 fixes exact `guideline_evidence` claims/citations; the "no general medical knowledge" refusal remains the Week 1 as-built scope |
-| 50-case golden set and PR-blocking eval CI | Eval case format with stable ids and boolean rubrics; 48 cases with a 15-case golden tier and a 4-case holdout already reported separately and gated; the offline subset runs in GitLab CI on every push and the full suite as a manual job |
+| At least 50 golden cases and PR-blocking eval CI | ADR-0015 retains all 48 Week 1 cases and adds at least 35 new deterministic-rubric golden cases, for at least 50 golden and 83 total; the current offline job and manual `allow_failure` live job are only the baseline, not the planned candidate-matched protected-branch gate |
 | Adversarial platform driving this co-pilot unattended; cost amplification | Headless drive path (agent API, ticket script, eval client); fault-injection switch; loop bounds, rate limit, token budgets, daily halt; PHI-free trace export and audit log as queryable system state |
 
 ## Known Limitations

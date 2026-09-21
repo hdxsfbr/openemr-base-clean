@@ -286,18 +286,32 @@ adversarial platform that attacks this co-pilot unattended, with a
 compressed Friday deadline. Week 1 builds none of that, and these choices
 were made so those weeks extend rather than replace:
 
+**Week 2 planning status (2026-09-21).** The owner-approved Wayfinder map is
+complete. ADR-0008 through ADR-0015 and
+`docs/specs/week2-integrated-implementation-plan.md` supersede the speculative
+seams below where the Week 1 code did not match the prose. Implementation has
+not started. The accepted release floor retains all 48 Week 1 cases and adds at
+least 35 new golden cases, producing at least 50 golden and 83 total cases.
+
 - LangGraph turn graph from the start (ADR-0004), so the supervisor and
-  workers are a parent graph and subgraphs, not a port.
+  workers can be added behind one deterministic parent rather than replacing
+  the verified turn graph (ADR-0013).
 - LangGraph checkpointer as the conversation store (ADR-0005), with raw
   records kept out of state.
-- `SourceId` as a URI scheme and an open claim-type enum, so document pages
-  and guideline chunks become sources without changing the verifier's shape.
-- A reserved, empty write-endpoint class in the gateway with idempotency and
-  provenance, because round-tripping derived records will need a write ADR.
+- The prose reserved URI source schemes, but the implemented `SourceRef` is an
+  integer record reference and the claim types have no Week 2 verifier rules.
+  ADR-0012 therefore adds discriminated source/citation/claim unions and a
+  closed resolver registry rather than stretching the old shape.
+- The prose reserved a write-endpoint class, but no such class exists. ADR-0008
+  and ADR-0011 now define one narrow UI-only module action boundary for human-
+  reviewed records; the model, agent, supervisor, and workers remain unable to
+  write.
 - Eval case format usable as the golden set; GitLab CI skeleton in Week 1
   (done 2026-09-16: `tier: golden` cases with a blocking integrity gate,
-  `run.py` exit code follows the gates, so Week 2's PR-blocking gate is a
-  threshold change in `.gitlab-ci.yml`, not new infrastructure).
+  `run.py` exit code follows the gates). The current live job is manual,
+  `allow_failure`, and may test stale production, so ADR-0015 requires a
+  candidate-matched automatic gate, immutable baseline comparison, and
+  protected-branch enforcement rather than only a threshold edit.
 - Headless drive path (agent API, ticket script, eval client), fault
   injection switch, token budgets, and a daily spend halt, which are the
   Week 3 attack surface and cost defenses.
