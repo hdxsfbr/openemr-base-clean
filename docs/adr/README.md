@@ -23,6 +23,7 @@ accepted records immutable except for status and links to superseding decisions.
 | [0011](0011-canonical-reviewed-document-record-contracts.md) | Canonical reviewed-document record contracts and lifecycle | Accepted 2026-09-21 |
 | [0012](0012-separated-patient-and-guideline-evidence-contracts.md) | Separate patient-record claims from guideline evidence | Accepted 2026-09-21 |
 | [0013](0013-deterministic-supervisor-and-worker-handoffs.md) | Deterministic supervisor and bounded worker handoffs | Accepted 2026-09-21 |
+| [0014](0014-week2-operational-budgets-and-deployment.md) | Week 2 operational budgets and single-Droplet deployment | Accepted 2026-09-21 |
 
 The early decisions this index was expected to cover, and where each landed:
 
@@ -36,6 +37,8 @@ The early decisions this index was expected to cover, and where each landed:
 - Public deployment topology: ADR-0001.
 
 ADR-0011 partially supersedes the listed sections of ADR-0008 and ADR-0009.
+ADR-0014 fixes the operational, privacy, latency, cost, retention, readiness,
+and deployment budgets for the Week 2 design.
 Dated status notes inside an accepted record mark follow-ups as done or still
 open without rewriting the decision, and a
 dated amendment records a shipped change to one. ADR-0001 through ADR-0007
