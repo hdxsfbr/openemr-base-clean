@@ -22,6 +22,7 @@ accepted records immutable except for status and links to superseding decisions.
 | [0010](0010-bounded-local-guideline-retrieval.md) | Bounded local retrieval for guideline evidence | Accepted 2026-09-21 |
 | [0011](0011-canonical-reviewed-document-record-contracts.md) | Canonical reviewed-document record contracts and lifecycle | Accepted 2026-09-21 |
 | [0012](0012-separated-patient-and-guideline-evidence-contracts.md) | Separate patient-record claims from guideline evidence | Accepted 2026-09-21 |
+| [0013](0013-deterministic-supervisor-and-worker-handoffs.md) | Deterministic supervisor and bounded worker handoffs | Accepted 2026-09-21 |
 
 The early decisions this index was expected to cover, and where each landed:
 

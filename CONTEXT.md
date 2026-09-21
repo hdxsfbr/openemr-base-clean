@@ -98,3 +98,27 @@ _Avoid_: Model citation, source link alone, search result.
 A judgment that guideline evidence applies to a particular patient. It is not
 part of the Week 2 co-pilot; applicability remains physician judgment.
 _Avoid_: Relevant evidence, retrieved excerpt.
+
+## Orchestration terms
+
+**Supervisor**:
+The deterministic coordinator that selects an allowed route from a typed event
+and trusted workflow state; it never makes a clinical judgment or writes an
+answer.
+_Avoid_: Router model, clinical agent, answer agent.
+
+**Intake-extractor worker**:
+The bounded document worker required by the Week 2 PRD; despite its name, it
+extracts both lab reports and intake forms into reviewable proposed facts.
+_Avoid_: Intake-only worker, chart writer, document-answer agent.
+
+**Evidence-retriever worker**:
+The read-only worker that executes a strict local evidence query against the
+active guideline corpus and returns exact evidence chunks or a retrieval
+limitation.
+_Avoid_: Recommendation agent, applicability agent, medical search agent.
+
+**Worker handoff**:
+A typed, status-bearing request and result linking one supervisor route to one
+worker run through identifiers, versions, reasons, timing, and limitations.
+_Avoid_: Prompt, agent conversation, raw worker transcript.
