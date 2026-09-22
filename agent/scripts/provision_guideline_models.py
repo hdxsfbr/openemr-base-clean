@@ -36,6 +36,12 @@ def provision(destination: Path) -> None:
         target = destination / directory / filename
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.is_file() and digest(target) == expected:
+            # The setup profile is deliberately root-only, while the serving
+            # container runs as the unprivileged ``copilot`` user.  Model
+            # artifacts are pinned public binaries, not credentials: make a
+            # verified existing file readable by that runtime user as well.
+            target.parent.chmod(0o755)
+            target.chmod(0o644)
             continue
         url = f"https://huggingface.co/{repository}/resolve/{revision}/{filename}"
         with urlopen(url, timeout=60) as response, NamedTemporaryFile(dir=target.parent, delete=False) as temporary:
@@ -46,6 +52,8 @@ def provision(destination: Path) -> None:
             candidate.unlink(missing_ok=True)
             raise RuntimeError("downloaded model artifact failed its pinned SHA-256 check")
         candidate.replace(target)
+        target.parent.chmod(0o755)
+        target.chmod(0o644)
 
 
 def main() -> int:
