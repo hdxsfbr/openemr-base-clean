@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "GuidelineTopic": {
+      "enum": [
+        "aaa",
+        "breast",
+        "cervical",
+        "colorectal",
+        "lung",
+        "child_obesity",
+        "hypertension",
+        "tobacco"
+      ],
+      "title": "GuidelineTopic",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A bounded retrieval request, intentionally with no free-text question.\n\nA later supervisor may map a physician request to these finite concepts at\na server-held boundary.  Raw questions, chart text, OCR, and identifiers\ntherefore cannot reach a corpus artifact through this contract.",
+  "properties": {
+    "active_corpus_version": {
+      "const": "uspstf-recommendations-2026-09-21-v2",
+      "default": "uspstf-recommendations-2026-09-21-v2",
+      "title": "Active Corpus Version",
+      "type": "string"
+    },
+    "concepts": {
+      "items": {
+        "$ref": "#/$defs/GuidelineTopic"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "title": "Concepts",
+      "type": "array"
+    },
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "deadline_ms": {
+      "maximum": 2000,
+      "minimum": 1,
+      "title": "Deadline Ms",
+      "type": "integer"
+    },
+    "handoff_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Handoff Id",
+      "type": "string"
+    },
+    "intent": {
+      "const": "guideline_evidence",
+      "default": "guideline_evidence",
+      "title": "Intent",
+      "type": "string"
+    },
+    "requested_top_k": {
+      "default": 5,
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Requested Top K",
+      "type": "integer"
+    },
+    "topic_filter": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GuidelineTopic"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "concepts",
+    "correlation_id",
+    "handoff_id",
+    "deadline_ms"
+  ],
+  "title": "EvidenceQuery",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

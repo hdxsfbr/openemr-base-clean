@@ -1,0 +1,199 @@
+{
+  "$defs": {
+    "ExactQuote": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "exact_quote",
+          "default": "exact_quote",
+          "title": "Kind",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "quote"
+      ],
+      "title": "ExactQuote",
+      "type": "object"
+    },
+    "GuidelineSection": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_ordinal": {
+          "minimum": 0,
+          "title": "Chunk Ordinal",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "guideline_section",
+          "default": "guideline_section",
+          "title": "Kind",
+          "type": "string"
+        },
+        "section_path": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Section Path",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_path",
+        "chunk_ordinal"
+      ],
+      "title": "GuidelineSection",
+      "type": "object"
+    },
+    "GuidelineTopic": {
+      "enum": [
+        "aaa",
+        "breast",
+        "cervical",
+        "colorectal",
+        "lung",
+        "child_obesity",
+        "hypertension",
+        "tobacco"
+      ],
+      "title": "GuidelineTopic",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Resolver-authored PRD citation for a single exact guideline quote.",
+  "properties": {
+    "canonical_url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Canonical Url",
+      "type": "string"
+    },
+    "chunk_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Chunk Sha256",
+      "type": "string"
+    },
+    "citation_id": {
+      "pattern": "^ct[0-9]{1,3}$",
+      "title": "Citation Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "pattern": "^c[0-9]{1,3}$",
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "corpus_version": {
+      "const": "uspstf-recommendations-2026-09-21-v2",
+      "default": "uspstf-recommendations-2026-09-21-v2",
+      "title": "Corpus Version",
+      "type": "string"
+    },
+    "field_or_chunk_id": {
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Field Or Chunk Id",
+      "type": "string"
+    },
+    "href": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Href",
+      "type": "string"
+    },
+    "jurisdiction": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Jurisdiction",
+      "type": "string"
+    },
+    "page_or_section": {
+      "$ref": "#/$defs/GuidelineSection"
+    },
+    "publication_date": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Publication Date"
+    },
+    "publisher": {
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Publisher",
+      "type": "string"
+    },
+    "quote_or_value": {
+      "$ref": "#/$defs/ExactQuote"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "source_id": {
+      "maxLength": 240,
+      "pattern": "^guideline:uspstf-recommendations-2026-09-21-v2:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "source_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "source_type": {
+      "const": "guideline",
+      "default": "guideline",
+      "title": "Source Type",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 470,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "topic": {
+      "$ref": "#/$defs/GuidelineTopic"
+    }
+  },
+  "required": [
+    "citation_id",
+    "claim_id",
+    "source_id",
+    "title",
+    "page_or_section",
+    "field_or_chunk_id",
+    "quote_or_value",
+    "publisher",
+    "jurisdiction",
+    "canonical_url",
+    "topic",
+    "source_sha256",
+    "chunk_sha256",
+    "href",
+    "retrieved_at"
+  ],
+  "title": "GuidelineCitation",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

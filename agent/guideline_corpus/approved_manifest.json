@@ -1,0 +1,53 @@
+{
+  "corpus_version": "uspstf-recommendations-2026-09-21-v2",
+  "approval": {
+    "approved_by": "project-owner",
+    "approved_at": "2026-09-21T00:00:00Z",
+    "automated_refresh": false,
+    "runtime_network": false,
+    "stale_after_days": 14
+  },
+  "licensing": {
+    "publisher_reuse_notice": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation-topics/copyright-notice",
+    "reuse_basis": "AHRQ reuse notice; attributed excerpts only for this non-commercial synthetic demo",
+    "prohibited": [
+      "automated publisher synchronization",
+      "patient-specific publisher requests",
+      "unattributed redistribution",
+      "runtime web retrieval"
+    ]
+  },
+  "chunking": {
+    "algorithm_version": "heading-aware-sentence-groups-v1",
+    "target_words": 160,
+    "minimum_words": 40,
+    "sentence_overlap": 1,
+    "maximum_chunks_per_document": 20
+  },
+  "dense_model": {
+    "repository": "BAAI/bge-small-en-v1.5",
+    "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "onnx_file": "onnx/model.onnx",
+    "onnx_sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35",
+    "tokenizer_file": "tokenizer.json",
+    "tokenizer_sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+    "onnxruntime_version": "1.22.1",
+    "tokenizers_version": "0.22.2",
+    "vector_dimensions": 384,
+    "max_tokens": 384,
+    "batch_size": 8,
+    "intra_op_threads": 2,
+    "inter_op_threads": 1,
+    "query_prefix": "Represent this sentence for searching relevant passages: "
+  },
+  "sources": [
+    {"document_id":"aaa","publisher":"U.S. Preventive Services Task Force","title":"Abdominal Aortic Aneurysm: Screening","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/abdominal-aortic-aneurysm-screening","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"33b6d5c3e1ffcb1f6de2b08c1bffa9386a18b75a209964497d9bddd212519ed3","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"},
+    {"document_id":"breast","publisher":"U.S. Preventive Services Task Force","title":"Breast Cancer: Screening","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/breast-cancer-screening","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"0a19acbe5202b32cce8b30e341b64b15b2232d79ec13409dc081d6de7476bc6f","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"},
+    {"document_id":"cervical","publisher":"U.S. Preventive Services Task Force","title":"Cervical Cancer: Screening","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/cervical-cancer-screening","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"3e3c86c08ae3cf9437e2366ed09eb9961fe50e7ae0d6f0a627ba64c219cea7a1","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"},
+    {"document_id":"colorectal","publisher":"U.S. Preventive Services Task Force","title":"Colorectal Cancer: Screening","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/colorectal-cancer-screening","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"d243c01a97805dd1645e124da7955fa4e9d034e9ff218a66a2f39b44cc81a3c1","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"},
+    {"document_id":"lung","publisher":"U.S. Preventive Services Task Force","title":"Lung Cancer: Screening","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/lung-cancer-screening","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"e76004c1911c24b6595b79312dcddddb7d01c8f0fc87f2f9a40dd0c16de240fc","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"},
+    {"document_id":"child_obesity","publisher":"U.S. Preventive Services Task Force","title":"High Body Mass Index in Children and Adolescents: Interventions","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/obesity-in-children-and-adolescents-screening","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"5f3e703d621831a1c5670bbfeab25605692f0324c56e81caf8cda4001feb2bc4","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"},
+    {"document_id":"hypertension","publisher":"U.S. Preventive Services Task Force","title":"Hypertension in Adults: Screening","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/hypertension-in-adults-screening","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"efc37840eb0d25b588b06ca055a8a417f61fd679f6901f31ffbfedf95f2df7fe","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"},
+    {"document_id":"tobacco","publisher":"U.S. Preventive Services Task Force","title":"Tobacco Smoking Cessation in Adults, Including Pregnant Persons: Interventions","canonical_url":"https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/tobacco-use-in-adults-and-pregnant-women-counseling-and-interventions","jurisdiction":"US","publication_date":null,"review_date":null,"source_snapshot_sha256":"f2e76255c4ba5e3c6cb007b6665b335171f173606901b602cac3b654abfa8110","publisher_snapshot_retrieved_at":"2026-09-21T00:00:00Z","approved_at":"2026-09-21T00:00:00Z"}
+  ]
+}
