@@ -43,6 +43,7 @@ from .week2 import (
     WorkerHandoffResult,
 )
 from ..guideline_retriever import EvidenceQuery, EvidenceResult
+from ..supervisor import SupervisorDecision, SupervisorEvent
 
 EXPORTS = {
     "tool_request.schema.json": ToolRequest,
@@ -73,6 +74,8 @@ EXPORTS = {
     "final_claim.schema.json": FinalClaim,
     "week2_limitation.schema.json": Week2Limitation,
     "release_report.schema.json": ReleaseReport,
+    "supervisor_event.schema.json": SupervisorEvent,
+    "supervisor_decision.schema.json": SupervisorDecision,
 }
 
 WEEK2_EXPORTS = {

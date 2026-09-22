@@ -1,0 +1,203 @@
+{
+  "$defs": {
+    "SupervisorReadiness": {
+      "additionalProperties": false,
+      "properties": {
+        "core_ready": {
+          "title": "Core Ready",
+          "type": "boolean"
+        },
+        "document_ready": {
+          "title": "Document Ready",
+          "type": "boolean"
+        },
+        "guideline_ready": {
+          "title": "Guideline Ready",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "core_ready",
+        "document_ready",
+        "guideline_ready"
+      ],
+      "title": "SupervisorReadiness",
+      "type": "object"
+    },
+    "VersionedReference": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "integrity_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Integrity Sha256"
+        },
+        "kind": {
+          "enum": [
+            "source_document",
+            "extraction",
+            "evidence_query",
+            "evidence_result",
+            "corpus",
+            "reviewed_record"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "version"
+      ],
+      "title": "VersionedReference",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authorized": {
+      "title": "Authorized",
+      "type": "boolean"
+    },
+    "canceled": {
+      "title": "Canceled",
+      "type": "boolean"
+    },
+    "contract_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 8,
+      "minProperties": 1,
+      "title": "Contract Versions",
+      "type": "object"
+    },
+    "conversation_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conversation Id"
+    },
+    "corpus_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VersionedReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "event_kind": {
+      "enum": [
+        "document_uploaded",
+        "reprocess_requested",
+        "chat_turn"
+      ],
+      "title": "Event Kind",
+      "type": "string"
+    },
+    "evidence_query_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VersionedReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "guideline_intent": {
+      "enum": [
+        "none",
+        "explicit_permitted",
+        "ambiguous",
+        "prohibited"
+      ],
+      "title": "Guideline Intent",
+      "type": "string"
+    },
+    "readiness": {
+      "$ref": "#/$defs/SupervisorReadiness"
+    },
+    "source_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VersionedReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_version_budget": {
+      "title": "Source Version Budget",
+      "type": "boolean"
+    },
+    "turn_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Turn Id"
+    }
+  },
+  "required": [
+    "event_kind",
+    "correlation_id",
+    "authorized",
+    "canceled",
+    "guideline_intent",
+    "source_version_budget",
+    "readiness",
+    "contract_versions"
+  ],
+  "title": "SupervisorEvent",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}
