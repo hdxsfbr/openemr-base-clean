@@ -132,4 +132,3 @@ def validate_manifest_file(path: Path) -> ManifestValidation:
     if total < 83:
         errors.append("release corpus is below the 83-case floor")
     return ManifestValidation(len(existing), new_golden, golden, total, errors)
-

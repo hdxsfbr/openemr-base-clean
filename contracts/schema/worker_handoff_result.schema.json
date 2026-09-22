@@ -60,6 +60,7 @@
             "source_document",
             "extraction",
             "evidence_query",
+            "evidence_result",
             "corpus",
             "reviewed_record"
           ],

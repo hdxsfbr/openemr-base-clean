@@ -671,7 +671,14 @@ class ReviewedIntakeResponse(StrictModel):
 
 
 class VersionedReference(StrictModel):
-    kind: Literal["source_document", "extraction", "evidence_query", "corpus", "reviewed_record"]
+    kind: Literal[
+        "source_document",
+        "extraction",
+        "evidence_query",
+        "evidence_result",
+        "corpus",
+        "reviewed_record",
+    ]
     id: str = Field(min_length=1, max_length=128)
     version: str = Field(min_length=1, max_length=64)
     integrity_sha256: Sha256 | None = None

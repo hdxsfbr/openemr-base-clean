@@ -1,0 +1,270 @@
+{
+  "$defs": {
+    "RetrievalLimitation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "guideline_no_evidence",
+            "guideline_stale",
+            "guideline_wrong_corpus",
+            "guideline_integrity_failure",
+            "guideline_timeout",
+            "guideline_retrieval_unavailable"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Detail",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "retryable",
+        "detail"
+      ],
+      "title": "RetrievalLimitation",
+      "type": "object"
+    },
+    "RetrievedGuidelineChunk": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Approved At",
+          "type": "string"
+        },
+        "canonical_url": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "^https://[^\\s#]+(?:#[^\\s]+)?$",
+          "title": "Canonical Url",
+          "type": "string"
+        },
+        "chunk_id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "chunk_ordinal": {
+          "minimum": 0,
+          "title": "Chunk Ordinal",
+          "type": "integer"
+        },
+        "chunk_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Chunk Sha256",
+          "type": "string"
+        },
+        "corpus_retrieved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Corpus Retrieved At",
+          "type": "string"
+        },
+        "corpus_version": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Corpus Version",
+          "type": "string"
+        },
+        "dense_rank": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dense Rank"
+        },
+        "document_id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "embedding_revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Embedding Revision",
+          "type": "string"
+        },
+        "exact_text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Exact Text",
+          "type": "string"
+        },
+        "final_rank": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Final Rank",
+          "type": "integer"
+        },
+        "index_build_id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Index Build Id",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "publisher": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Publisher",
+          "type": "string"
+        },
+        "reranker_revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Reranker Revision",
+          "type": "string"
+        },
+        "reranker_score": {
+          "title": "Reranker Score",
+          "type": "number"
+        },
+        "retrieved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "rrf_score": {
+          "exclusiveMinimum": 0,
+          "title": "Rrf Score",
+          "type": "number"
+        },
+        "section_path": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Section Path",
+          "type": "array"
+        },
+        "source_id": {
+          "pattern": "^guideline:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "sparse_rank": {
+          "anyOf": [
+            {
+              "maximum": 20,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sparse Rank"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "topic": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chunk_id",
+        "document_id",
+        "corpus_version",
+        "publisher",
+        "jurisdiction",
+        "title",
+        "canonical_url",
+        "topic",
+        "section_path",
+        "chunk_ordinal",
+        "exact_text",
+        "source_sha256",
+        "chunk_sha256",
+        "source_id",
+        "rrf_score",
+        "final_rank",
+        "reranker_score",
+        "embedding_revision",
+        "reranker_revision",
+        "index_build_id",
+        "retrieved_at",
+        "corpus_retrieved_at",
+        "approved_at"
+      ],
+      "title": "RetrievedGuidelineChunk",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "chunks": {
+      "items": {
+        "$ref": "#/$defs/RetrievedGuidelineChunk"
+      },
+      "maxItems": 5,
+      "title": "Chunks",
+      "type": "array"
+    },
+    "corpus_version": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Corpus Version",
+      "type": "string"
+    },
+    "limitation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RetrievalLimitation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "limited",
+        "unavailable"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "status",
+    "corpus_version",
+    "chunks"
+  ],
+  "title": "EvidenceResult",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "active_corpus_version": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Active Corpus Version",
+      "type": "string"
+    },
+    "concepts": {
+      "items": {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Concepts",
+      "type": "array"
+    },
+    "intent": {
+      "const": "guideline_evidence",
+      "title": "Intent",
+      "type": "string"
+    },
+    "population_filters": {
+      "default": [],
+      "items": {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Population Filters",
+      "type": "array"
+    },
+    "question": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+    },
+    "topic_filters": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Topic Filters",
+      "type": "array"
+    }
+  },
+  "required": [
+    "question",
+    "concepts",
+    "intent",
+    "active_corpus_version"
+  ],
+  "title": "EvidenceQuery",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

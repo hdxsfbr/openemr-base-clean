@@ -42,6 +42,7 @@ from .week2 import (
     WorkerHandoffRequest,
     WorkerHandoffResult,
 )
+from ..guideline_retriever import EvidenceQuery, EvidenceResult
 
 EXPORTS = {
     "tool_request.schema.json": ToolRequest,
@@ -65,6 +66,8 @@ EXPORTS = {
     "reviewed_intake_response.schema.json": ReviewedIntakeResponse,
     "worker_handoff_request.schema.json": WorkerHandoffRequest,
     "worker_handoff_result.schema.json": WorkerHandoffResult,
+    "evidence_query.schema.json": EvidenceQuery,
+    "evidence_result.schema.json": EvidenceResult,
     "resolved_source.schema.json": ResolvedSource,
     "citation.schema.json": Citation,
     "final_claim.schema.json": FinalClaim,
