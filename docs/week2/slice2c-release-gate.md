@@ -39,3 +39,24 @@ can close: authenticated browser upload/preview for both types, deployed
 negative/fault paths, correlation reconstruction, and a privacy scan of the
 actual deployment’s logs, traces, metrics, handoffs, checkpoints, and CI
 artifact.
+
+## Observed candidate evidence (2026-09-22)
+
+Merge commit `03523d98` was deployed by GitLab pipeline
+[25292](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/pipelines/25292).
+All required jobs passed, including
+[`test:evals-slice2-shared`](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/jobs/85652)
+and the post-deploy
+[`verify:smoke`](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/jobs/85654).
+
+An authenticated synthetic-only smoke then used the deployed panel handshake
+and `audit-physician` session. It stored and previewed the intake fixture
+(`partial`, with the fixture's explicit ambiguous/conflicting fields), reopened
+its source under current authorization, retried the same upload intent without
+changing the immutable source, and completed the lab preview. It also confirmed
+a model fault returned `unavailable` without an extraction, lab-as-intake was
+rejected (`409`), and a patient-switched upload intent was rejected (`409`).
+The public health endpoint reported agent `0.3.0`; `/metrics` contained only
+the bounded `lab_pdf` and `intake_form` preview labels. This is deployment
+evidence for the implemented paths, not evidence for later supervisor,
+retrieval, persistence, overlay, or 50-case work.
