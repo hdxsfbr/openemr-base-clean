@@ -706,7 +706,10 @@ def report_identity(meta: dict[str, Any]) -> dict[str, str]:
     manifest_paths = [ROOT / "evals" / "week2_manifest.yaml", *CASES_DIR.glob("*.yaml")]
     fixture_paths = [ROOT / "evals" / "cases" / "cohort.json", *(ROOT / "evals" / "fixtures").rglob("*")]
     guideline = ROOT / "docs" / "research" / "week2-retrieval-benchmark" / "corpus.jsonl"
-    resolver_inputs = [ROOT / "contracts" / "schema" / "resolved_source.schema.json"]
+    resolver_inputs = [
+        ROOT / "contracts" / "schema" / "resolved_source.schema.json",
+        ROOT / "agent" / "app" / "week2_verifier.py",
+    ]
     prompt_inputs = [ROOT / "agent" / "app" / "model.py"]
     extraction_inputs = [ROOT / "agent" / "app" / "intake_extractor.py"]
     retrieval_inputs = [ROOT / "agent" / "app" / "guideline_retriever.py"]

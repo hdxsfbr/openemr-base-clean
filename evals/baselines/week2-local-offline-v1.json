@@ -5,7 +5,7 @@
     "schema_version": "2.0.0",
     "rubric_version": "1.0.0",
     "guideline_corpus_sha256": "49d28c59b201ebc6bf04758f9122b55a17f2912e425078c65da7bd5bed79e63e",
-    "resolver_sha256": "c3573503117dcf623ee744992d126e63052a286825248676706f34bd809d4632",
+    "resolver_sha256": "cb2f511437e629cf09937a1969f89502cc5f194a0aed66d02408ce7924eff05b",
     "runtime_image": "local-offline",
     "model": "deterministic-offline",
     "prompt_sha256": "8adcbe3ef55bcd6937401506ed5019efbac71f19fef864781a219ee26dd767fc",
