@@ -132,3 +132,16 @@ not change corpus or model revisions. It accepts a small synthetic `n=5`
 measurement only for this release gate. Capacity, cold-start, mixed-load,
 CPU/RSS, and broader quality evidence remain required before any broader
 operational claim.
+
+The existing p50 target of 500 ms was not met. It remains an explicit
+performance follow-up. The normative budget table distinguishes that target
+from the hard degradation gate: only the unchanged two-second deadline is
+release-blocking for this narrow acceptance; p50 is not reclassified as PASS.
+
+A prior deployed browser request exercised that hard degradation behavior: it
+rendered the typed `guideline_retrieval_timeout` limitation and no guideline
+claim. A direct finite-topic worker check then had one timeout followed by two
+completed three-excerpt responses. The cause and a reliable first-request
+remediation are deliberately deferred to [#44](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/work_items/44); this amendment
+does not claim that timeout is fixed or that the completed-only sample measures
+cold starts.

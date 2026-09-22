@@ -63,16 +63,61 @@ A synthetic authenticated request produced one verifier-authorized exact
 guideline claim and the fixed applicability notice; fresh-ticket source reopen
 returned 200. The same bounded smoke observed unauthenticated request 401,
 PHI-bearing extra-field rejection 400, and tampered source identity 403.
-The privacy canary was absent from deployed agent, OpenEMR, and Caddy logs,
-Prometheus metrics, and agent checkpoints after the run. The request-log path
-redaction remediation is included in this candidate.
+The deployed clinician walkthrough independently exercised the visible path:
+an explicit Breast-screening request rendered three attributed USPSTF excerpts
+in the separate guideline lane and the fixed no-applicability notice. Clicking
+**Open exact source** opened the selected exact chunk in the Co-Pilot, and
+**Open publisher page** reached the USPSTF Breast Cancer: Screening page.
+The cropped synthetic screenshots and procedural details are in GitLab #43
+[note 76677](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/work_items/43#note_76677);
+they exclude the browser address bar and session token.
+
+An earlier visible request instead rendered the typed
+`guideline_retrieval_timeout` limitation and no guideline claim. A direct
+finite-topic worker check reproduced one timeout followed by two completed
+three-excerpt responses. The first-request timeout is not fixed; its cause and
+safe remediation are tracked by [#44](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/work_items/44).
+
+The earlier targeted privacy canary was absent from deployed agent, OpenEMR,
+and Caddy logs, Prometheus metrics, and agent checkpoints after the run. The
+request-log path-redaction remediation is included in this candidate.
 
 Five completed finite-topic requests measured worker p50 1372.1 ms, worker p95
 1725.3 ms, and endpoint p95 1753.1 ms. The owner accepted the 2.0-second p95
 gate in ADR-0014 while retaining the 2.0-second hard deadline and full hybrid
-pipeline. This is small-sample synthetic evidence (`n=5`), not a capacity,
+pipeline. The 500 ms p50 target was missed; it remains a performance follow-up
+and is not silently treated as PASS. Under the normative budget table, the
+unchanged deadline is the hard release gate for this narrow acceptance. This is
+small-sample synthetic evidence (`n=5`), not a capacity,
 cold-start, mixed-load, CPU/RSS, or broader quality measurement.
 
-External traces, worker-handoff store inspection, CI captured-artifact scans,
-and a full live eval are **NOT RUN**: this release session did not have a safe
-read-only interface for those protected/external channels. They are not PASS.
+Privacy evidence has a deliberately narrow scope. The deployed agent reported
+`COPILOT_TRACE_CONTENT=0` with tracer keys configured. A read-only sample of
+five full external traces contained 29 observations: all 12 nonempty inputs
+and all 12 nonempty outputs were digest-masked, and neither an `AF-DQ-` nor an
+`Alba Synthetic` marker appeared. The sampled metadata key names included
+`conversation_id`, `thread_id`, and `correlation_id`; two of five traces had a
+nonempty Langfuse `session_id`. Their values were not printed or classified as
+auth tokens or PHI, but those opaque session/binding identifiers require #45
+review. This is a sample, not a complete correlated canary export, so
+external-trace privacy remains **NOT RUN**, not PASS.
+
+Slice 3 has no durable guideline handoff store. The current worker's in-memory
+state holds opaque handoff IDs and statuses; the release service holds public
+guideline excerpts keyed by opaque conversation/turn IDs. That makes a durable
+handoff-store scan N/A for this candidate, but it is not a certification of a
+future supervisor store. Candidate CI jobs 88209, 88210, and 88211 received a
+read-only targeted artifact scan: no synthetic privacy canary, browser
+session-token pattern, or login-password field name was found, and the current
+candidate eval report had no tested-patient marker. Job 88209 nevertheless
+archived 53 historical eval-result files, some containing synthetic `AF-DQ-*`
+identifiers; those are demo identifiers, not evidence of real PHI, but the
+archive is broader than the candidate report. The comprehensive CI artifact
+scan remains **NOT RUN**. Both remaining privacy investigations are tracked in
+[#45](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/work_items/45);
+they are not PASS.
+
+A full live guideline evaluation is also **NOT RUN**. It is release-gate and
+final-evidence work for [#32](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/work_items/32)
+and [#33](https://labs.gauntletai.com/andrebatista/andrebatista-openemr-base-clean/-/work_items/33),
+not evidence claimed by this slice.
