@@ -1,0 +1,273 @@
+{
+  "$defs": {
+    "ExtractionConfidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unknown"
+      ],
+      "title": "ExtractionConfidence",
+      "type": "string"
+    },
+    "ExtractionState": {
+      "enum": [
+        "extracted",
+        "missing",
+        "ambiguous",
+        "unreadable",
+        "malformed"
+      ],
+      "title": "ExtractionState",
+      "type": "string"
+    },
+    "LabFieldEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "$ref": "#/$defs/ExtractionConfidence"
+        },
+        "source_citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceCitation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        }
+      },
+      "required": [
+        "state",
+        "confidence"
+      ],
+      "title": "LabFieldEvidence",
+      "type": "object"
+    },
+    "NormalizedBox": {
+      "additionalProperties": false,
+      "description": "Coordinates normalized to the source page, never pixels from a transient render.",
+      "properties": {
+        "height": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Height",
+          "type": "number"
+        },
+        "left": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Left",
+          "type": "number"
+        },
+        "top": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Top",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Width",
+          "type": "number"
+        }
+      },
+      "required": [
+        "left",
+        "top",
+        "width",
+        "height"
+      ],
+      "title": "NormalizedBox",
+      "type": "object"
+    },
+    "SourceCitation": {
+      "additionalProperties": false,
+      "description": "The PRD's minimum citation plus immutable source-integrity fields.",
+      "properties": {
+        "field_or_chunk_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Or Chunk Id",
+          "type": "string"
+        },
+        "normalized_box": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "page_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Hash"
+        },
+        "page_or_section": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Page Or Section",
+          "type": "integer"
+        },
+        "quote_or_value": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Quote Or Value",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{128}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_type": {
+          "const": "document",
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type",
+        "source_id",
+        "page_or_section",
+        "field_or_chunk_id",
+        "quote_or_value",
+        "source_hash"
+      ],
+      "title": "SourceCitation",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A future worker proposal. It is explicitly not a clinical record fact.",
+  "properties": {
+    "abnormal_flag": {
+      "default": "unknown",
+      "enum": [
+        "abnormal",
+        "normal",
+        "unknown"
+      ],
+      "title": "Abnormal Flag",
+      "type": "string"
+    },
+    "collection_date": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Collection Date"
+    },
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "fields": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LabFieldEvidence"
+      },
+      "propertyNames": {
+        "enum": [
+          "test_name",
+          "value",
+          "unit",
+          "reference_range",
+          "collection_date",
+          "abnormal_flag"
+        ]
+      },
+      "title": "Fields",
+      "type": "object"
+    },
+    "reference_range": {
+      "anyOf": [
+        {
+          "maxLength": 160,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reference Range"
+    },
+    "test_name": {
+      "anyOf": [
+        {
+          "maxLength": 160,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Test Name"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "maxLength": 160,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value"
+    }
+  },
+  "required": [
+    "fields"
+  ],
+  "title": "LabExtraction",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

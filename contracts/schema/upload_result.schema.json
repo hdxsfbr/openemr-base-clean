@@ -1,0 +1,157 @@
+{
+  "$defs": {
+    "DocumentLimitation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/LimitationCode"
+        },
+        "detail": {
+          "maxLength": 160,
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "DocumentLimitation",
+      "type": "object"
+    },
+    "DocumentType": {
+      "description": "Closed for Slice 1A. Intake is introduced by the later contract change.",
+      "enum": [
+        "lab_pdf"
+      ],
+      "title": "DocumentType",
+      "type": "string"
+    },
+    "LimitationCode": {
+      "enum": [
+        "unauthorized",
+        "invalid_file",
+        "duplicate_or_replay",
+        "malformed_source",
+        "storage_unavailable"
+      ],
+      "title": "LimitationCode",
+      "type": "string"
+    },
+    "SourceDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_size": {
+          "exclusiveMinimum": 0,
+          "maximum": 20971520,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "content_hash": {
+          "pattern": "^[a-f0-9]{128}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "document_type": {
+          "$ref": "#/$defs/DocumentType"
+        },
+        "mime_type": {
+          "const": "application/pdf",
+          "title": "Mime Type",
+          "type": "string"
+        },
+        "native_document_uuid": {
+          "pattern": "^[a-f0-9-]{36}$",
+          "title": "Native Document Uuid",
+          "type": "string"
+        },
+        "page_count": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "source_id": {
+          "maxLength": 41,
+          "pattern": "^document:[a-f0-9]{32}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_id",
+        "native_document_uuid",
+        "content_hash",
+        "document_type",
+        "mime_type",
+        "byte_size",
+        "page_count"
+      ],
+      "title": "SourceDocument",
+      "type": "object"
+    },
+    "UploadStatus": {
+      "enum": [
+        "pending",
+        "stored",
+        "rejected",
+        "unavailable"
+      ],
+      "title": "UploadStatus",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "intent_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Intent Id",
+      "type": "string"
+    },
+    "limitation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocumentLimitation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SourceDocument"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "status": {
+      "$ref": "#/$defs/UploadStatus"
+    }
+  },
+  "required": [
+    "intent_id",
+    "status"
+  ],
+  "title": "UploadResult",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}
