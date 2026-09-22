@@ -62,6 +62,7 @@ def test_intake_fixture_preserves_proposal_states_and_per_field_citations() -> N
     [
         lambda payload: payload.__setitem__("unexpected", True),
         lambda payload: payload["chief_concern"]["evidence"].__setitem__("source_citation", None),
+        lambda payload: payload["demographics"]["date_of_birth"]["evidence"].__setitem__("source_citation", None),
         lambda payload: payload["demographics"].__setitem__("patient_id", 7),
     ],
 )

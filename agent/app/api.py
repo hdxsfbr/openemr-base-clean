@@ -83,11 +83,33 @@ def _preview_confidence(result: Any) -> str:
     extraction = getattr(result, "extraction", None)
     if extraction is None:
         return "unknown"
-    buckets = {field.confidence.value for field in extraction.fields.values()}
+    fields = getattr(extraction, "fields", None)
+    if fields is None:
+        fields = []
+        demographics = getattr(extraction, "demographics", None)
+        if demographics is not None:
+            fields.extend(value for value in vars(demographics).values() if value is not None)
+        fields.extend([getattr(extraction, "chief_concern", None)])
+        for group in (getattr(extraction, "medications", []), getattr(extraction, "allergies", []), getattr(extraction, "family_history", [])):
+            for item in group:
+                fields.extend(value for key, value in vars(item).items() if key != "entry_id" and value is not None)
+        buckets = {field.evidence.confidence.value for field in fields}
+    else:
+        buckets = {field.confidence.value for field in fields.values()}
     for candidate in ("unknown", "low", "medium", "high"):
         if candidate in buckets:
             return candidate
     return "unknown"
+
+
+def _preview_record_count(result: Any) -> int:
+    extraction = getattr(result, "extraction", None)
+    if extraction is None:
+        return 0
+    fields = getattr(extraction, "fields", None)
+    if fields is not None:
+        return len(fields)
+    return len(getattr(extraction, "medications", [])) + len(getattr(extraction, "allergies", [])) + len(getattr(extraction, "family_history", []))
 
 
 def _turn_input(delegation: Delegation, req: TurnRequest, correlation_id: str, fault: str | None) -> dict[str, Any]:
@@ -188,7 +210,7 @@ async def post_lab_extraction(
                         "model_version": "deterministic_parser_v1",
                         "timings_ms": {"extract": elapsed},
                         "usage": {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "cost_microusd": 0},
-                        "record_count": len(result.extraction.fields) if result.extraction else 0,
+                        "record_count": _preview_record_count(result),
                         "extraction_confidence": confidence,
                         "retrieval_hit_count": 0,
                         "verification": "passed" if result.extraction else "not_run",

@@ -126,7 +126,13 @@ class IntakeFieldEvidence(StrictModel):
 
     @model_validator(mode="after")
     def evidence_matches_state(self) -> "IntakeFieldEvidence":
-        if self.state in {IntakeFieldState.present, IntakeFieldState.checked, IntakeFieldState.unchecked} and self.source_citation is None:
+        if self.state in {
+            IntakeFieldState.present,
+            IntakeFieldState.checked,
+            IntakeFieldState.unchecked,
+            IntakeFieldState.ambiguous,
+            IntakeFieldState.conflicting,
+        } and self.source_citation is None:
             raise ValueError("a printed intake field needs a source citation")
         if self.state in {IntakeFieldState.missing, IntakeFieldState.unreadable} and self.source_citation is not None:
             raise ValueError("missing or unreadable intake fields cannot claim source evidence")
