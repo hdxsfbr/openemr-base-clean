@@ -1,7 +1,10 @@
 # Week 2 implementation handoff
 
-**Status:** Planning complete and owner-directed on 2026-09-21; implementation
-has not started.
+**Status:** Local implementation complete on branch
+`codex/week2-implementation` as of 2026-09-21. The deterministic local gates
+are green; deployment, protected-branch configuration, an owner-approved full
+baseline, and live browser/load/rollback evidence remain external release
+work and are not claimed here.
 
 Start with
 [`docs/specs/week2-integrated-implementation-plan.md`](specs/week2-integrated-implementation-plan.md).
@@ -11,19 +14,20 @@ capability to `USERS.md` UC-01 through UC-03, UC-05, and UC-06, maps the Week 2
 PRD into `docs/REQUIREMENTS_TRACEABILITY.md`, and defines the exact
 `W2_ARCHITECTURE.md` outline and implementation-ticket dependencies.
 
-The mandatory core is intentionally narrow: two document types, the PRD-named
+The implemented mandatory core is intentionally narrow: two document types, the PRD-named
 intake-extractor and evidence-retriever workers behind a deterministic
 supervisor, the approved bounded guideline corpus/retriever, closed source and
-citation contracts, source-grounded review UI, at least 50 golden and 83 total
+citation contracts, source-grounded review UI, 55 golden and 90 total
 retained eval cases, candidate-matched blocking GitLab CI, and the accepted
 single-host operational budgets. The model and agent remain unable to write;
 only an explicit authorized physician UI action may promote a fully reviewed
 document into immutable module-owned records.
 
-Do not treat any Week 2 design as implemented. Build checkpoints C0 through C8
-in order, and do not mark a requirement complete without the listed accessible
-evidence. `W2_ARCHITECTURE.md` is a synthesis of accepted decisions, not a
-place to silently choose different ones.
+Treat local implementation and external release evidence separately. C0
+through C8 now have repository code and local tests; do not mark deployment,
+protected CI, load, rollback, or browser evidence complete until the listed
+artifacts exist. `W2_ARCHITECTURE.md` remains a synthesis of accepted
+decisions, not a place to silently choose different ones.
 
 ## Week 1 baseline inherited by Week 2
 

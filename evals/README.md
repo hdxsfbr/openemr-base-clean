@@ -34,19 +34,18 @@ evals/
 
 ### Week 2 deterministic gate
 
-The file-backed Week 2 corpus contains 85 cases: all 48 Week 1 cases, 35 new
-golden cases, and two new coverage holdouts. This is 50 golden cases total;
+The file-backed Week 2 corpus contains 90 cases: all 48 Week 1 cases plus 42
+executable Week 2 additions. This is 55 golden cases total;
 50 is a floor, not a cap. Run the corpus contract directly with:
 
 ```bash
 agent/.venv/bin/python evals/week2_manifest.py --json
 ```
 
-As of 2026-09-21, 27 of the 37 Week 2 additions point at implemented public
-pytest seams and 10 are explicit `mode: pending` cases. Pending is not a skip
-or pass: a full release run reports every applicable rubric as `unmeasured`
-and blocks. The offline subset reports each applicable rubric as a Boolean and
-records the pytest node IDs and exit status as machine-readable evidence.
+As of 2026-09-21, all 42 Week 2 additions point at implemented public pytest
+seams and the manifest contains zero pending cases. The offline subset reports
+each applicable rubric as a Boolean and records the pytest node IDs and exit
+status as machine-readable evidence.
 
 Install the versioned fast-feedback hook once per clone, then run the same gate
 on demand:
@@ -219,8 +218,8 @@ non-blocking miss such as model recall is reported, not fatal. A filtered run
 is a debugging run and exits 1 on any failing case. Exit 2 means no case
 matched or no demo password was available for live cases. The Week 1 suite had
 48 cases on 2026-09-20 (15 golden, 33 coverage, four holdouts). Week 2 retains
-all 48 and adds 37 file-backed cases, for 85 total, 50 golden, and six
-holdouts. The report footer prints
+all 48 and adds 42 executable file-backed cases, for 90 total, 55 golden, and
+six holdouts. The report footer prints
 "Cases on disk" and "cases in this run" so a filtered run is visible as such.
 With `--repeat 3` the report counts attempts, not cases: 124 for the 48 cases
 (38 live cases three times, 10 offline once), 29 of them golden and 12

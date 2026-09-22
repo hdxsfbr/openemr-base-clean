@@ -286,12 +286,14 @@ adversarial platform that attacks this co-pilot unattended, with a
 compressed Friday deadline. Week 1 builds none of that, and these choices
 were made so those weeks extend rather than replace:
 
-**Week 2 planning status (2026-09-21).** The owner-approved Wayfinder map is
-complete. ADR-0008 through ADR-0015 and
+**Week 2 implementation status (2026-09-21).** The owner-approved Wayfinder map
+is complete. ADR-0008 through ADR-0015 and
 `docs/specs/week2-integrated-implementation-plan.md` supersede the speculative
-seams below where the Week 1 code did not match the prose. Implementation has
-not started. The accepted release floor retains all 48 Week 1 cases and adds at
-least 35 new golden cases, producing at least 50 golden and 83 total cases.
+seams below where the Week 1 code did not match the prose. The mandatory core
+is implemented and locally verified on `codex/week2-implementation`; external
+deployment, protected-branch, live-browser, load, and rollback evidence remain
+release work. The corpus retains all 48 Week 1 cases and now contains 90 total
+cases and 55 golden cases, above the 50-case floor.
 
 - LangGraph turn graph from the start (ADR-0004), so the supervisor and
   workers can be added behind one deterministic parent rather than replacing

@@ -50,10 +50,12 @@ verifies claims deterministically, opens native chart sources, degrades on tool
 or model failure, and carries one correlation ID. The retained release corpus
 contains 48 cases: 15 golden and 33 coverage cases, including four holdouts.
 
-The implemented Week 2 foundation exports strict version-2 schemas, validates
-shared Python/PHP fixtures, records the additive 35-case golden allocation plus
-two new holdouts, and performs enforceable baseline comparison. Feature
-workflows remain planned until their later checkpoints pass.
+The implemented Week 2 system exports strict version-2 schemas, validates
+shared Python/PHP fixtures, runs the two bounded workers behind a deterministic
+supervisor, supports authorized upload/review/promotion and source review,
+verifies the closed claim/source unions, and performs enforceable baseline
+comparison over 90 retained cases. Deployment and protected-branch evidence
+remain external release work rather than local completion claims.
 
 Unresolved risks remain explicit: OpenEMR parity authorization is not a new
 care-relationship policy; the ordinary binary download failure path must be
@@ -210,9 +212,9 @@ are capped at three per source.
 
 ## 10. Eval corpus, baseline comparison, candidate-matched CI, and mutation proof
 
-All 48 Week 1 cases are retained. The versioned allocation adds 35 golden cases
-and two coverage holdouts, so the planned release corpus starts at 50 golden
-and 85 total cases. Fifty is a floor. Every golden case declares applicable
+All 48 Week 1 cases are retained. The versioned corpus now contains 90 cases,
+including 55 golden cases and two new coverage holdouts. Fifty is a floor.
+Every golden case declares applicable
 Boolean rubrics; over half the additions are negative, adversarial, degraded,
 or boundary cases.
 
@@ -223,11 +225,12 @@ thresholds, and blocks drops greater than five absolute percentage points.
 Exactly five points is not the PRD regression condition, but any new
 zero-tolerance safety failure still blocks.
 
-Planned candidate CI must build or select the candidate runtime, execute the
-full corpus including holdouts, and compare against an immutable owner-approved
-baseline. Release proof injects a temporary safety regression into the actual
-protected path, records red, removes it, and records green with unchanged
-inputs. ADR-0015 and
+The repository's required candidate CI selects the candidate runtime, checks
+its exact commit and immutable image identity, executes the full corpus
+including holdouts, and compares against an immutable owner-approved baseline.
+The external protected environment, approved full baseline, and release proof
+that injects a temporary safety regression, records red, removes it, and
+records green with unchanged inputs are not present locally. ADR-0015 and
 [the eval-gate specification](docs/specs/week2-eval-corpus-and-regression-gate.md)
 are normative.
 
@@ -274,12 +277,14 @@ evidence-lane integration; C7 operations; and C8 release proof. The detailed
 acceptance boundaries are in
 [the integrated implementation plan](docs/specs/week2-integrated-implementation-plan.md).
 
-C0 is implemented locally when its schema snapshots, shared fixtures, manifest
-validator, and comparator tests are green. C1 through C8 remain planned until
-their positive, negative/adversarial, privacy, documentation, and deployed
-evidence passes. This sequencing trades feature speed for inspectable trust
-boundaries and makes the two independent post-C0 branches safe to implement in
-parallel.
+C0 through C8 have repository implementations and local positive,
+negative/adversarial, privacy, and documentation evidence. The remaining
+release evidence is operational: production extraction/source-view adapters,
+live browser and deployed flow checks, protected-branch configuration, an
+owner-approved full baseline, candidate mutation proof, and clean deploy,
+load, and rollback measurements. This sequencing trades feature speed for
+inspectable trust boundaries and kept the independent post-C0 branches safe to
+implement in parallel.
 
 Residual risks do not become hidden completion claims: one host can fail,
 reviewed records are module-owned rather than native-list entries, the corpus

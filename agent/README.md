@@ -11,7 +11,10 @@ report it). Layout under `app/`:
   text/event-stream`), `GET` and `DELETE /v1/conversations/{id}`; delegation
   token in `X-Copilot-Token` (or `Authorization: Bearer`), 10 turns per
   minute per conversation (429 `rate_limited`). The token goes into the
-  per-turn cache, never into graph state, so it is never checkpointed.
+  per-turn cache, never into graph state, so it is never checkpointed. The
+  citation-source GET route reauthorizes the exact turn and resolves only a
+  citation already displayed in that turn; it fails closed until a protected
+  source-view resolver is configured.
   `main.py` adds `/health` (liveness, version, uptime; the chart panel's
   `?panel=chart_open`, `brief_started` or `drawer_open` feeds the usage
   funnel counters, any other value is ignored), `/ready` (gateway ping,
@@ -43,6 +46,13 @@ report it). Layout under `app/`:
 - `guideline_retriever.py`: exact-hash frozen corpus loading, FTS5 plus pinned
   BGE/FAISS retrieval, RRF, pinned local MiniLM reranking, a two-second hard
   deadline, and the reference-only evidence worker (concurrency two).
+- `extraction_worker.py`, `supervisor.py`, `parallel_join.py`, and
+  `week2_coordinator.py`: the bounded reference-only extraction worker,
+  deterministic no-model route table, parallel patient/guideline join, and
+  current-turn registration plus verification coordinator.
+- `source_registry.py`, `week2_verifier.py`, and `source_review.py`: the closed
+  OpenEMR/document/guideline source registry, exact deterministic verifier,
+  and protected source-review boundary.
 - `week2_operations.py`: restart-safe UTC-day model-cost reservations and
   settlement, extraction storage/version admission, and the marked transient
   artifact sweeper. `state_store.py` separately records first close time and
@@ -73,7 +83,7 @@ report it). Layout under `app/`:
   turn trace; every warning carrying the correlation id), `state_store.py`
   (SQLite checkpointer path, per-turn record and token caches).
 
-`pytest` runs 145 tests under `tests/` as of 2026-09-20 (API, contracts,
+`pytest` runs 269 tests under `tests/` as of 2026-09-21 (API, contracts,
 graph, health, alerts, model output, the summary gate and fallback, telemetry
 including the tracer-on branch of every observation against a fake `langfuse`
 module, and `test_controls.py` for the checkpoint content, the circuit
