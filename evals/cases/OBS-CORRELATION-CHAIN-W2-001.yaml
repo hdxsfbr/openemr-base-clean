@@ -9,5 +9,7 @@ risk: "Week 2 correlation chain is complete without patient content"
 capability_tags: [CAP-14]
 rubrics: [schema_valid, no_phi_in_logs]
 zero_tolerance: true
-mode: pending
-pending_seam: "Week 2 end-to-end worker correlation path is not implemented"
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_extraction_telemetry_contains_route_latency_and_cost_but_no_document_content
+  - tests/test_supervisor.py::test_handoff_serialization_is_reference_only

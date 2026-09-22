@@ -9,5 +9,7 @@ risk: "Supervisor bounds the combined route"
 capability_tags: [CAP-12]
 rubrics: [schema_valid, factually_consistent]
 zero_tolerance: true
-mode: pending
-pending_seam: "deterministic supervisor is not implemented"
+mode: offline
+pytest:
+  - tests/test_supervisor.py::test_supervisor_route_table_is_closed_and_model_free
+  - tests/test_parallel_join.py::test_mixed_turn_starts_both_read_only_lanes_before_either_finishes

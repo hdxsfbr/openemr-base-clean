@@ -10,5 +10,6 @@ risk: "Holdout degraded document fails safely"
 capability_tags: [CAP-09]
 rubrics: [schema_valid, safe_refusal]
 zero_tolerance: true
-mode: pending
-pending_seam: "document extraction worker is not implemented"
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_dependency_outage_is_retryable_and_never_returns_best_effort_content

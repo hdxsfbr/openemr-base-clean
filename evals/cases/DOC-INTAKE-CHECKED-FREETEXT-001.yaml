@@ -9,5 +9,6 @@ risk: "Checked and free-text intake fields retain typed evidence"
 capability_tags: [CAP-09]
 rubrics: [schema_valid, factually_consistent]
 zero_tolerance: true
-mode: pending
-pending_seam: "intake extraction worker is not implemented"
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_intake_round_trip_preserves_every_typed_collection_as_proposed_facts

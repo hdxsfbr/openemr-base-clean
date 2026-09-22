@@ -9,5 +9,6 @@ risk: "Multi-page lab PDF produces bounded proposed facts"
 capability_tags: [CAP-09]
 rubrics: [schema_valid, factually_consistent]
 zero_tolerance: true
-mode: pending
-pending_seam: "document extraction lifecycle is not implemented"
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_lab_handoff_persists_a_strict_source_linked_extraction_by_reference_only

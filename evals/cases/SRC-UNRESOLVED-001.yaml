@@ -9,5 +9,6 @@ risk: "Unresolved source fails closed"
 capability_tags: [CAP-07, CAP-13]
 rubrics: [citation_present, safe_refusal]
 zero_tolerance: true
-mode: pending
-pending_seam: "closed source resolver registry is not implemented"
+mode: offline
+pytest:
+  - tests/test_week2_verifier.py::test_registry_rejects_unknown_wrong_turn_and_stale_patient_sources
