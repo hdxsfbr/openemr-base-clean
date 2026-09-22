@@ -8,6 +8,7 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Session\SessionWrapperFactory;
 use OpenEMR\Modules\Copilot\Documents\SourceDocumentRepository;
 use OpenEMR\Modules\Copilot\Documents\UploadContext;
+use OpenEMR\Modules\Copilot\Documents\UploadRequestPolicy;
 use OpenEMR\Modules\Copilot\Gateway\Audit;
 use OpenEMR\Modules\Copilot\Gateway\GatewayDenied;
 use OpenEMR\Modules\Copilot\Http\Json;
@@ -21,7 +22,7 @@ $session = SessionWrapperFactory::getInstance()->getActiveSession();
 if (!CsrfUtils::verifyCsrfToken((string) ($body['csrf_token'] ?? ''), $session, 'copilot')) {
     Json::error(403, 'unauthorized', 'CSRF token invalid.', $correlationId);
 }
-if (($body['document_type'] ?? null) !== 'lab_pdf' || isset($body['pid'], $body['patient_id'])) {
+if (!UploadRequestPolicy::acceptsIntent($body)) {
     Json::error(400, 'invalid_request', 'Unsupported document request.', $correlationId);
 }
 try {

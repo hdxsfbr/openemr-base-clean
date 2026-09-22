@@ -11,7 +11,7 @@ an extraction, preview, final-claim, or persistence workflow.
    returns a 15-minute, server-bound intent. It accepts no patient identifier.
 2. The browser submits the file and intent to `public/api/document_upload.php`.
    The endpoint repeats the session/CSRF/chart/ACL/break-glass checks and
-   rejects a supplied `pid`, `patient_id`, or client-selected document type.
+   rejects any supplied `pid`, `patient_id`, or client-selected document type.
 3. A valid upload is PDF-only, up to 20 MiB and 20 pages. OpenEMR's native
    `Document::createDocument()` stores the bytes in its configured protected
    document store. The module stores only an immutable source id, native UUID,
