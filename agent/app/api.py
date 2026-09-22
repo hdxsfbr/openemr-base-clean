@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import secrets
 import time
 from collections import defaultdict, deque
@@ -23,6 +24,7 @@ from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
 from .settings import settings
 from .state_store import drop_token, mark_conversation_closed, put_token
+from .source_review import SourceReviewEnvelope
 from .telemetry import finish_turn_trace, trace_config, turn_trace
 from .turn_outcome import verification_outcome
 
@@ -235,6 +237,56 @@ async def get_conversation(conversation_id: str, request: Request, authorization
         "agent_version": __version__,
     }
     return JSONResponse(content=body, headers={"X-Correlation-Id": correlation_id})
+
+
+@router.get("/conversations/{conversation_id}/turns/{turn_id}/sources/{citation_id}")
+async def get_turn_source(
+    conversation_id: str,
+    turn_id: str,
+    citation_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_copilot_token: str | None = Header(default=None),
+):
+    """Resolve only a citation already displayed in this exact authorized turn."""
+    correlation_id = request.state.correlation_id
+    auth = _authenticate(request, conversation_id, authorization, x_copilot_token)
+    if isinstance(auth, JSONResponse):
+        return auth
+    if auth.turn_id != turn_id:
+        metrics.denial("turn_mismatch")
+        return _error(403, "unauthorized", "Request denied.", correlation_id)
+    if re.fullmatch(r"ct[0-9]{1,3}", citation_id) is None:
+        return _error(404, "invalid_request", "The cited source was not found.", correlation_id)
+
+    snapshot = await request.app.state.graph.aget_state({"configurable": {"thread_id": conversation_id}})
+    values = snapshot.values if snapshot else {}
+    trusted_citation: dict[str, object] | None = None
+    for turn in values.get("history") or []:
+        if turn.get("turn_id") != turn_id:
+            continue
+        for claim in turn.get("claims") or []:
+            for citation in claim.get("citations") or []:
+                if citation.get("citation_id") == citation_id:
+                    trusted_citation = citation
+                    break
+    if trusted_citation is None:
+        return _error(404, "invalid_request", "The cited source was not found.", correlation_id)
+
+    resolver = getattr(request.app.state, "source_review_resolver", None)
+    if resolver is None:
+        return _error(503, "dependency_unavailable", "The cited source is unavailable.", correlation_id)
+    try:
+        resolved = await resolver.resolve(conversation_id, turn_id, trusted_citation)
+        envelope = SourceReviewEnvelope.model_validate(resolved)
+        if envelope.citation.model_dump(mode="json") != trusted_citation:
+            raise ValueError("citation changed during source resolution")
+    except Exception:  # noqa: BLE001 - source content and dependency details must not escape
+        return _error(503, "dependency_unavailable", "The cited source is unavailable.", correlation_id)
+    return JSONResponse(
+        content=envelope.model_dump(mode="json"),
+        headers={"X-Correlation-Id": correlation_id},
+    )
 
 
 @router.delete("/conversations/{conversation_id}")

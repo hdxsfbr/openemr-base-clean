@@ -46,6 +46,7 @@ from ..guideline_retriever import EvidenceQuery, EvidenceResult
 from ..supervisor import SupervisorDecision, SupervisorEvent, SupervisorRouteEvent
 from ..week2_verifier import ClaimCandidate, Week2VerificationResult
 from ..week2_coordinator import CoordinatorResult
+from ..source_review import SourceReviewEnvelope
 
 EXPORTS = {
     "tool_request.schema.json": ToolRequest,
@@ -82,6 +83,7 @@ EXPORTS = {
     "claim_candidate.schema.json": ClaimCandidate,
     "week2_verification_result.schema.json": Week2VerificationResult,
     "coordinator_result.schema.json": CoordinatorResult,
+    "source_review_envelope.schema.json": SourceReviewEnvelope,
 }
 
 WEEK2_EXPORTS = {
