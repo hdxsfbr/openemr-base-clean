@@ -7,7 +7,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from app.supervisor import DeterministicSupervisor, SupervisorEvent
+from app.supervisor import DeterministicSupervisor, SupervisorEvent, SupervisorRouteEvent
 
 
 def _event(**overrides) -> SupervisorEvent:
@@ -165,3 +165,40 @@ def test_handoff_serialization_is_reference_only() -> None:
         "input_refs",
         "contract_versions",
     }
+
+
+def test_route_telemetry_is_once_per_decision_and_contains_no_input_references() -> None:
+    class Recorder:
+        def __init__(self) -> None:
+            self.events: list[SupervisorRouteEvent] = []
+
+        def record(self, event: SupervisorRouteEvent) -> None:
+            self.events.append(event)
+
+    recorder = Recorder()
+    event = _event(
+        guideline_intent="explicit_permitted",
+        evidence_query_ref=_ref("evidence_query", "cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+        corpus_ref=_ref("corpus", "uspstf-2026q3"),
+    )
+    supervisor = DeterministicSupervisor(
+        handoff_id=lambda: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        telemetry=recorder,
+    )
+
+    supervisor.route(event, now="2026-09-22T00:00:00Z")
+
+    assert len(recorder.events) == 1
+    payload = recorder.events[0].model_dump(mode="json")
+    assert payload == {
+        "event": "supervisor.route",
+        "correlation_id": "conversation.turn-01",
+        "event_kind": "chat_turn",
+        "status": "dispatched",
+        "routes": ["patient_turn_graph", "evidence_retriever"],
+        "limitation_codes": [],
+        "handoff_ids": ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+    }
+    serialized = json.dumps(payload)
+    assert "cccccccc-cccc-4ccc-8ccc-cccccccccccc" not in serialized
+    assert "uspstf-2026q3" not in serialized

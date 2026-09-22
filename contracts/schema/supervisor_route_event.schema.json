@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "event": {
+      "const": "supervisor.route",
+      "default": "supervisor.route",
+      "title": "Event",
+      "type": "string"
+    },
+    "event_kind": {
+      "enum": [
+        "document_uploaded",
+        "reprocess_requested",
+        "chat_turn"
+      ],
+      "title": "Event Kind",
+      "type": "string"
+    },
+    "handoff_ids": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 1,
+      "title": "Handoff Ids",
+      "type": "array"
+    },
+    "limitation_codes": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 4,
+      "title": "Limitation Codes",
+      "type": "array"
+    },
+    "routes": {
+      "items": {
+        "enum": [
+          "patient_turn_graph",
+          "intake_extractor",
+          "evidence_retriever"
+        ],
+        "type": "string"
+      },
+      "maxItems": 2,
+      "title": "Routes",
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "dispatched",
+        "refused",
+        "canceled",
+        "unavailable"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "correlation_id",
+    "event_kind",
+    "status",
+    "routes",
+    "limitation_codes",
+    "handoff_ids"
+  ],
+  "title": "SupervisorRouteEvent",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

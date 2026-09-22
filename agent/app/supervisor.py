@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Literal
+from typing import Callable, Literal, Protocol
 from uuid import uuid4
 
 from pydantic import Field, model_validator
@@ -12,6 +13,7 @@ from .contracts.common import CorrelationId, StrictModel
 from .contracts.week2 import VersionedReference, WorkerHandoffRequest
 
 Route = Literal["patient_turn_graph", "intake_extractor", "evidence_retriever"]
+log = logging.getLogger("copilot.supervisor")
 
 
 class SupervisorReadiness(StrictModel):
@@ -65,11 +67,58 @@ class SupervisorDecision(StrictModel):
     limitation_codes: list[str] = Field(max_length=4)
 
 
+class SupervisorRouteEvent(StrictModel):
+    event: Literal["supervisor.route"] = "supervisor.route"
+    correlation_id: CorrelationId
+    event_kind: Literal["document_uploaded", "reprocess_requested", "chat_turn"]
+    status: Literal["dispatched", "refused", "canceled", "unavailable"]
+    routes: tuple[Route, ...] = Field(max_length=2)
+    limitation_codes: list[str] = Field(max_length=4)
+    handoff_ids: list[str] = Field(max_length=1)
+
+
+class SupervisorTelemetryPort(Protocol):
+    def record(self, event: SupervisorRouteEvent) -> None: ...
+
+
+class LoggingSupervisorTelemetry:
+    def record(self, event: SupervisorRouteEvent) -> None:
+        log.info(
+            "supervisor.route routes=%s limitations=%s handoffs=%d",
+            ",".join(event.routes) or "none",
+            ",".join(event.limitation_codes) or "none",
+            len(event.handoff_ids),
+            extra={
+                "component": "supervisor",
+                "correlation_id": event.correlation_id,
+                "status": event.status,
+            },
+        )
+
+
 class DeterministicSupervisor:
-    def __init__(self, *, handoff_id: Callable[[], str] = lambda: str(uuid4())) -> None:
+    def __init__(
+        self,
+        *,
+        handoff_id: Callable[[], str] = lambda: str(uuid4()),
+        telemetry: SupervisorTelemetryPort | None = None,
+    ) -> None:
         self._handoff_id = handoff_id
+        self._telemetry = telemetry or LoggingSupervisorTelemetry()
 
     def route(self, event: SupervisorEvent, *, now: str) -> SupervisorDecision:
+        decision = self._route(event, now=now)
+        self._telemetry.record(SupervisorRouteEvent(
+            correlation_id=event.correlation_id,
+            event_kind=event.event_kind,
+            status=decision.status,
+            routes=decision.routes,
+            limitation_codes=decision.limitation_codes,
+            handoff_ids=[handoff.handoff_id for handoff in decision.handoffs],
+        ))
+        return decision
+
+    def _route(self, event: SupervisorEvent, *, now: str) -> SupervisorDecision:
         observed_now = _utc(now)
         if not event.authorized:
             return self._decision("refused", limitations=["authorization_denied"])
