@@ -461,26 +461,53 @@
         head.appendChild(el('span', 'badge badge-' + (result.status === 'complete' ? 'success' : result.status === 'partial' ? 'warning' : 'danger') + ' mr-2',
             result.status === 'complete' ? 'Preview verified' : result.status === 'partial' ? 'Preview partial' : 'Preview unavailable'));
         container.appendChild(head);
-        container.appendChild(el('p', 'copilot-preview-notice', 'Extraction preview only — not saved to the chart and not used for later chart answers.'));
         var extraction = result.extraction;
+        var intake = extraction && !extraction.fields;
+        container.appendChild(el('p', 'copilot-preview-notice', (intake ? 'Intake extraction preview' : 'Lab extraction preview') + ' only — not saved to the chart and not used for later chart answers.'));
         if (extraction) {
             var list = el('dl', 'copilot-extraction-fields');
-            Object.keys(extraction.fields || {}).forEach(function (name) {
-                var evidence = extraction.fields[name] || {};
+            var fields = extraction.fields || {};
+            var values = extraction;
+            if (!extraction.fields) {
+                function addIntake(name, field) {
+                    if (!field) { return; }
+                    fields[name] = field.evidence || {};
+                    values[name] = field.value;
+                }
+                var demo = extraction.demographics || {};
+                addIntake('given_name', demo.given_name);
+                addIntake('family_name', demo.family_name);
+                addIntake('date_of_birth', demo.date_of_birth);
+                addIntake('administrative_sex', demo.administrative_sex);
+                addIntake('gender_identity', demo.gender_identity);
+                addIntake('pronouns', demo.pronouns);
+                addIntake('address', demo.address);
+                addIntake('phone', demo.phone);
+                addIntake('chief_concern', extraction.chief_concern);
+                (extraction.medications || []).forEach(function (item, i) { ['name', 'strength', 'dose', 'route', 'frequency', 'status'].forEach(function (key) { addIntake('medication_' + (i + 1) + '_' + key, item[key]); }); });
+                (extraction.allergies || []).forEach(function (item, i) { ['substance', 'reaction', 'severity', 'status'].forEach(function (key) { addIntake('allergy_' + (i + 1) + '_' + key, item[key]); }); });
+                (extraction.family_history || []).forEach(function (item, i) { ['relationship', 'condition', 'onset_age_years'].forEach(function (key) { addIntake('family_history_' + (i + 1) + '_' + key, item[key]); }); });
+            }
+            Object.keys(fields).forEach(function (name) {
+                var evidence = fields[name] || {};
                 var dt = el('dt', null, name.replace(/_/g, ' '));
                 var dd = el('dd');
-                if (evidence.state === 'extracted') {
-                    dd.appendChild(el('span', null, extraction[name]));
-                    var cite = evidence.source_citation;
-                    if (cite) {
-                        var link = el('a', 'copilot-cite ml-2', 'Open source');
-                        link.href = sourcePreviewUrl(result.source_id);
-                        link.target = '_blank'; link.rel = 'noopener';
-                        link.title = 'Open source page ' + cite.page_or_section;
-                        dd.appendChild(link);
-                    }
+                var value = values[name];
+                if (value !== null && value !== undefined) {
+                    dd.appendChild(el('span', null, value));
                 } else {
                     dd.appendChild(el('span', 'text-warning', evidence.state || 'unavailable'));
+                }
+                var cite = evidence.source_citation;
+                if (cite) {
+                    if ((value === null || value === undefined) || cite.quote_or_value !== value) {
+                        dd.appendChild(el('span', 'small text-muted ml-2', 'Printed: ' + cite.quote_or_value));
+                    }
+                    var link = el('a', 'copilot-cite ml-2', 'Open source');
+                    link.href = sourcePreviewUrl(result.source_id);
+                    link.target = '_blank'; link.rel = 'noopener';
+                    link.title = 'Open source page ' + cite.page_or_section;
+                    dd.appendChild(link);
                 }
                 list.appendChild(dt); list.appendChild(dd);
             });
@@ -674,9 +701,10 @@
         if (state.busy || !documentFile || !documentFile.files || documentFile.files.length !== 1) { return; }
         setBusy(true);
         var pending = null;
-        setStatus('Storing the lab document for this open chart…', 'text-muted');
+        var selectedType = documentType.value;
+        setStatus('Storing the document for this open chart…', 'text-muted');
         prepareTurn().then(function () {
-            return postJson(modulePath + '/public/api/document_intent.php', { document_type: 'lab_pdf', csrf_token: state.csrf });
+            return postJson(modulePath + '/public/api/document_intent.php', { document_type: selectedType, csrf_token: state.csrf });
         }).then(function (intent) {
             if (!intent.ok || !intent.data || !intent.data.intent_id) { throw new Error(intent.data && intent.data.code ? intent.data.code : 'document_intent'); }
             var formData = new FormData();
@@ -687,7 +715,7 @@
         }).then(function (upload) {
             if (!upload.ok || !upload.data || !upload.data.source || !upload.data.source.source_id) { throw new Error(upload.data && upload.data.code ? upload.data.code : 'document_upload'); }
             clearPlaceholder();
-            appendNote('Lab document stored. Extracting a review-only preview…', 'text-muted');
+            appendNote((selectedType === 'intake_form' ? 'Intake form' : 'Lab document') + ' stored. Extracting a review-only preview…', 'text-muted');
             pending = appendPending();
             setProgress(pending, 'Reading the authorized document…');
             return ensureConversation().then(ticket).then(function (t) {
@@ -702,7 +730,7 @@
             setStatus('', 'text-muted');
         }).catch(function (error) {
             var code = error && error.name === 'AbortError' ? 'AbortError' : (error && error.message ? error.message : 'error');
-            var message = ERROR_MESSAGES[code] || ('Lab preview unavailable (' + code + '). No extracted facts were shown.');
+            var message = ERROR_MESSAGES[code] || ((selectedType === 'intake_form' ? 'Intake' : 'Lab') + ' preview unavailable (' + code + '). No extracted facts were shown.');
             if (pending) { pending.textContent = ''; pending.className = 'copilot-msg copilot-msg-assistant text-danger'; pending.appendChild(el('div', 'copilot-message-text', message)); }
             else { appendNote(message, 'text-danger'); }
             setStatus('', 'text-muted');
@@ -766,15 +794,19 @@
     // ---- composer (fixed below the transcript) ----
     var suggestions = el('div', 'copilot-suggestions');
     var documentForm = el('div', 'copilot-document-form');
-    var documentLabel = el('label', 'small mb-1', 'Upload a synthetic lab PDF for a review-only preview');
+    var documentLabel = el('label', 'small mb-1', 'Upload a synthetic document for a review-only preview');
     documentLabel.htmlFor = 'copilot-lab-pdf';
     var documentFile = el('input', 'form-control-file form-control-sm');
+    var documentType = el('select', 'custom-select custom-select-sm mb-1');
+    documentType.appendChild(el('option', null, 'Lab PDF')).value = 'lab_pdf';
+    documentType.appendChild(el('option', null, 'Intake form PDF')).value = 'intake_form';
     documentFile.id = 'copilot-lab-pdf'; documentFile.type = 'file'; documentFile.accept = 'application/pdf';
     var extractButton = el('button', 'btn btn-sm btn-outline-primary mt-1', 'Extract lab preview');
     extractButton.type = 'button'; extractButton.disabled = true;
     documentFile.addEventListener('change', function () { extractButton.disabled = state.busy || documentFile.files.length !== 1; });
+    documentType.addEventListener('change', function () { extractButton.textContent = documentType.value === 'intake_form' ? 'Extract intake preview' : 'Extract lab preview'; });
     extractButton.addEventListener('click', uploadAndExtract);
-    documentForm.appendChild(documentLabel); documentForm.appendChild(documentFile); documentForm.appendChild(extractButton);
+    documentForm.appendChild(documentLabel); documentForm.appendChild(documentType); documentForm.appendChild(documentFile); documentForm.appendChild(extractButton);
     var form = el('form', 'copilot-form');
     var input = el('input', 'form-control form-control-sm');
     input.type = 'text';

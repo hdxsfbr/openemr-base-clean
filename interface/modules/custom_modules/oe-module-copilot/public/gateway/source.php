@@ -27,6 +27,7 @@ try {
     header('Cache-Control: no-store');
     header('X-Correlation-Id: ' . $correlationId);
     header('X-Copilot-Source-Id: ' . $result['source']['source_id']);
+    header('X-Copilot-Document-Type: ' . $result['source']['document_type']);
     // Integrity metadata only: the worker recomputes this hash over the
     // returned bytes before a resolver may cite any proposed field.
     header('X-Copilot-Source-Hash: ' . $result['source']['content_hash']);

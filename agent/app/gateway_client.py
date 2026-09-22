@@ -58,12 +58,13 @@ class HttpGateway:
         try:
             response = await self._client.get(f"{self.base_url}/source.php", params={"source_id": source_id}, headers=headers)
         except httpx.HTTPError:
-            return SourceBytes(status=503, source_id=None, source_hash=None, content_type=None, bytes=None)
+            return SourceBytes(status=503, source_id=None, source_hash=None, content_type=None, document_type=None, bytes=None)
         return SourceBytes(
             status=response.status_code,
             source_id=response.headers.get("X-Copilot-Source-Id"),
             source_hash=response.headers.get("X-Copilot-Source-Hash"),
             content_type=(response.headers.get("Content-Type") or "").split(";", 1)[0],
+            document_type=response.headers.get("X-Copilot-Document-Type"),
             bytes=response.content if response.status_code == 200 else None,
         )
 
