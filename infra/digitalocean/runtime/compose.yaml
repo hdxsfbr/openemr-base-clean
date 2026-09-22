@@ -170,6 +170,10 @@ services:
       COPILOT_GATEWAY_PING_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php
       COPILOT_STATE_DIR: /var/lib/copilot
       COPILOT_GUIDELINE_ENABLED: "1"
+      # The required candidate gate compares these public values with the
+      # pipeline commit and immutable image digest before executing any case.
+      COPILOT_CANDIDATE_COMMIT: ${COPILOT_CANDIDATE_COMMIT:-unknown}
+      COPILOT_RUNTIME_IMAGE: ${COPILOT_RUNTIME_IMAGE:-agentforge/copilot-agent:local}
       # No TZ, for the same reason as openemr above: `date.today()` here decides
       # which encounter counts as "the last visit" for the UC-01 window, and it has
       # to mean the same day the database means. Log timestamps were always UTC with

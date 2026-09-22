@@ -80,6 +80,11 @@ class Settings(BaseSettings):
     guideline_manifest_path: Path = Path("/app/guideline-corpus/manifest.json")
     ready_cache_seconds: float = 30.0
 
+    # Public, non-secret deployment identity used by the candidate release
+    # gate to reject a stale or mutable environment before any eval runs.
+    candidate_commit: str = "unknown"
+    runtime_image: str = "unknown"
+
     # Demo/CI only: honors X-Copilot-Fault (model, tool:<name>, tracer, budget).
     fault_injection: bool = False
 

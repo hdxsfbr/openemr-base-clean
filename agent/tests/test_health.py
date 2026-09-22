@@ -23,6 +23,22 @@ def test_health_is_alive_and_echoes_correlation_id(client: TestClient) -> None:
     assert response.headers["X-Correlation-Id"] == "abc-12345"
 
 
+def test_health_reports_exact_candidate_commit_and_immutable_runtime_image(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = Settings(
+        candidate_commit="a" * 40,
+        runtime_image="registry.example/agent@sha256:" + "b" * 64,
+    )
+    monkeypatch.setattr(main_module, "settings", candidate)
+
+    body = client.get("/health").json()
+
+    assert body["candidate_commit"] == "a" * 40
+    assert body["runtime_image"] == "registry.example/agent@sha256:" + "b" * 64
+
+
 def test_the_panels_health_check_counts_the_top_of_the_funnel(client: TestClient) -> None:
     """The chart panel says why it is checking reachability; only the three
     known events are counted, and a probe or a made-up value counts nothing."""

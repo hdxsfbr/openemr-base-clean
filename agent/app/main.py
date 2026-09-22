@@ -130,7 +130,13 @@ async def health(panel: str | None = None) -> dict:
     the top of the funnel in `/metrics`; any other value is ignored."""
     if panel and metrics.panel_event(panel):
         log.info("panel event: %s", panel, extra={"component": "funnel"})
-    return {"status": "ok", "version": __version__, "uptime_seconds": round(time.time() - _started_at, 1)}
+    return {
+        "status": "ok",
+        "version": __version__,
+        "candidate_commit": settings.candidate_commit,
+        "runtime_image": settings.runtime_image,
+        "uptime_seconds": round(time.time() - _started_at, 1),
+    }
 
 
 @app.get("/ready")
