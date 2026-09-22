@@ -1,6 +1,6 @@
 <?php
 
-/** Create a server-bound Slice 1 lab-upload intent. @package OpenEMR */
+/** Create a server-bound document-upload intent. @package OpenEMR */
 
 require_once __DIR__ . '/../../../../../globals.php';
 
@@ -27,9 +27,9 @@ if (!UploadRequestPolicy::acceptsIntent($body)) {
 }
 try {
     $ctx = UploadContext::fromSession($correlationId);
-    $intent = (new SourceDocumentRepository())->createIntent($ctx);
+    $intent = (new SourceDocumentRepository())->createIntent($ctx, (string) $body['document_type']);
     Audit::event('copilot-document-intent', $ctx->username, $ctx->groupName, true, $ctx->pid, [
-        'intent_id' => $intent['intent_id'], 'document_type' => 'lab_pdf', 'correlation_id' => $correlationId,
+        'intent_id' => $intent['intent_id'], 'document_type' => $intent['document_type'], 'correlation_id' => $correlationId,
     ]);
     Json::send(201, $intent + ['correlation_id' => $correlationId], $correlationId);
 } catch (GatewayDenied $denied) {

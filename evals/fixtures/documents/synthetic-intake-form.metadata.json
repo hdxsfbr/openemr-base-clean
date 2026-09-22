@@ -1,0 +1,14 @@
+{
+  "fixture_id": "AF-IN-001",
+  "document_type": "intake_form",
+  "format": "application/pdf",
+  "synthetic_only": true,
+  "scenarios": [
+    "happy_required_fields",
+    "ambiguous_selection",
+    "conflicting_response",
+    "prompt_like_free_text",
+    "lab_as_intake_type_mismatch"
+  ],
+  "expected_boundary": "The upload policy accepts this intake fixture only through an intake_form intent. The existing synthetic-lab-golden.pdf is the type-mismatch fixture and must be rejected through that intent."
+}

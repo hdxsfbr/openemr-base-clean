@@ -20,7 +20,8 @@ final class UploadRequestPolicyTest extends TestCase
         self::assertTrue(UploadRequestPolicy::acceptsIntent(['document_type' => 'lab_pdf']));
         self::assertFalse(UploadRequestPolicy::acceptsIntent(['document_type' => 'lab_pdf', 'pid' => 2]));
         self::assertFalse(UploadRequestPolicy::acceptsIntent(['document_type' => 'lab_pdf', 'patient_id' => null]));
-        self::assertFalse(UploadRequestPolicy::acceptsIntent(['document_type' => 'intake_form']));
+        self::assertTrue(UploadRequestPolicy::acceptsIntent(['document_type' => 'intake_form']));
+        self::assertFalse(UploadRequestPolicy::acceptsIntent(['document_type' => 'unknown']));
     }
 
     public function testUploadRejectsEveryClientAuthorityField(): void

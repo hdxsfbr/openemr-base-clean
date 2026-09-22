@@ -16,7 +16,7 @@ final class LabPdfPolicy
     public const MAX_PAGES = 20;
 
     /**
-     * @return array{bytes: string, mime_type: 'application/pdf', byte_size: int, page_count: int, content_hash: string}
+     * @return array{bytes: string, document_type: 'lab_pdf', mime_type: 'application/pdf', byte_size: int, page_count: int, content_hash: string}
      * @throws SourceUploadException
      */
     public static function validate(array $file): array
@@ -37,7 +37,7 @@ final class LabPdfPolicy
     }
 
     /**
-     * @return array{bytes: string, mime_type: 'application/pdf', byte_size: int, page_count: int, content_hash: string}
+     * @return array{bytes: string, document_type: 'lab_pdf', mime_type: 'application/pdf', byte_size: int, page_count: int, content_hash: string}
      * @throws SourceUploadException
      */
     public static function validateBytes(string $bytes, string|false $mime, ?int $declaredSize = null): array
@@ -59,6 +59,7 @@ final class LabPdfPolicy
         }
         return [
             'bytes' => $bytes,
+            'document_type' => 'lab_pdf',
             'mime_type' => 'application/pdf',
             'byte_size' => $size,
             'page_count' => $pages,

@@ -1,11 +1,12 @@
 <?php
 
-/** Store exactly one lab PDF for a previously server-bound upload intent. @package OpenEMR */
+/** Store exactly one validated document for a previously server-bound upload intent. @package OpenEMR */
 
 require_once __DIR__ . '/../../../../../globals.php';
 
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Session\SessionWrapperFactory;
+use OpenEMR\Modules\Copilot\Documents\IntakeFormPolicy;
 use OpenEMR\Modules\Copilot\Documents\LabPdfPolicy;
 use OpenEMR\Modules\Copilot\Documents\SourceDocumentRepository;
 use OpenEMR\Modules\Copilot\Documents\SourceUploadException;
@@ -38,10 +39,17 @@ try {
         $repository->assertIntentUsable($ctx, $intentId);
         Json::send(200, ['contract_version' => '2.0.0', 'intent_id' => $intentId, 'status' => 'stored', 'source' => SourceDocumentRepository::publicSource($existing)], $correlationId);
     }
-    $file = LabPdfPolicy::validate($_FILES['document'] ?? []);
+    $intent = $repository->findIntent($intentId);
+    $repository->assertIntentUsable($ctx, $intentId);
+    $documentType = (string) ($intent['document_type'] ?? '');
+    $file = match ($documentType) {
+        'lab_pdf' => LabPdfPolicy::validate($_FILES['document'] ?? []),
+        'intake_form' => IntakeFormPolicy::validate($_FILES['document'] ?? []),
+        default => throw new SourceUploadException('invalid_file'),
+    };
     $source = $repository->store($ctx, $intentId, $file, $file['bytes']);
     Audit::event('copilot-document-stored', $ctx->username, $ctx->groupName, true, $ctx->pid, [
-        'source_id' => $source['source_id'], 'intent_id' => $intentId, 'document_type' => 'lab_pdf',
+        'source_id' => $source['source_id'], 'intent_id' => $intentId, 'document_type' => $source['document_type'],
         'bytes' => $file['byte_size'], 'pages' => $file['page_count'], 'content_hash' => $file['content_hash'], 'correlation_id' => $correlationId,
     ]);
     Json::send(201, ['contract_version' => '2.0.0', 'intent_id' => $intentId, 'status' => 'stored', 'source' => SourceDocumentRepository::publicSource($source)], $correlationId);
