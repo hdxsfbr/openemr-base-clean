@@ -50,9 +50,46 @@
         busy: false,
         // Server-side decision from session.php; the panel never decides this itself.
         briefOnOpen: false,
-        briefStarted: false
+        briefStarted: false,
+        activeCitationId: null,
+        sourceViewActive: false
     };
     var lastTrigger = null;
+
+    // Source review is created in place so the existing OpenEMR panel hook
+    // remains unchanged. Resizing changes presentation only; the answer DOM,
+    // correction inputs, and active source stay mounted.
+    var drawerBody = panel.querySelector('.copilot-drawer-body');
+    var sourceTabs = el('div', 'copilot-view-tabs');
+    var answerTab = el('button', 'btn btn-sm btn-outline-secondary is-active', 'Answer & review');
+    var sourceTab = el('button', 'btn btn-sm btn-outline-secondary', 'Source');
+    var sourceWorkspace = el('div', 'copilot-source-workspace');
+    var answerPane = el('section', 'copilot-answer-pane');
+    var sourcePane = el('section', 'copilot-source-pane');
+    var sourceLive = el('div', 'sr-only');
+    answerTab.type = 'button';
+    sourceTab.type = 'button';
+    answerTab.setAttribute('aria-controls', 'copilot-answer-pane');
+    sourceTab.setAttribute('aria-controls', 'copilot-source-pane');
+    answerPane.id = 'copilot-answer-pane';
+    sourcePane.id = 'copilot-source-pane';
+    sourcePane.setAttribute('aria-label', 'Citation source');
+    sourcePane.setAttribute('aria-hidden', 'true');
+    sourceLive.setAttribute('aria-live', 'polite');
+    sourceLive.setAttribute('aria-atomic', 'true');
+    sourceTabs.hidden = true;
+    sourceTabs.appendChild(answerTab);
+    sourceTabs.appendChild(sourceTab);
+    if (drawerBody) {
+        drawerBody.insertBefore(sourceTabs, drawerBody.firstChild);
+        [document.getElementById('copilot-upload'), transcript, composer].forEach(function (node) {
+            if (node) { answerPane.appendChild(node); }
+        });
+        sourcePane.appendChild(sourceLive);
+        sourceWorkspace.appendChild(answerPane);
+        sourceWorkspace.appendChild(sourcePane);
+        drawerBody.appendChild(sourceWorkspace);
+    }
 
     // Versions before 0.4.1 kept one global conversation id in sessionStorage,
     // which could be reused after a patient switch. Remove it; recent history
@@ -142,7 +179,9 @@
     }
     if (closeButton) { closeButton.addEventListener('click', closeDrawer); }
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && panel.classList.contains('is-open')) { closeDrawer(event); }
+        if (event.key !== 'Escape' || !panel.classList.contains('is-open')) { return; }
+        if (state.sourceViewActive) { showAnswerView(); event.preventDefault(); return; }
+        closeDrawer(event);
     });
 
     // ---- HTTP ----
@@ -182,6 +221,199 @@
     }
     function postForm(url, form, timeoutMs) {
         return fetchJson(url, { method: 'POST', body: form }, timeoutMs);
+    }
+
+    // ---- reauthorized click-to-source review ----
+    function setActiveCitation(citationId) {
+        state.activeCitationId = citationId;
+        Array.prototype.forEach.call(panel.querySelectorAll('.copilot-cite[data-citation-id]'), function (control) {
+            control.setAttribute('aria-pressed', control.getAttribute('data-citation-id') === citationId ? 'true' : 'false');
+        });
+    }
+    function narrowSourceLayout() {
+        return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 767.98px)').matches;
+    }
+    function synchronizeViewAccessibility() {
+        if (!panel.classList.contains('has-source') || (narrowSourceLayout() && !state.sourceViewActive)) {
+            sourcePane.setAttribute('aria-hidden', 'true');
+        } else {
+            sourcePane.removeAttribute('aria-hidden');
+        }
+        if (narrowSourceLayout() && state.sourceViewActive) {
+            answerPane.setAttribute('aria-hidden', 'true');
+        } else {
+            answerPane.removeAttribute('aria-hidden');
+        }
+    }
+    function showAnswerView() {
+        state.sourceViewActive = false;
+        panel.classList.remove('source-view-active');
+        answerTab.classList.add('is-active');
+        sourceTab.classList.remove('is-active');
+        answerTab.setAttribute('aria-pressed', 'true');
+        sourceTab.setAttribute('aria-pressed', 'false');
+        synchronizeViewAccessibility();
+        answerTab.focus();
+    }
+    function showSourceView() {
+        state.sourceViewActive = true;
+        panel.classList.add('has-source', 'source-view-active');
+        sourceTabs.hidden = false;
+        answerTab.classList.remove('is-active');
+        sourceTab.classList.add('is-active');
+        answerTab.setAttribute('aria-pressed', 'false');
+        sourceTab.setAttribute('aria-pressed', 'true');
+        synchronizeViewAccessibility();
+    }
+    answerTab.addEventListener('click', showAnswerView);
+    sourceTab.addEventListener('click', function () {
+        if (!state.activeCitationId) { return; }
+        showSourceView();
+        var heading = sourcePane.querySelector('.copilot-source-title');
+        if (heading) { heading.focus(); }
+    });
+    window.addEventListener('resize', synchronizeViewAccessibility);
+
+    function sourceRow(label, value) {
+        var row = el('div', 'copilot-source-row');
+        row.appendChild(el('dt', null, label));
+        row.appendChild(el('dd', null, value));
+        return row;
+    }
+    function displaySourceValue(value) {
+        if (typeof value === 'string' || typeof value === 'number') { return String(value); }
+        if (!value || typeof value !== 'object' || Array.isArray(value)) { return 'Structured reviewed value'; }
+        if (typeof value.display === 'string') { return value.display; }
+        if (typeof value.text === 'string') { return value.text; }
+        if (value.value !== undefined && (typeof value.value === 'string' || typeof value.value === 'number')) {
+            return String(value.value) + (typeof value.unit === 'string' ? ' ' + value.unit : '');
+        }
+        if (value.low !== undefined || value.high !== undefined) {
+            return String(value.low !== undefined ? value.low : '—') + '–' + String(value.high !== undefined ? value.high : '—')
+                + (typeof value.unit === 'string' ? ' ' + value.unit : '');
+        }
+        return 'Structured reviewed value';
+    }
+    function renderSourceLimitation(data) {
+        sourcePane.textContent = '';
+        sourcePane.appendChild(sourceLive);
+        var card = el('div', 'copilot-source-limitation');
+        var heading = el('h6', 'copilot-source-title', 'Source unavailable');
+        heading.tabIndex = -1;
+        card.appendChild(heading);
+        card.appendChild(el('p', null, data && data.limitation
+            ? data.limitation
+            : 'This source cannot be opened right now. The verified answer remains available.'));
+        if (data && data.retryable) {
+            card.appendChild(el('p', 'small text-muted', 'Try the citation again after confirming the open chart.'));
+        }
+        sourcePane.appendChild(card);
+        sourceLive.textContent = 'Source unavailable';
+        heading.focus();
+    }
+    function renderSource(data) {
+        if (!data || data.status !== 'available' || !data.source) { renderSourceLimitation(data); return; }
+        sourcePane.textContent = '';
+        sourcePane.appendChild(sourceLive);
+        var source = data.source;
+        var heading = el('h6', 'copilot-source-title', source.title || (source.source_type === 'guideline' ? 'Guideline evidence' : 'Source'));
+        heading.tabIndex = -1;
+        sourcePane.appendChild(heading);
+        var badge = el('div', 'copilot-source-class', data.lane === 'guideline_evidence' ? 'Guideline evidence' : 'Patient record');
+        sourcePane.appendChild(badge);
+
+        if (source.source_type === 'reviewed_document') {
+            var metadata = el('dl', 'copilot-source-metadata');
+            metadata.appendChild(sourceRow('Document type', source.document_type));
+            metadata.appendChild(sourceRow('Record version', String(source.record_version)));
+            metadata.appendChild(sourceRow('Location', 'Page ' + source.page_number + ' · ' + source.field_id));
+            sourcePane.appendChild(metadata);
+
+            var values = el('div', 'copilot-reviewed-values');
+            if (source.review_decision === 'corrected') {
+                values.appendChild(el('div', 'copilot-correction-marker', 'Physician corrected'));
+            }
+            var reviewed = el('div', 'copilot-reviewed-value');
+            reviewed.appendChild(el('strong', null, source.reviewed.label + ': '));
+            reviewed.appendChild(document.createTextNode(displaySourceValue(source.reviewed.value)));
+            var printed = el('div', 'copilot-printed-value');
+            printed.appendChild(el('strong', null, source.printed.label + ': '));
+            printed.appendChild(document.createTextNode(displaySourceValue(source.printed.value)));
+            values.appendChild(reviewed);
+            values.appendChild(printed);
+            sourcePane.appendChild(values);
+
+            var page = el('figure', 'copilot-page');
+            var pageCanvas = el('div', 'copilot-page-canvas');
+            var image = el('img', 'copilot-page-image');
+            image.alt = 'Authorized immutable source page ' + source.page_number;
+            image.src = 'data:' + source.page.media_type + ';base64,' + source.page.data_base64;
+            var focus = el('div', 'copilot-region-focus');
+            focus.setAttribute('aria-label', source.focus_label);
+            focus.style.left = (source.box.x * 100) + '%';
+            focus.style.top = (source.box.y * 100) + '%';
+            focus.style.width = (source.box.width * 100) + '%';
+            focus.style.height = (source.box.height * 100) + '%';
+            pageCanvas.appendChild(image);
+            pageCanvas.appendChild(focus);
+            page.appendChild(pageCanvas);
+            page.appendChild(el('figcaption', 'small', 'Page ' + source.page_number + ' · ' + source.focus_label));
+            sourcePane.appendChild(page);
+        } else if (source.source_type === 'guideline') {
+            var guidelineMeta = el('dl', 'copilot-source-metadata');
+            guidelineMeta.appendChild(sourceRow('Publisher', source.publisher));
+            guidelineMeta.appendChild(sourceRow('Section', source.section_path.join(' › ')));
+            guidelineMeta.appendChild(sourceRow('Corpus version', source.corpus_version));
+            sourcePane.appendChild(guidelineMeta);
+            sourcePane.appendChild(el('blockquote', 'copilot-guideline-excerpt', source.exact_excerpt));
+            sourcePane.appendChild(el('p', 'copilot-no-applicability', source.boundary));
+            var publisherLink = el('a', 'btn btn-sm btn-outline-secondary', 'Open publisher page');
+            publisherLink.href = source.canonical_url;
+            publisherLink.target = '_blank';
+            publisherLink.rel = 'noopener noreferrer';
+            sourcePane.appendChild(publisherLink);
+        } else if (source.source_type === 'openemr_record') {
+            var recordMeta = el('dl', 'copilot-source-metadata');
+            recordMeta.appendChild(sourceRow('Chart section', source.chart_section));
+            recordMeta.appendChild(sourceRow('Record version', source.source_version));
+            recordMeta.appendChild(sourceRow('Displayed value', source.displayed_value));
+            sourcePane.appendChild(recordMeta);
+            var chartLink = el('a', 'btn btn-sm btn-outline-primary', 'Open in this chart');
+            chartLink.href = source.same_chart_href;
+            chartLink.target = '_self';
+            sourcePane.appendChild(chartLink);
+        } else {
+            renderSourceLimitation(null);
+            return;
+        }
+        sourceLive.textContent = data.announcement || 'Citation source opened';
+        heading.focus();
+    }
+    function openCitation(turnId, citationId, control) {
+        setActiveCitation(citationId);
+        showSourceView();
+        sourcePane.textContent = '';
+        sourcePane.appendChild(sourceLive);
+        sourcePane.appendChild(el('div', 'copilot-source-loading', 'Reauthorizing and checking source integrity…'));
+        sourceLive.textContent = 'Opening citation source';
+        refreshSession().then(function () {
+            if (!state.conversationId) { throw new Error('conversation_closed'); }
+            return postJson(modulePath + '/public/api/sources.php', {
+                csrf_token: state.csrf,
+                conversation_id: state.conversationId,
+                turn_id: turnId,
+                citation_id: citationId
+            }, { 'X-Correlation-Id': state.correlationId || panel.getAttribute('data-correlation-id') }, 15000);
+        }).then(function (response) {
+            if (!response.ok || !response.data || response.data.status !== 'available') {
+                renderSourceLimitation(response.data);
+                return;
+            }
+            renderSource(response.data);
+        }).catch(function () {
+            renderSourceLimitation(null);
+        });
+        if (control) { control.setAttribute('aria-pressed', 'true'); }
     }
     /**
      * POST a turn and read it as server-sent events. Resolves with the final
@@ -356,8 +588,24 @@
         }
         return bits.join(' · ');
     }
-    function citationLinks(claim, sources) {
+    function citationLinks(claim, sources, turn) {
         var citations = el('div', 'copilot-cites');
+        if (Array.isArray(claim.citations) && claim.citations.length) {
+            claim.citations.forEach(function (citation, i) {
+                if (!citation || typeof citation.citation_id !== 'string' || !turn || typeof turn.turn_id !== 'string') { return; }
+                var control = el('button', 'copilot-cite', '[' + (i + 1) + ']');
+                control.type = 'button';
+                control.setAttribute('aria-label', 'Open source ' + (i + 1) + ' for ' + (claim.text || 'verified claim'));
+                control.setAttribute('aria-pressed', state.activeCitationId === citation.citation_id ? 'true' : 'false');
+                control.setAttribute('data-citation-id', citation.citation_id);
+                control.addEventListener('click', function () {
+                    openCitation(turn.turn_id, citation.citation_id, control);
+                });
+                citations.appendChild(control);
+                citations.appendChild(document.createTextNode(' '));
+            });
+            return citations;
+        }
         (claim.source_ids || []).forEach(function (sid, i) {
             var source = sources[sid];
             var href = source ? chartUrl(source) : null;
@@ -369,7 +617,7 @@
         });
         return citations;
     }
-    function claimsList(claims, sources) {
+    function claimsList(claims, sources, turn) {
         var list = el('div', 'copilot-sources-list');
         claims.forEach(function (claim) {
             var item = el('div', 'copilot-source copilot-claim-' + claim.type);
@@ -381,8 +629,15 @@
             item.appendChild(el('div', 'copilot-text', claim.text));
             var detail = claimDetail(claim);
             if (detail) { item.appendChild(el('div', 'small text-muted', detail)); }
-            item.appendChild(citationLinks(claim, sources));
+            item.appendChild(citationLinks(claim, sources, turn));
             list.appendChild(item);
+        });
+        return list;
+    }
+    function limitationList(limitations) {
+        var list = el('ul', 'copilot-limits small text-muted mb-0');
+        limitations.forEach(function (limitation) {
+            list.appendChild(el('li', limitation.kind === 'withheld' ? 'text-warning' : null, limitation.detail));
         });
         return list;
     }
@@ -425,11 +680,15 @@
         }
         container.appendChild(header);
 
-        if (turn.summary) {
+        var claims = turn.claims || [];
+        var patientClaims = claims.filter(function (claim) { return claim.claim_class !== 'guideline_evidence'; });
+        var guidelineClaims = claims.filter(function (claim) { return claim.claim_class === 'guideline_evidence'; });
+        if (turn.summary && !(patientClaims.length && guidelineClaims.length)) {
             container.appendChild(el('p', 'copilot-summary', turn.summary));
         }
-        var claims = turn.claims || [];
         var limitations = turn.limitations || [];
+        var guidelineLimitations = limitations.filter(function (limitation) { return limitation.section === 'guideline_evidence'; });
+        var patientLimitations = limitations.filter(function (limitation) { return limitation.section !== 'guideline_evidence'; });
         if (claims.length === 0) {
             container.appendChild(el('p', 'mb-1 text-muted', 'No verified statements for this question.'));
         }
@@ -440,15 +699,22 @@
         if (limitations.length) { detailCounts.push(limitations.length + (limitations.length === 1 ? ' limitation' : ' limitations')); }
         var answerDetails = disclosure('Sources & details', 0, detailCounts.join(' · ') || 'Turn details');
         var detailBody = el('div', 'copilot-disclosure-body');
-        if (claims.length) { detailBody.appendChild(claimsList(claims, sources)); }
-        if (limitations.length) {
-            detailBody.appendChild(el('div', 'copilot-detail-heading', 'Limitations'));
-            var lim = el('ul', 'copilot-limits small text-muted mb-0');
-            limitations.forEach(function (l) {
-                var item = el('li', l.kind === 'withheld' ? 'text-warning' : null, l.detail);
-                lim.appendChild(item);
-            });
-            detailBody.appendChild(lim);
+        if (patientClaims.length || patientLimitations.length) {
+            var patientLane = el('section', 'copilot-evidence-lane copilot-patient-lane');
+            patientLane.appendChild(el('h6', 'copilot-lane-heading', 'Patient record'));
+            if (patientClaims.length) { patientLane.appendChild(claimsList(patientClaims, sources, turn)); }
+            if (patientLimitations.length) { patientLane.appendChild(limitationList(patientLimitations)); }
+            detailBody.appendChild(patientLane);
+        }
+        if (guidelineClaims.length || guidelineLimitations.length) {
+            var guidelineLane = el('section', 'copilot-evidence-lane copilot-guideline-lane');
+            guidelineLane.appendChild(el('h6', 'copilot-lane-heading', 'Guideline evidence'));
+            if (guidelineClaims.length) {
+                guidelineLane.appendChild(claimsList(guidelineClaims, sources, turn));
+                guidelineLane.appendChild(el('p', 'copilot-no-applicability', 'Guideline evidence for physician review; patient applicability was not determined.'));
+            }
+            if (guidelineLimitations.length) { guidelineLane.appendChild(limitationList(guidelineLimitations)); }
+            detailBody.appendChild(guidelineLane);
         }
         var meta = evidenceLine(turn);
         if (meta) { detailBody.appendChild(el('div', 'copilot-meta small text-muted', meta)); }
