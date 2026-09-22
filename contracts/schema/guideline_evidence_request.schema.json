@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "GuidelineTopic": {
+      "enum": [
+        "aaa",
+        "breast",
+        "cervical",
+        "colorectal",
+        "lung",
+        "child_obesity",
+        "hypertension",
+        "tobacco"
+      ],
+      "title": "GuidelineTopic",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Browser-facing, bounded request after the chart gateway has reauthorized.\n\nThis deliberately contains finite retrieval selectors only.  In particular it\nhas no patient, chart, question, note, source, or free-text field.",
+  "properties": {
+    "concepts": {
+      "items": {
+        "$ref": "#/$defs/GuidelineTopic"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "title": "Concepts",
+      "type": "array"
+    },
+    "deadline_ms": {
+      "default": 2000,
+      "maximum": 2000,
+      "minimum": 1,
+      "title": "Deadline Ms",
+      "type": "integer"
+    },
+    "requested_top_k": {
+      "default": 3,
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Requested Top K",
+      "type": "integer"
+    },
+    "topic_filter": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GuidelineTopic"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "concepts"
+  ],
+  "title": "GuidelineEvidenceRequest",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

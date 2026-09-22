@@ -193,6 +193,7 @@ services:
       # trace. Synthetic-only content capture remains an explicit local
       # troubleshooting choice, never the deployed default.
       COPILOT_TRACE_CONTENT: ${COPILOT_TRACE_CONTENT:-0}
+      COPILOT_GUIDELINE_MODELS_DIR: /opt/copilot-models
     # The agent runs as uid 10001; start.sh makes these four host files 0644
     # (Compose file secrets keep the host mode; `mode` is swarm-only).
     secrets:
@@ -203,6 +204,7 @@ services:
       - langfuse_secret_key
     volumes:
       - agent_state:/var/lib/copilot
+      - guideline_models:/opt/copilot-models:ro
     networks:
       - frontend
     depends_on:
@@ -218,6 +220,18 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # Setup-only network access for the four pinned artifacts. The running agent
+  # receives this volume read-only and has no downloader path.
+  guideline-model-provision:
+    image: agentforge/copilot-agent:local
+    profiles: [guideline-models]
+    user: "0:0"
+    command: ["python", "scripts/provision_guideline_models.py", "--destination", "/opt/copilot-models"]
+    volumes:
+      - guideline_models:/opt/copilot-models
+    networks:
+      - frontend
 
   # PRD runtime alerts (docs/operations/alerts.md): the evaluator loops every
   # 300 s over the agent's /metrics and /ready, keeping the previous sample on
@@ -311,6 +325,7 @@ volumes:
   openemr_logs:
   openemr_ssl:
   agent_state:
+  guideline_models:
   caddy_data:
   caddy_config:
 

@@ -36,6 +36,7 @@ $session = SessionWrapperFactory::getInstance()->getActiveSession();
 $userId = (int) $session->get('authUserID', 0);
 $username = (string) $session->get('authUser', '');
 $groupName = (string) $session->get('authProvider', 'Default');
+$siteId = (string) $session->get('site_id', 'default');
 if ($userId <= 0 || $username === '') {
     Json::error(401, 'unauthorized', 'Not signed in.', $correlationId);
 }
@@ -80,6 +81,15 @@ if (ContextBuilder::isBreakGlass($username)) {
         'correlation_id' => $baseCorrelation,
     ]);
     Json::error(403, 'conversation_closed', 'Request denied.', $baseCorrelation);
+}
+if (($conversation['site_id'] ?? 'default') !== $siteId) {
+    $conversations->close($conversation['id'], 'site_context_changed');
+    Audit::denied($username, $groupName, $pid, 'site_context_changed', [
+        'stage' => 'ticket',
+        'conversation_id' => $conversation['id'],
+        'correlation_id' => $baseCorrelation,
+    ]);
+    Json::error(409, 'patient_context_changed', 'The site context changed; start a new conversation.', $baseCorrelation);
 }
 if (Compat::openPid() !== $pid) {
     // SEC-HIGH-002 / ARCH-HIGH-001: the session pid is a request, not a grant.

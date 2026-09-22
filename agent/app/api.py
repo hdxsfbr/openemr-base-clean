@@ -16,7 +16,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
 from . import __version__
-from .contracts import CONTRACT_VERSION, ErrorEnvelope, IntakeExtractionResult, LabExtractionRequest, TurnRequest, TurnResponse, Verification
+from .contracts import (CONTRACT_VERSION, ErrorEnvelope, GuidelineEvidenceRequest, GuidelineSourceRequest,
+    IntakeExtractionResult, LabExtractionRequest, TurnRequest, TurnResponse, Verification)
 from .delegation import Delegation, DelegationError, verify
 from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
@@ -170,6 +171,42 @@ def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResp
         "correlation_id": correlation_id,
         "contract_version": CONTRACT_VERSION,
     })
+
+
+@router.post("/conversations/{conversation_id}/guideline-evidence")
+async def post_guideline_evidence(conversation_id: str, request: Request, authorization: str | None = Header(default=None), x_copilot_token: str | None = Header(default=None)):
+    """Run the explicit finite retrieval seam after a chart-bound ticket."""
+    correlation_id = request.state.correlation_id
+    auth = _authenticate(request, conversation_id, authorization, x_copilot_token)
+    if isinstance(auth, JSONResponse):
+        return auth
+    try:
+        body = GuidelineEvidenceRequest.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        return _error(400, "invalid_request", "Invalid guideline evidence request.", correlation_id)
+    service = getattr(request.app.state, "guideline_release", None)
+    if service is None:
+        return _error(503, "dependency_unavailable", "Guideline evidence is unavailable.", correlation_id)
+    result = await asyncio.to_thread(service.invoke, conversation_id, auth.turn_id, correlation_id, body)
+    return JSONResponse(status_code=200, content=result.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id, "Cache-Control": "no-store"})
+
+
+@router.post("/conversations/{conversation_id}/guideline-source")
+async def post_guideline_source(conversation_id: str, request: Request, authorization: str | None = Header(default=None), x_copilot_token: str | None = Header(default=None)):
+    """A source click must use a fresh module ticket and exact saved evidence."""
+    correlation_id = request.state.correlation_id
+    auth = _authenticate(request, conversation_id, authorization, x_copilot_token)
+    if isinstance(auth, JSONResponse):
+        return auth
+    try:
+        body = GuidelineSourceRequest.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        return _error(400, "invalid_request", "Invalid guideline source request.", correlation_id)
+    service = getattr(request.app.state, "guideline_release", None)
+    source = None if service is None else await asyncio.to_thread(service.resolve, conversation_id, body.evidence_turn_id, body.source_id)
+    if source is None:
+        return _error(403, "unauthorized", "Source is unavailable.", correlation_id)
+    return JSONResponse(status_code=200, content=source.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id, "Cache-Control": "no-store"})
 
 
 @router.post("/conversations/{conversation_id}/lab-extractions")

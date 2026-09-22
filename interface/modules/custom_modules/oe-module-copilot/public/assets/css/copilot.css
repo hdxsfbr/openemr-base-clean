@@ -255,6 +255,13 @@
 #copilot-panel .copilot-form { display: flex; gap: 0.4rem; }
 #copilot-panel .copilot-form input { min-width: 0; flex: 1 1 auto; }
 #copilot-panel .copilot-document-form { margin: 0 0 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid #edf0f3; }
+#copilot-panel .copilot-guideline-form { margin: 0 0 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid #edf0f3; }
+#copilot-panel .copilot-guideline-lane { border-left: 4px solid #4b6eaf; }
+#copilot-panel .copilot-guideline-heading { color: #294d86; font-weight: 700; }
+#copilot-panel .copilot-guideline-notice { color: #6c4f00; font-size: 0.85rem; }
+#copilot-panel .copilot-guideline-excerpt { margin-top: 0.55rem; padding-top: 0.55rem; border-top: 1px solid #dbe3f2; }
+#copilot-panel .copilot-guideline-quote, #copilot-panel .copilot-guideline-full-quote { white-space: pre-wrap; overflow-wrap: anywhere; }
+#copilot-panel .copilot-guideline-source-view { margin-top: 0.5rem; padding: 0.55rem; border: 1px solid #4b6eaf; background: #fff; }
 #copilot-panel .copilot-document-form label { display: block; color: #495057; }
 #copilot-panel .copilot-preview-notice { margin-bottom: 0.55rem; color: #6c757d; font-size: 0.82rem; }
 #copilot-panel .copilot-extraction-fields { display: grid; grid-template-columns: minmax(7rem, 0.9fr) minmax(0, 1.6fr); gap: 0.35rem 0.65rem; margin: 0; font-size: 0.88rem; }

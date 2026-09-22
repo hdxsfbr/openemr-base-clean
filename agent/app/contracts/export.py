@@ -19,8 +19,12 @@ from . import (
     GuidelineCandidate,
     GuidelineCitation,
     GuidelineEvidenceClaim,
+    GuidelineEvidenceRequest,
+    GuidelineEvidenceResponse,
     GuidelineExcerpt,
     GuidelineRetrievalLimitation,
+    GuidelineSourceRequest,
+    GuidelineSourceResponse,
     IntakeExtraction,
     IntakeExtractionResult,
     LabExtraction,
@@ -59,6 +63,10 @@ EXPORTS = {
     "guideline_excerpt.schema.json": GuidelineExcerpt,
     "guideline_citation.schema.json": GuidelineCitation,
     "guideline_evidence_claim.schema.json": GuidelineEvidenceClaim,
+    "guideline_evidence_request.schema.json": GuidelineEvidenceRequest,
+    "guideline_evidence_response.schema.json": GuidelineEvidenceResponse,
+    "guideline_source_request.schema.json": GuidelineSourceRequest,
+    "guideline_source_response.schema.json": GuidelineSourceResponse,
     "guideline_retrieval_limitation.schema.json": GuidelineRetrievalLimitation,
 }
 

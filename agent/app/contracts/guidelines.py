@@ -244,6 +244,58 @@ class EvidenceWorkerStatus(StrEnum):
     canceled = "canceled"
 
 
+class GuidelineEvidenceRequest(StrictModel):
+    """Browser-facing, bounded request after the chart gateway has reauthorized.
+
+    This deliberately contains finite retrieval selectors only.  In particular it
+    has no patient, chart, question, note, source, or free-text field.
+    """
+
+    concepts: list[GuidelineTopic] = Field(min_length=1, max_length=3)
+    topic_filter: GuidelineTopic | None = None
+    requested_top_k: int = Field(default=3, ge=1, le=5)
+    deadline_ms: int = Field(default=2000, ge=1, le=2000)
+
+    @model_validator(mode="after")
+    def bounded_topic_filter(self) -> "GuidelineEvidenceRequest":
+        if self.topic_filter is not None and self.topic_filter not in self.concepts:
+            raise ValueError("topic_filter must be one of the approved concepts")
+        if len(set(self.concepts)) != len(self.concepts):
+            raise ValueError("concepts must not repeat")
+        return self
+
+
+class GuidelineEvidenceResponse(StrictModel):
+    """Only verifier-authorized publisher excerpts may enter this response."""
+
+    turn_id: str = Field(pattern=r"^[a-f0-9]{16}$")
+    correlation_id: CorrelationId
+    status: Literal["complete", "partial", "limited"]
+    claims: list[GuidelineEvidenceClaim] = Field(default_factory=list, max_length=5)
+    limitations: list[GuidelineRetrievalLimitation] = Field(default_factory=list, max_length=1)
+    worker: EvidenceWorkerResult
+    applicability_notice: Literal["Patient applicability was not determined. Physician judgment is required."] = "Patient applicability was not determined. Physician judgment is required."
+
+
+class GuidelineSourceRequest(StrictModel):
+    """A reauthorized click may reopen only an evidence item saved for its turn."""
+
+    evidence_turn_id: str = Field(pattern=r"^[a-f0-9]{16}$")
+    source_id: GuidelineSourceId
+
+
+class GuidelineSourceResponse(StrictModel):
+    source_id: GuidelineSourceId
+    corpus_version: Literal["uspstf-recommendations-2026-09-21-v2"] = ACTIVE_CORPUS_VERSION
+    title: str = Field(min_length=1, max_length=300)
+    publisher: str = Field(min_length=1, max_length=160)
+    section_path: list[str] = Field(min_length=1, max_length=8)
+    exact_text: str = Field(min_length=1, max_length=4000)
+    canonical_url: HttpUrl
+    source_sha256: Sha256
+    chunk_sha256: Sha256
+
+
 class EvidenceWorkerTimings(StrictModel):
     sparse_ms: float = Field(ge=0, le=2000)
     dense_ms: float = Field(ge=0, le=2000)

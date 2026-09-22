@@ -638,6 +638,8 @@
         send.disabled = busy;
         if (documentFile) { documentFile.disabled = busy; }
         if (extractButton) { extractButton.disabled = busy || !documentFile || !documentFile.files || documentFile.files.length !== 1; }
+        if (guidelineTopic) { guidelineTopic.disabled = busy; }
+        if (guidelineButton) { guidelineButton.disabled = busy; }
         Array.prototype.forEach.call(suggestions.querySelectorAll('button'), function (b) { b.disabled = busy; });
     }
     /** Offer follow-up questions as chips: the turn's own, topped up with starters not yet asked. */
@@ -737,6 +739,53 @@
         }).finally(function () { setBusy(false); scrollToEnd(); });
     }
 
+    // This is a separate publisher-evidence lane: it never sends chart data,
+    // and it does not determine whether a guideline applies to this patient.
+    function renderGuidelineEvidence(result, container) {
+        container.textContent = '';
+        container.className = 'copilot-msg copilot-msg-assistant copilot-guideline-lane';
+        container.appendChild(el('div', 'copilot-guideline-heading', 'Guideline evidence'));
+        container.appendChild(el('p', 'copilot-guideline-notice', result.applicability_notice));
+        (result.claims || []).forEach(function (claim) {
+            var citation = claim.citations && claim.citations[0]; if (!citation) { return; }
+            var item = el('section', 'copilot-guideline-excerpt');
+            item.appendChild(el('div', 'small font-weight-bold', citation.title));
+            item.appendChild(el('blockquote', 'copilot-guideline-quote', citation.quote_or_value.quote));
+            item.appendChild(el('div', 'small text-muted', citation.page_or_section.section_path.join(' › ')));
+            var source = el('button', 'btn btn-sm btn-outline-secondary', 'Open exact source'); source.type = 'button';
+            source.addEventListener('click', function () { openGuidelineSource(result.turn_id, citation.source_id, source); });
+            item.appendChild(source); container.appendChild(item);
+        });
+        (result.limitations || []).forEach(function (limitation) { container.appendChild(el('p', 'small text-warning mb-1', limitation.detail)); });
+        appendMessageTime(container, new Date().toISOString(), 'assistant'); scrollToEnd();
+    }
+    function openGuidelineSource(evidenceTurnId, sourceId, trigger) {
+        trigger.disabled = true;
+        // A fresh ticket rechecks live user/site/patient/scope before every click.
+        ticket().then(function (t) {
+            return postJson(apiBase + '/v1/conversations/' + state.conversationId + '/guideline-source',
+                { evidence_turn_id: evidenceTurnId, source_id: sourceId }, { 'X-Copilot-Token': t.token, 'X-Correlation-Id': t.correlation_id }, 10000);
+        }).then(function (r) {
+            if (!r.ok || !r.data) { throw new Error('guideline_source'); }
+            var view = el('section', 'copilot-guideline-source-view'); view.tabIndex = -1; view.setAttribute('role', 'region'); view.setAttribute('aria-label', 'Approved guideline source');
+            view.appendChild(el('div', 'small font-weight-bold', r.data.title)); view.appendChild(el('div', 'small text-muted', r.data.section_path.join(' › ')));
+            view.appendChild(el('p', 'copilot-guideline-full-quote', r.data.exact_text));
+            var link = el('a', 'copilot-cite', 'Open publisher page'); link.href = r.data.canonical_url; link.target = '_blank'; link.rel = 'noopener'; view.appendChild(link);
+            trigger.parentNode.appendChild(view); view.focus();
+        }).catch(function () { appendNote('The approved guideline source is unavailable for this chart.', 'text-warning'); }).finally(function () { trigger.disabled = false; });
+    }
+    function requestGuidelineEvidence() {
+        if (state.busy) { return; }
+        setBusy(true); var pending = appendPending();
+        prepareTurn().then(ensureConversation).then(ticket).then(function (t) {
+            return postJson(apiBase + '/v1/conversations/' + state.conversationId + '/guideline-evidence',
+                { concepts: [guidelineTopic.value], topic_filter: guidelineTopic.value, requested_top_k: 3, deadline_ms: 2000 },
+                { 'X-Copilot-Token': t.token, 'X-Correlation-Id': t.correlation_id }, TURN_TIMEOUT_MS);
+        }).then(function (r) {
+            if (!r.ok || !r.data) { throw new Error('guideline_evidence'); } renderGuidelineEvidence(r.data, pending);
+        }).catch(function () { pending.textContent = ''; pending.appendChild(el('div', 'text-warning', 'Guideline evidence is unavailable. No guideline statement was shown.')); }).finally(function () { setBusy(false); });
+    }
+
     function briefStartedRecently() {
         try {
             var at = Number(sessionStorage.getItem(BRIEF_GUARD_KEY) || 0);
@@ -807,6 +856,12 @@
     documentType.addEventListener('change', function () { extractButton.textContent = documentType.value === 'intake_form' ? 'Extract intake preview' : 'Extract lab preview'; });
     extractButton.addEventListener('click', uploadAndExtract);
     documentForm.appendChild(documentLabel); documentForm.appendChild(documentType); documentForm.appendChild(documentFile); documentForm.appendChild(extractButton);
+    var guidelineForm = el('div', 'copilot-guideline-form');
+    guidelineForm.appendChild(el('div', 'small mb-1', 'Approved guideline evidence — not patient-specific advice'));
+    var guidelineTopic = el('select', 'custom-select custom-select-sm mb-1');
+    [['aaa','Abdominal aortic aneurysm'], ['breast','Breast screening'], ['cervical','Cervical screening'], ['colorectal','Colorectal screening'], ['lung','Lung screening'], ['child_obesity','Child high BMI'], ['hypertension','Adult hypertension'], ['tobacco','Tobacco cessation']].forEach(function (item) { var option = el('option', null, item[1]); option.value = item[0]; guidelineTopic.appendChild(option); });
+    var guidelineButton = el('button', 'btn btn-sm btn-outline-secondary', 'Show guideline evidence'); guidelineButton.type = 'button'; guidelineButton.addEventListener('click', requestGuidelineEvidence);
+    guidelineForm.appendChild(guidelineTopic); guidelineForm.appendChild(guidelineButton);
     var form = el('form', 'copilot-form');
     var input = el('input', 'form-control form-control-sm');
     input.type = 'text';
@@ -824,6 +879,7 @@
     });
     composer.appendChild(suggestions);
     composer.appendChild(documentForm);
+    composer.appendChild(guidelineForm);
     composer.appendChild(form);
     resetTranscript();
 

@@ -61,6 +61,10 @@ fi
 
 docker compose pull database caddy
 docker compose build --pull openemr agent
+# This setup-only command downloads no unpinned artifact: the provisioner
+# atomically verifies every full SHA-256. Its named volume is read-only in the
+# running agent service, so deployment never ships local model binaries.
+docker compose --profile guideline-models run --rm guideline-model-provision
 docker compose up --detach --wait --wait-timeout 600
 
 # Caddy can stay in Created when its depends_on on openemr resolves after the

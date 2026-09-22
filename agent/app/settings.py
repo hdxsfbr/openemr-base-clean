@@ -72,6 +72,9 @@ class Settings(BaseSettings):
 
     # Writable directory for the checkpointer (ADR-0005).
     state_dir: Path = Path("/var/lib/copilot")
+    # Provisioned by deployment setup, never downloaded by the runtime.
+    guideline_models_dir: Path = Path("/opt/copilot-models")
+    guideline_corpus_dir: Path = Path(__file__).resolve().parents[1] / "guideline_corpus"
     ready_cache_seconds: float = 30.0
 
     # Demo/CI only: honors X-Copilot-Fault (model, tool:<name>, tracer, budget).

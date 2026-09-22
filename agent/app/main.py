@@ -14,6 +14,9 @@ from . import __version__
 from .api import router as v1_router
 from .gateway_client import HttpGateway
 from .intake_extractor import IntakeExtractor
+from .evidence_retriever_worker import EvidenceRetrieverWorker
+from .guideline_release import GuidelineReleaseService
+from .guideline_retriever import GuidelineRetriever
 from .graph.build import build_graph
 from .graph.nodes import Runtime
 from .logging_setup import configure_logging
@@ -58,6 +61,16 @@ async def lifespan(app: FastAPI):
             # Separate from the chat graph: uploaded documents terminate at a
             # review-only preview and cannot become chat evidence or writes.
             app.state.intake_extractor = IntakeExtractor(gateway)
+            try:
+                app.state.guideline_release = GuidelineReleaseService(
+                    EvidenceRetrieverWorker(GuidelineRetriever(
+                        embedding_model_dir=settings.guideline_models_dir / "bge",
+                        reranker_model_dir=settings.guideline_models_dir / "reranker",
+                    )), settings.guideline_corpus_dir,
+                )
+            except Exception as exc:  # the Week 1 chart path remains available
+                app.state.guideline_release = None
+                log.warning("guideline capability unavailable", extra={"component": "guideline", "error_class": exc.__class__.__name__})
             log.info("agent ready", extra={"component": "startup"})
             yield
     finally:
