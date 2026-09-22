@@ -43,6 +43,9 @@ def test_turn_requires_token_and_matching_conversation(client: TestClient) -> No
     other = mint_for_tests("0" * 32, "f" * 16, TEST_SECRET)
     r = client.post(f"/v1/conversations/{CID}/turns", json={"message": "hi"}, headers={"X-Copilot-Token": other})
     assert r.status_code == 403
+    bad = other[:-4] + "AAAA"
+    r = client.post(f"/v1/conversations/{CID}/turns", json={"message": "hi"}, headers={"X-Copilot-Token": bad})
+    assert r.status_code == 403
 
 
 def test_access_log_redacts_conversation_identifier(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
@@ -57,9 +60,6 @@ def test_access_log_redacts_conversation_identifier(client: TestClient, caplog: 
     requests = [record for record in caplog.records if record.name == "copilot.api" and record.getMessage() == "request"]
     assert requests and requests[-1].path == "guideline_evidence"
     assert all(CID not in str(record.__dict__) for record in requests)
-    bad = other[:-4] + "AAAA"
-    r = client.post(f"/v1/conversations/{CID}/turns", json={"message": "hi"}, headers={"X-Copilot-Token": bad})
-    assert r.status_code == 403
 
 
 def test_turn_returns_contract_shaped_response_with_correlation_id(client: TestClient) -> None:
