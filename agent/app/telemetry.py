@@ -46,12 +46,16 @@ METADATA_KEYS = frozenset({
     "effort", "attempt", "stop_reason",
     "reason", "record_count", "truncated", "gateway_latency_ms",
     "handoff_id", "contract_version", "model_version", "document_type", "retrieval_hit_count", "extraction_confidence", "eval_outcome",
+    "worker", "intent", "topic", "limitation", "candidate_count", "hit_count", "artifact_revision", "correlation_id",
 })
 # Enum-shaped: lowercase-led snake/colon tokens ("partial", "lexicon:judgment", "http_503", "n/a").
 # Rejects names, dates, MRN/SSN/phone shapes, non-ASCII, and anything with whitespace.
 _ENUM_SHAPED = re.compile(r"[a-z][a-z0-9_:/]{0,63}")
 _PROMPT_VERSION = re.compile(r"[0-9a-f]{12}")
 _CONTRACT_VERSION = re.compile(r"\d+\.\d+\.\d+")
+_HANDOFF_ID = re.compile(r"[a-f0-9]{32}")
+_ARTIFACT_REVISION = re.compile(r"[a-f0-9]{64}")
+_CORRELATION_ID = re.compile(r"[A-Za-z0-9\-._]{8,64}")
 
 
 def _phi_free_scalar(key: str, value: Any) -> bool:
@@ -59,7 +63,7 @@ def _phi_free_scalar(key: str, value: Any) -> bool:
         return True
     if not isinstance(value, str):
         return False
-    pattern = _PROMPT_VERSION if key == "prompt_version" else _CONTRACT_VERSION if key == "contract_version" else _ENUM_SHAPED
+    pattern = _PROMPT_VERSION if key == "prompt_version" else _CONTRACT_VERSION if key == "contract_version" else _HANDOFF_ID if key == "handoff_id" else _ARTIFACT_REVISION if key == "artifact_revision" else _CORRELATION_ID if key == "correlation_id" else _ENUM_SHAPED
     return bool(pattern.fullmatch(value))
 
 
@@ -382,6 +386,14 @@ def tool_observation(name: str, correlation_id: str | None) -> Iterator[Any]:
     agent dashboards. Only status, reason, and counts are attached; never
     records. No-op when the tracer is off."""
     with _observation("tool", name, "tool observation", correlation_id) as obs:
+        yield obs
+
+
+@contextmanager
+def evidence_worker_observation(correlation_id: str) -> Iterator[Any]:
+    """A PHI-free worker span.  Exact queries, excerpts, and source IDs never
+    enter this span, even when trace content is enabled for the synthetic demo."""
+    with _observation("tool", "evidence_retriever", "evidence worker span", correlation_id) as obs:
         yield obs
 
 

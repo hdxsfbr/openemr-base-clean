@@ -314,6 +314,21 @@ def test_mask_keeps_bounded_document_preview_telemetry_and_rejects_source_conten
     assert mask({**metadata, "document_type": "Synthetic intake form"})["digest"] is True
 
 
+def test_mask_keeps_only_hash_bound_evidence_worker_metadata() -> None:
+    metadata = {
+        "status": "completed", "correlation_id": "correlation-1", "handoff_id": "0" * 32, "contract_version": "3.0.0",
+        "model_version": "evidence_retriever_local_v1", "worker": "evidence_retriever",
+        "intent": "guideline_evidence", "topic": "aaa", "limitation": "none",
+        "candidate_count": 2, "hit_count": 1, "retrieval_hit_count": 1,
+        "artifact_revision": "0" * 64, "timings_ms": {"sparse_ms": 1.0, "dense_ms": 2.0},
+        "eval_outcome": "not_run",
+    }
+    assert mask(metadata) == metadata
+    assert mask({**metadata, "topic": "synthetic privacy canary"})["digest"] is True
+    assert mask({**metadata, "artifact_revision": "not-a-hash"})["digest"] is True
+    assert mask({**metadata, "correlation_id": "synthetic privacy canary"})["digest"] is True
+
+
 def test_finish_turn_trace_reports_why_the_summary_was_replaced_without_chart_content() -> None:
     span = FakeSpan()
     finish_turn_trace(span, {"status": "complete", "raw_claims": [{}], "rejected": [], "summary_basis": "deterministic", "summary_reason": "ungrounded_number:40"})

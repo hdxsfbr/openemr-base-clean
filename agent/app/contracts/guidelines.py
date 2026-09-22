@@ -224,8 +224,64 @@ class GuidelineRetrievalLimitationCode(StrEnum):
     corpus_stale = "guideline_corpus_stale"
     no_evidence = "guideline_no_evidence"
     query_rejected = "guideline_query_rejected"
+    deadline_exceeded = "guideline_retrieval_timeout"
+    canceled = "guideline_retrieval_canceled"
+    duplicate_handoff = "guideline_duplicate_handoff"
+    stale_handoff = "guideline_stale_handoff"
+    malformed_output = "guideline_malformed_output"
 
 
 class GuidelineRetrievalLimitation(StrictModel):
     code: GuidelineRetrievalLimitationCode
     detail: str = Field(max_length=160)
+
+
+class EvidenceWorkerStatus(StrEnum):
+    """The one terminal outcome emitted by the bounded local worker."""
+
+    completed = "completed"
+    limited = "limited"
+    canceled = "canceled"
+
+
+class EvidenceWorkerTimings(StrictModel):
+    sparse_ms: float = Field(ge=0, le=2000)
+    dense_ms: float = Field(ge=0, le=2000)
+    fusion_ms: float = Field(ge=0, le=2000)
+    rerank_ms: float = Field(ge=0, le=2000)
+    total_ms: float = Field(ge=0, le=2000)
+
+
+class EvidenceWorkerResult(StrictModel):
+    """A terminal worker envelope, never a final clinical claim or citation.
+
+    The later authenticated supervisor/resolver owns dispatch, source resolution,
+    verification, and rendering.  This envelope contains only exact corpus
+    excerpts or one typed limitation.
+    """
+
+    contract_version: Literal["3.0.0"] = GUIDELINE_CONTRACT_VERSION
+    worker_revision: Literal["evidence-retriever-local-v1"] = "evidence-retriever-local-v1"
+    correlation_id: CorrelationId
+    handoff_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    status: EvidenceWorkerStatus
+    corpus_version: Literal["uspstf-recommendations-2026-09-21-v2"] = ACTIVE_CORPUS_VERSION
+    artifact_manifest_sha256: Sha256
+    embedding_model_revision: str = Field(pattern=r"^[a-f0-9]{40}$")
+    reranker_model_revision: str = Field(pattern=r"^[a-f0-9]{40}$")
+    candidate_count: int = Field(ge=0, le=40)
+    hit_count: int = Field(ge=0, le=5)
+    timings: EvidenceWorkerTimings
+    excerpts: list[GuidelineExcerpt] = Field(default_factory=list, max_length=5)
+    limitation: GuidelineRetrievalLimitation | None = None
+
+    @model_validator(mode="after")
+    def terminal_outcome_is_atomic(self) -> "EvidenceWorkerResult":
+        successful = self.status is EvidenceWorkerStatus.completed
+        if successful and (not self.excerpts or self.limitation is not None or self.hit_count != len(self.excerpts)):
+            raise ValueError("completed worker result requires only exact excerpts")
+        if not successful and (self.excerpts or self.limitation is None or self.hit_count != 0):
+            raise ValueError("limited or canceled worker result requires one limitation and no excerpts")
+        if self.status is EvidenceWorkerStatus.canceled and self.limitation.code is not GuidelineRetrievalLimitationCode.canceled:
+            raise ValueError("canceled worker result requires the canceled limitation")
+        return self

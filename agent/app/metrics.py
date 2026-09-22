@@ -50,6 +50,7 @@ class Metrics:
         self.tokens = Counter()
         self.verification = Counter()
         self.extractions = Counter()
+        self.evidence_retrievals = Counter()
         self.panel_events = Counter()
         self.first_turns = Counter()
         self.latencies: deque[tuple[float, float]] = deque(maxlen=5000)
@@ -120,6 +121,20 @@ class Metrics:
             self.extractions[(bounded_document_type, bounded_status, bounded_confidence)] += 1
             self.latencies.append((time.time(), latency_ms))
 
+    def evidence_retrieval(self, intent: str, topic: str, status: str, limitation: str, latency_ms: float) -> None:
+        """Count a completed local retrieval using finite labels only.
+
+        Correlation and handoff IDs belong in the correlated span/log event, not
+        Prometheus labels where they would create unbounded cardinality.
+        """
+        with self.lock:
+            bounded_intent = intent if intent == "guideline_evidence" else REASON_OTHER
+            bounded_topic = topic if topic in {"aaa", "breast", "cervical", "colorectal", "lung", "child_obesity", "hypertension", "tobacco", "multiple"} else REASON_OTHER
+            bounded_status = status if status in {"completed", "limited", "canceled"} else REASON_OTHER
+            bounded_limitation = limitation if limitation in {"none", "guideline_retrieval_unavailable", "guideline_corpus_stale", "guideline_no_evidence", "guideline_query_rejected", "guideline_retrieval_timeout", "guideline_retrieval_canceled", "guideline_duplicate_handoff", "guideline_stale_handoff", "guideline_malformed_output"} else REASON_OTHER
+            self.evidence_retrievals[(bounded_intent, bounded_topic, bounded_status, bounded_limitation)] += 1
+            self.latencies.append((time.time(), latency_ms))
+
     def window(self, seconds: float = 300.0) -> dict[str, float]:
         now = time.time()
         with self.lock:
@@ -152,6 +167,9 @@ class Metrics:
             lines.append("# TYPE copilot_document_extractions_total counter")
             for (document_type, status, confidence), n in self.extractions.items():
                 lines.append(f'copilot_document_extractions_total{{document_type="{document_type}",status="{status}",confidence="{confidence}"}} {n}')
+            lines.append("# TYPE copilot_guideline_retrievals_total counter")
+            for (intent, topic, status, limitation), n in self.evidence_retrievals.items():
+                lines.append(f'copilot_guideline_retrievals_total{{intent="{intent}",topic="{topic}",status="{status}",limitation="{limitation}"}} {n}')
             lines.append("# TYPE copilot_panel_events_total counter")
             for event, n in self.panel_events.items():
                 lines.append(f'copilot_panel_events_total{{event="{event}"}} {n}')
