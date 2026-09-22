@@ -14,6 +14,12 @@ from pathlib import Path
 from . import (
     CONTRACT_VERSION,
     ErrorEnvelope,
+    EvidenceQuery,
+    GuidelineCandidate,
+    GuidelineCitation,
+    GuidelineEvidenceClaim,
+    GuidelineExcerpt,
+    GuidelineRetrievalLimitation,
     IntakeExtraction,
     IntakeExtractionResult,
     LabExtraction,
@@ -46,6 +52,12 @@ EXPORTS = {
     "intake_extraction_result.schema.json": IntakeExtractionResult,
     "upload_intent.schema.json": UploadIntent,
     "upload_result.schema.json": UploadResult,
+    "evidence_query.schema.json": EvidenceQuery,
+    "guideline_candidate.schema.json": GuidelineCandidate,
+    "guideline_excerpt.schema.json": GuidelineExcerpt,
+    "guideline_citation.schema.json": GuidelineCitation,
+    "guideline_evidence_claim.schema.json": GuidelineEvidenceClaim,
+    "guideline_retrieval_limitation.schema.json": GuidelineRetrievalLimitation,
 }
 
 

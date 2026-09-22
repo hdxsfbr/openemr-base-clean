@@ -1,0 +1,80 @@
+{
+  "query": {
+    "contract_version": "3.0.0",
+    "intent": "guideline_evidence",
+    "concepts": ["aaa"],
+    "topic_filter": "aaa",
+    "requested_top_k": 1,
+    "active_corpus_version": "uspstf-recommendations-2026-09-21-v2",
+    "correlation_id": "turn.000001",
+    "handoff_id": "0123456789abcdef0123456789abcdef",
+    "deadline_ms": 1000
+  },
+  "excerpt": {
+    "contract_version": "3.0.0",
+    "source_id": "guideline:uspstf-recommendations-2026-09-21-v2:aaa:aaa-000",
+    "corpus_version": "uspstf-recommendations-2026-09-21-v2",
+    "document_id": "aaa",
+    "chunk_id": "aaa-000",
+    "chunk_ordinal": 0,
+    "publisher": "U.S. Preventive Services Task Force",
+    "title": "Abdominal Aortic Aneurysm: Screening",
+    "jurisdiction": "US",
+    "canonical_url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/abdominal-aortic-aneurysm-screening",
+    "publication_date": null,
+    "topic": "aaa",
+    "section_path": ["Abdominal Aortic Aneurysm: Screening", "Clinician Summary"],
+    "exact_text": "Assess risk . Risk factors for AAA include older age, male sex, smoking, and having a first-degree relative with an AAA.",
+    "source_sha256": "33b6d5c3e1ffcb1f6de2b08c1bffa9386a18b75a209964497d9bddd212519ed3",
+    "chunk_sha256": "25a1e6a5e467bfacc3304609f0253690ccf8db16eee18c9fd8cdb182205cc08f",
+    "corpus_retrieved_at": "2026-09-21T00:00:00Z",
+    "approved_at": "2026-09-21T00:00:00Z"
+  },
+  "candidate": {
+    "contract_version": "3.0.0",
+    "source_id": "guideline:uspstf-recommendations-2026-09-21-v2:aaa:aaa-000",
+    "corpus_version": "uspstf-recommendations-2026-09-21-v2",
+    "document_id": "aaa",
+    "chunk_id": "aaa-000",
+    "chunk_ordinal": 0,
+    "leg": "sparse",
+    "leg_rank": 1,
+    "score": 0.25,
+    "chunk_sha256": "0ea086e355a2be388e4cc40b5b93bcfe6727f6c8a443fe083c67c5c86777e869"
+  },
+  "claim": {
+    "id": "c1",
+    "claim_class": "guideline_evidence",
+    "type": "guideline_excerpt",
+    "text": "U.S. Preventive Services Task Force: \"Assess risk .\"",
+    "facts": {
+      "quote": "Assess risk .",
+      "publisher": "U.S. Preventive Services Task Force",
+      "title": "Abdominal Aortic Aneurysm: Screening",
+      "topic": "aaa",
+      "section_path": ["Abdominal Aortic Aneurysm: Screening", "Clinician Summary"]
+    },
+    "source_ids": ["guideline:uspstf-recommendations-2026-09-21-v2:aaa:aaa-000"],
+    "section": "guideline_evidence",
+    "citations": [{
+      "citation_id": "ct1",
+      "claim_id": "c1",
+      "source_type": "guideline",
+      "source_id": "guideline:uspstf-recommendations-2026-09-21-v2:aaa:aaa-000",
+      "title": "U.S. Preventive Services Task Force — Abdominal Aortic Aneurysm: Screening",
+      "page_or_section": {"kind": "guideline_section", "section_path": ["Abdominal Aortic Aneurysm: Screening", "Clinician Summary"], "chunk_ordinal": 0},
+      "field_or_chunk_id": "aaa-000",
+      "quote_or_value": {"kind": "exact_quote", "quote": "Assess risk ."},
+      "publisher": "U.S. Preventive Services Task Force",
+      "jurisdiction": "US",
+      "canonical_url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/abdominal-aortic-aneurysm-screening",
+      "publication_date": null,
+      "topic": "aaa",
+      "corpus_version": "uspstf-recommendations-2026-09-21-v2",
+      "source_sha256": "33b6d5c3e1ffcb1f6de2b08c1bffa9386a18b75a209964497d9bddd212519ed3",
+      "chunk_sha256": "25a1e6a5e467bfacc3304609f0253690ccf8db16eee18c9fd8cdb182205cc08f",
+      "href": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/abdominal-aortic-aneurysm-screening",
+      "retrieved_at": "2026-09-22T00:00:00Z"
+    }]
+  }
+}

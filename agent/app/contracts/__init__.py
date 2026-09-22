@@ -67,6 +67,23 @@ from .documents import (
     UploadResult,
     UploadStatus,
 )
+from .guidelines import (
+    ACTIVE_CORPUS_VERSION,
+    GUIDELINE_CONTRACT_VERSION,
+    CandidateLeg,
+    EvidenceIntent,
+    EvidenceQuery,
+    ExactQuote,
+    GuidelineCandidate,
+    GuidelineCitation,
+    GuidelineEvidenceClaim,
+    GuidelineExcerpt,
+    GuidelineExcerptFacts,
+    GuidelineRetrievalLimitation,
+    GuidelineRetrievalLimitationCode,
+    GuidelineSection,
+    GuidelineTopic,
+)
 
 __all__ = [
     "CONTRACT_VERSION",
@@ -130,4 +147,19 @@ __all__ = [
     "UploadIntent",
     "UploadResult",
     "UploadStatus",
+    "ACTIVE_CORPUS_VERSION",
+    "GUIDELINE_CONTRACT_VERSION",
+    "CandidateLeg",
+    "EvidenceIntent",
+    "EvidenceQuery",
+    "ExactQuote",
+    "GuidelineCandidate",
+    "GuidelineCitation",
+    "GuidelineEvidenceClaim",
+    "GuidelineExcerpt",
+    "GuidelineExcerptFacts",
+    "GuidelineRetrievalLimitation",
+    "GuidelineRetrievalLimitationCode",
+    "GuidelineSection",
+    "GuidelineTopic",
 ]

@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "CandidateLeg": {
+      "enum": [
+        "sparse",
+        "dense"
+      ],
+      "title": "CandidateLeg",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An internal candidate from a bounded retrieval leg.\n\nThe text is immutable corpus content and must not be copied into ordinary\ntelemetry.  Ranking is intentionally not implemented in Slice 3A.",
+  "properties": {
+    "chunk_id": {
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Chunk Id",
+      "type": "string"
+    },
+    "chunk_ordinal": {
+      "minimum": 0,
+      "title": "Chunk Ordinal",
+      "type": "integer"
+    },
+    "chunk_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Chunk Sha256",
+      "type": "string"
+    },
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "corpus_version": {
+      "const": "uspstf-recommendations-2026-09-21-v2",
+      "default": "uspstf-recommendations-2026-09-21-v2",
+      "title": "Corpus Version",
+      "type": "string"
+    },
+    "document_id": {
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "leg": {
+      "$ref": "#/$defs/CandidateLeg"
+    },
+    "leg_rank": {
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Leg Rank",
+      "type": "integer"
+    },
+    "score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Score"
+    },
+    "source_id": {
+      "maxLength": 240,
+      "pattern": "^guideline:uspstf-recommendations-2026-09-21-v2:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Source Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "document_id",
+    "chunk_id",
+    "chunk_ordinal",
+    "leg",
+    "leg_rank",
+    "chunk_sha256"
+  ],
+  "title": "GuidelineCandidate",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

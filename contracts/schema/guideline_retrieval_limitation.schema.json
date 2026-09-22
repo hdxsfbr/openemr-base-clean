@@ -1,0 +1,33 @@
+{
+  "$defs": {
+    "GuidelineRetrievalLimitationCode": {
+      "enum": [
+        "guideline_retrieval_unavailable",
+        "guideline_corpus_stale",
+        "guideline_no_evidence",
+        "guideline_query_rejected"
+      ],
+      "title": "GuidelineRetrievalLimitationCode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "$ref": "#/$defs/GuidelineRetrievalLimitationCode"
+    },
+    "detail": {
+      "maxLength": 160,
+      "title": "Detail",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "detail"
+  ],
+  "title": "GuidelineRetrievalLimitation",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}
