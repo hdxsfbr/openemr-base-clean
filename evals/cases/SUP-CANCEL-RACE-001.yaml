@@ -1,0 +1,14 @@
+id: SUP-CANCEL-RACE-001
+name: "Cancellation yields one terminal state per started branch"
+category: supervisor_handoff
+primary_area: supervisor_handoff
+tier: golden
+variant: boundary
+use_case: UC-01
+risk: "Cancellation races produce duplicate or non-terminal worker outcomes"
+capability_tags: [CAP-12]
+rubrics: [schema_valid, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_parallel_join.py::test_cancellation_produces_one_terminal_result_per_started_lane

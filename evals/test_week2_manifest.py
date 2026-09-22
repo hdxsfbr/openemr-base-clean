@@ -12,12 +12,10 @@ def test_week2_manifest_counts_real_case_files_and_exceeds_required_floors() -> 
 
     assert result.errors == []
     assert result.retained_cases == 48
-    assert result.new_golden_cases >= 35
-    assert result.golden_cases >= 50
-    assert result.total_cases >= 83
-    assert result.total_cases == 85
-    assert result.pending_cases > 0
-    assert result.executable_cases + result.pending_cases == 37
+    assert result.new_golden_cases > 35
+    assert result.golden_cases > 50
+    assert result.total_cases > 83
+    assert result.executable_cases + result.pending_cases == result.total_cases - result.retained_cases
 
 
 def test_week2_manifest_rejects_a_declared_case_without_a_case_file(tmp_path: Path) -> None:

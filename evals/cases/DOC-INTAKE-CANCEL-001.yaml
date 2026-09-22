@@ -1,0 +1,14 @@
+id: DOC-INTAKE-CANCEL-001
+name: "Cancellation interrupts document work before persistence"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: degraded
+use_case: UC-05
+risk: "Canceled document work continues and persists proposed clinical data"
+capability_tags: [CAP-09, CAP-12]
+rubrics: [safe_refusal, no_phi_in_logs]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_cancellation_interrupts_a_running_system_boundary_before_its_deadline

@@ -1,0 +1,14 @@
+id: DOC-LAB-PROPOSAL-NOT-FINAL-001
+name: "Unreviewed lab proposals cannot support final claims"
+category: lab_pdf
+primary_area: lab_pdf
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "An extraction proposal is represented as an authoritative chart fact"
+capability_tags: [CAP-09, CAP-10]
+rubrics: [schema_valid, factually_consistent, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_week2_verifier.py::test_proposed_lab_fact_cannot_enter_final_claims_or_erase_a_reviewed_lab_result
