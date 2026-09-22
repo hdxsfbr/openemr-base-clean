@@ -58,6 +58,11 @@ if [[ ! -d build/openemr/oe-module-copilot || ! -d build/agent ]]; then
     printf 'Build contexts missing under build/. Run deploy.sh from the repository, which copies them.\n' >&2
     exit 1
 fi
+build_commit="$(tr -d '\r\n' < build/agent/BUILD_COMMIT 2>/dev/null || true)"
+if [[ ! "${build_commit}" =~ ^[a-f0-9]{40}$ ]]; then
+    printf 'Missing or invalid candidate BUILD_COMMIT; deploy.sh must copy a committed runtime tree.\n' >&2
+    exit 1
+fi
 
 docker compose pull database caddy
 docker compose build --pull openemr agent
@@ -66,6 +71,13 @@ docker compose build --pull openemr agent
 # running agent service, so deployment never ships local model binaries.
 docker compose --profile guideline-models run --rm guideline-model-provision
 docker compose up --detach --wait --wait-timeout 600
+
+# Evidence only: image IDs are immutable local content identities; no patient,
+# request, secret, or model content is recorded here.
+agent_image_id="$(docker image inspect --format '{{.Id}}' agentforge/copilot-agent:local)"
+openemr_image_id="$(docker image inspect --format '{{.Id}}' agentforge/openemr:local)"
+printf '{"candidate_commit":"%s","agent_image_id":"%s","openemr_image_id":"%s"}\n' \
+    "${build_commit}" "${agent_image_id}" "${openemr_image_id}" | tee "logs/deployment-identity-${build_commit}.json"
 
 # Caddy can stay in Created when its depends_on on openemr resolves after the
 # --wait window has returned (seen 2026-09-15 on a redeploy that rebuilt from

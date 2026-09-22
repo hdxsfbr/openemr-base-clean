@@ -30,6 +30,12 @@ the resulting named volume read-only at `/opt/copilot-models`; local ignored
 `agent/.guideline_models/` files and model binaries are never committed or
 copied by `deploy.sh`.
 
+`deploy.sh` copies the candidate's full commit into `build/agent/BUILD_COMMIT`.
+`start.sh` refuses an absent/non-SHA value and writes the commit plus the
+rebuilt agent/OpenEMR image IDs to `logs/deployment-identity-<commit>.json`.
+Use that sanitized file in the deployed smoke/eval evidence; do not call a
+deployment candidate-matched without it.
+
 ## Local verification
 
 ```bash
