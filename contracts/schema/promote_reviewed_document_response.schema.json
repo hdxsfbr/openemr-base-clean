@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "outcome": {
+      "enum": [
+        "created",
+        "replayed"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "promotion_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Promotion Id",
+      "type": "string"
+    },
+    "record_version": {
+      "minimum": 1,
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "review_set_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Review Set Sha256",
+      "type": "string"
+    },
+    "target_record_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Target Record Id",
+      "type": "string"
+    },
+    "target_type": {
+      "enum": [
+        "lab_report",
+        "intake_response"
+      ],
+      "title": "Target Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "promotion_id",
+    "target_type",
+    "target_record_id",
+    "record_version",
+    "review_set_sha256",
+    "outcome"
+  ],
+  "title": "PromoteReviewedDocumentResponse",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

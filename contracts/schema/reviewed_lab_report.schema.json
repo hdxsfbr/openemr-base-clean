@@ -1,0 +1,769 @@
+{
+  "$defs": {
+    "CodedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "CodedValue",
+      "type": "object"
+    },
+    "QuantityValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "QuantityValue",
+      "type": "object"
+    },
+    "RecordProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "acted_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Acted At",
+          "type": "string"
+        },
+        "acted_by": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Acted By",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "promote",
+            "amend",
+            "withdraw"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "action_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_idempotency_key": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Action Idempotency Key",
+          "type": "string"
+        },
+        "correlation_id": {
+          "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "extraction_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Extraction Id",
+          "type": "string"
+        },
+        "extraction_version": {
+          "minimum": 1,
+          "title": "Extraction Version",
+          "type": "integer"
+        },
+        "review_set_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Review Set Sha256",
+          "type": "string"
+        },
+        "source_content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Content Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "action",
+        "action_idempotency_key",
+        "review_set_sha256",
+        "source_content_sha256",
+        "extraction_id",
+        "extraction_version",
+        "acted_by",
+        "acted_at",
+        "correlation_id"
+      ],
+      "title": "RecordProvenance",
+      "type": "object"
+    },
+    "ReferenceRange": {
+      "additionalProperties": false,
+      "properties": {
+        "high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "High"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "title": "ReferenceRange",
+      "type": "object"
+    },
+    "ReviewedAnalyte": {
+      "additionalProperties": false,
+      "properties": {
+        "abnormal_flag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewedField_Literal__low____high____abnormal____normal____unknown___"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "analyte_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Analyte Id",
+          "type": "string"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewedField_CodedValue_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reference_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewedField_ReferenceRange_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "test_name": {
+          "$ref": "#/$defs/ReviewedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_200_____"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_80_____"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "$ref": "#/$defs/ReviewedField_Annotated_Union_QuantityValue__TextValue___FieldInfo_annotation_NoneType__required_True__discriminator__kind____"
+        }
+      },
+      "required": [
+        "analyte_id",
+        "test_name",
+        "value"
+      ],
+      "title": "ReviewedAnalyte",
+      "type": "object"
+    },
+    "ReviewedField_Annotated_Union_QuantityValue__TextValue___FieldInfo_annotation_NoneType__required_True__discriminator__kind____": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        },
+        "value": {
+          "discriminator": {
+            "mapping": {
+              "quantity": "#/$defs/QuantityValue",
+              "text": "#/$defs/TextValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "$ref": "#/$defs/TextValue"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value",
+        "source_field_id",
+        "review_id",
+        "evidence_ids"
+      ],
+      "title": "ReviewedField[Annotated[Union[QuantityValue, TextValue], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]]",
+      "type": "object"
+    },
+    "ReviewedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_200_____": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "source_field_id",
+        "review_id",
+        "evidence_ids"
+      ],
+      "title": "ReviewedField[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[MinLen(min_length=1), MaxLen(max_length=200)])]]",
+      "type": "object"
+    },
+    "ReviewedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_80_____": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "source_field_id",
+        "review_id",
+        "evidence_ids"
+      ],
+      "title": "ReviewedField[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[MinLen(min_length=1), MaxLen(max_length=80)])]]",
+      "type": "object"
+    },
+    "ReviewedField_CodedValue_": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/CodedValue"
+        }
+      },
+      "required": [
+        "value",
+        "source_field_id",
+        "review_id",
+        "evidence_ids"
+      ],
+      "title": "ReviewedField[CodedValue]",
+      "type": "object"
+    },
+    "ReviewedField_Literal__low____high____abnormal____normal____unknown___": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        },
+        "value": {
+          "enum": [
+            "low",
+            "high",
+            "abnormal",
+            "normal",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "source_field_id",
+        "review_id",
+        "evidence_ids"
+      ],
+      "title": "ReviewedField[Literal['low', 'high', 'abnormal', 'normal', 'unknown']]",
+      "type": "object"
+    },
+    "ReviewedField_ReferenceRange_": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/ReferenceRange"
+        }
+      },
+      "required": [
+        "value",
+        "source_field_id",
+        "review_id",
+        "evidence_ids"
+      ],
+      "title": "ReviewedField[ReferenceRange]",
+      "type": "object"
+    },
+    "ReviewedField_date_": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        },
+        "value": {
+          "format": "date",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "source_field_id",
+        "review_id",
+        "evidence_ids"
+      ],
+      "title": "ReviewedField[date]",
+      "type": "object"
+    },
+    "SourceDocumentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_count": {
+          "exclusiveMinimum": 0,
+          "title": "Byte Count",
+          "type": "integer"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "document_type": {
+          "enum": [
+            "lab_report",
+            "intake_form"
+          ],
+          "title": "Document Type",
+          "type": "string"
+        },
+        "mime_type": {
+          "enum": [
+            "application/pdf",
+            "image/png",
+            "image/jpeg"
+          ],
+          "title": "Mime Type",
+          "type": "string"
+        },
+        "openemr_document_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Openemr Document Id",
+          "type": "string"
+        },
+        "page_count": {
+          "exclusiveMinimum": 0,
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "source_document_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "upload_intent_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Upload Intent Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_document_id",
+        "openemr_document_id",
+        "upload_intent_id",
+        "document_type",
+        "content_sha256",
+        "byte_count",
+        "mime_type",
+        "page_count"
+      ],
+      "title": "SourceDocumentRef",
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TextValue",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "analytes": {
+      "items": {
+        "$ref": "#/$defs/ReviewedAnalyte"
+      },
+      "maxItems": 200,
+      "minItems": 1,
+      "title": "Analytes",
+      "type": "array"
+    },
+    "collection_date": {
+      "$ref": "#/$defs/ReviewedField_date_"
+    },
+    "extraction_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Extraction Id",
+      "type": "string"
+    },
+    "extraction_version": {
+      "minimum": 1,
+      "title": "Extraction Version",
+      "type": "integer"
+    },
+    "lifecycle_reason": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lifecycle Reason"
+    },
+    "provenance": {
+      "$ref": "#/$defs/RecordProvenance"
+    },
+    "record_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Record Id",
+      "type": "string"
+    },
+    "record_version": {
+      "minimum": 1,
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "review_ids": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 1201,
+      "minItems": 1,
+      "title": "Review Ids",
+      "type": "array"
+    },
+    "reviewed_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Reviewed At",
+      "type": "string"
+    },
+    "reviewed_by": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Reviewed By",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceDocumentRef"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "amended",
+        "withdrawn"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "supersedes_record_id": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Record Id"
+    }
+  },
+  "required": [
+    "record_id",
+    "record_version",
+    "status",
+    "source",
+    "extraction_id",
+    "extraction_version",
+    "schema_version",
+    "collection_date",
+    "analytes",
+    "review_ids",
+    "reviewed_by",
+    "reviewed_at",
+    "provenance"
+  ],
+  "title": "ReviewedLabReport",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

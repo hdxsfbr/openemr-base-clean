@@ -9,8 +9,201 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import dataclass, field
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
+
+
+REQUIRED_IDENTITY_KEYS = (
+    "manifest_sha256",
+    "fixtures_sha256",
+    "schema_version",
+    "rubric_version",
+    "guideline_corpus_sha256",
+    "resolver_sha256",
+    "runtime_image",
+    "model",
+    "prompt_sha256",
+    "attempt_policy",
+)
+REQUIRED_RUBRICS = {
+    "schema_valid",
+    "citation_present",
+    "factually_consistent",
+    "safe_refusal",
+    "no_phi_in_logs",
+}
+
+
+@dataclass(frozen=True)
+class ReleaseFailure:
+    scope: str
+    name: str
+    candidate_rate: float
+    threshold: float
+    regression_pp: float
+    reason: str
+
+
+@dataclass(frozen=True)
+class ReleaseComparison:
+    passed: bool
+    failures: list[ReleaseFailure] = field(default_factory=list)
+    corpus_errors: list[str] = field(default_factory=list)
+
+
+def _manifest_by_id(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    manifest = report.get("manifest")
+    if not isinstance(manifest, list):
+        raise ValueError("manifest must be an array")
+    by_id: dict[str, dict[str, Any]] = {}
+    for item in manifest:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            raise ValueError("every manifest entry requires an ID")
+        if item["id"] in by_id:
+            raise ValueError(f"duplicate manifest case {item['id']}")
+        by_id[item["id"]] = item
+    return by_id
+
+
+def _case_results(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    cases = report.get("cases")
+    if not isinstance(cases, list):
+        raise ValueError("cases must be an array")
+    by_id: dict[str, dict[str, Any]] = {}
+    for item in cases:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            raise ValueError("every case result requires an ID")
+        if item["id"] in by_id:
+            raise ValueError(f"duplicate case result {item['id']}")
+        by_id[item["id"]] = item
+    return by_id
+
+
+def _case_rubric_verdicts(
+    case_id: str,
+    manifest_entry: dict[str, Any],
+    result: dict[str, Any],
+) -> tuple[dict[str, bool], list[str]]:
+    errors: list[str] = []
+    required = manifest_entry.get("rubrics")
+    attempts = result.get("attempts")
+    if not isinstance(required, list) or not required:
+        return {}, [f"{case_id}: applicable rubrics are missing"]
+    if not isinstance(attempts, list) or not attempts:
+        return {}, [f"{case_id}: required attempts are missing"]
+    verdicts: dict[str, bool] = {}
+    for rubric in required:
+        values: list[bool] = []
+        for attempt_index, attempt in enumerate(attempts, start=1):
+            rubrics = attempt.get("rubrics") if isinstance(attempt, dict) else None
+            value = rubrics.get(rubric) if isinstance(rubrics, dict) else None
+            if not isinstance(value, bool):
+                errors.append(f"{case_id}: attempt {attempt_index} rubric {rubric} is missing or unmeasured")
+                continue
+            values.append(value)
+        verdicts[rubric] = len(values) == len(attempts) and all(values)
+    return verdicts, errors
+
+
+def evaluate_release_gate(baseline: dict[str, Any], candidate: dict[str, Any]) -> ReleaseComparison:
+    """Compare candidate and approved baseline using ADR-0015 Boolean rules."""
+
+    corpus_errors: list[str] = []
+    baseline_identity = baseline.get("identity") if isinstance(baseline.get("identity"), dict) else {}
+    candidate_identity = candidate.get("identity") if isinstance(candidate.get("identity"), dict) else {}
+    for key in REQUIRED_IDENTITY_KEYS:
+        if key not in baseline_identity or key not in candidate_identity:
+            corpus_errors.append(f"identity {key} is missing")
+        elif baseline_identity[key] != candidate_identity[key]:
+            corpus_errors.append(f"identity {key} differs")
+
+    try:
+        baseline_manifest = _manifest_by_id(baseline)
+        candidate_manifest = _manifest_by_id(candidate)
+        baseline_cases = _case_results(baseline)
+        candidate_cases = _case_results(candidate)
+    except ValueError as exc:
+        return ReleaseComparison(False, corpus_errors=[*corpus_errors, str(exc)])
+
+    if baseline_manifest != candidate_manifest:
+        corpus_errors.append("baseline and candidate manifests differ")
+    expected_ids = set(baseline_manifest)
+    for label, case_ids in (("baseline", set(baseline_cases)), ("candidate", set(candidate_cases))):
+        missing = sorted(expected_ids - case_ids)
+        unexpected = sorted(case_ids - expected_ids)
+        if missing:
+            corpus_errors.append(f"{label} missing cases: {', '.join(missing)}")
+        if unexpected:
+            corpus_errors.append(f"{label} unexpected cases: {', '.join(unexpected)}")
+    if corpus_errors:
+        return ReleaseComparison(False, corpus_errors=corpus_errors)
+
+    category_members: dict[str, list[str]] = {}
+    rubric_members: dict[str, list[str]] = {}
+    baseline_verdicts: dict[str, dict[str, bool]] = {}
+    candidate_verdicts: dict[str, dict[str, bool]] = {}
+    for case_id, entry in baseline_manifest.items():
+        category = entry.get("primary_category")
+        if not isinstance(category, str) or not category:
+            corpus_errors.append(f"{case_id}: primary category is missing")
+            continue
+        category_members.setdefault(category, []).append(case_id)
+        baseline_verdicts[case_id], base_errors = _case_rubric_verdicts(case_id, entry, baseline_cases[case_id])
+        candidate_verdicts[case_id], candidate_errors = _case_rubric_verdicts(case_id, entry, candidate_cases[case_id])
+        corpus_errors.extend(base_errors)
+        corpus_errors.extend(candidate_errors)
+        for rubric in entry["rubrics"]:
+            rubric_members.setdefault(rubric, []).append(case_id)
+    if corpus_errors:
+        return ReleaseComparison(False, corpus_errors=corpus_errors)
+
+    failures: list[ReleaseFailure] = []
+
+    def compare(scope: str, name: str, members: list[str], threshold: Fraction, zero_tolerance: bool) -> None:
+        base_passes = sum(all(baseline_verdicts[case_id].values()) if scope == "category" else baseline_verdicts[case_id][name] for case_id in members)
+        candidate_passes = sum(all(candidate_verdicts[case_id].values()) if scope == "category" else candidate_verdicts[case_id][name] for case_id in members)
+        denominator = len(members)
+        if denominator == 0:
+            corpus_errors.append(f"{scope} {name} has a zero denominator")
+            return
+        base_rate = Fraction(base_passes, denominator)
+        candidate_rate = Fraction(candidate_passes, denominator)
+        regression = base_rate - candidate_rate
+        reasons = []
+        if candidate_rate < threshold:
+            reasons.append("below threshold")
+        if regression > Fraction(5, 100):
+            reasons.append("regression exceeds five percentage points")
+        if zero_tolerance and candidate_passes != denominator:
+            reasons.append("zero-tolerance failure")
+        if reasons:
+            failures.append(
+                ReleaseFailure(
+                    scope=scope,
+                    name=name,
+                    candidate_rate=float(candidate_rate),
+                    threshold=float(threshold),
+                    regression_pp=float(regression),
+                    reason="; ".join(reasons),
+                )
+            )
+
+    for category, members in sorted(category_members.items()):
+        entries = [baseline_manifest[case_id] for case_id in members]
+        thresholds = {entry.get("threshold", 0.95) for entry in entries}
+        if len(thresholds) != 1:
+            corpus_errors.append(f"category {category} has inconsistent thresholds")
+            continue
+        zero_tolerance = any(bool(entry.get("zero_tolerance")) for entry in entries)
+        compare("category", category, members, Fraction(str(next(iter(thresholds)))), zero_tolerance)
+
+    for rubric, members in sorted(rubric_members.items()):
+        threshold = Fraction(1) if rubric in REQUIRED_RUBRICS else Fraction(95, 100)
+        compare("rubric", rubric, members, threshold, rubric in REQUIRED_RUBRICS)
+
+    return ReleaseComparison(not corpus_errors and not failures, failures=failures, corpus_errors=corpus_errors)
 
 
 def _first_attempts(run: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -36,6 +229,29 @@ def _fmt(v: Any) -> str:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 4 and argv[1] == "--release":
+        baseline, candidate = (json.loads(Path(path).read_text()) for path in argv[2:])
+        comparison = evaluate_release_gate(baseline, candidate)
+        print("# Release gate comparison")
+        print()
+        if comparison.corpus_errors:
+            print("## Corpus errors")
+            print()
+            for error in comparison.corpus_errors:
+                print(f"- {error}")
+        if comparison.failures:
+            print("## Blocking regressions")
+            print()
+            for failure in comparison.failures:
+                print(
+                    f"- {failure.scope} `{failure.name}`: candidate {failure.candidate_rate:.1%}, "
+                    f"threshold {failure.threshold:.1%}, regression {failure.regression_pp:.1%}; {failure.reason}"
+                )
+        if comparison.passed:
+            print("PASS: candidate is comparable and satisfies every release threshold.")
+        else:
+            print("FAIL: candidate is not releasable.")
+        return 0 if comparison.passed else 1
     if len(argv) != 3:
         print(__doc__, file=sys.stderr)
         return 2

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "amend",
+        "withdraw"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "expected_record_version": {
+      "minimum": 1,
+      "title": "Expected Record Version",
+      "type": "integer"
+    },
+    "idempotency_key": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "record_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Record Id",
+      "type": "string"
+    },
+    "review_ids": {
+      "anyOf": [
+        {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 1201,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Ids"
+    }
+  },
+  "required": [
+    "idempotency_key",
+    "record_id",
+    "expected_record_version",
+    "action",
+    "reason"
+  ],
+  "title": "ReviseReviewedRecordCommand",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

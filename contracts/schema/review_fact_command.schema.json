@@ -1,0 +1,435 @@
+{
+  "$defs": {
+    "ChoiceCorrectedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "choice",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "enum": [
+            "female",
+            "male",
+            "other",
+            "unknown",
+            "active",
+            "inactive",
+            "stopped",
+            "resolved",
+            "mild",
+            "moderate",
+            "severe",
+            "low",
+            "high",
+            "abnormal",
+            "normal"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "ChoiceCorrectedValue",
+      "type": "object"
+    },
+    "CodedCorrectedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "coded",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/CodedValue"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "CodedCorrectedValue",
+      "type": "object"
+    },
+    "CodedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "CodedValue",
+      "type": "object"
+    },
+    "DateCorrectedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "date",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "format": "date",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "DateCorrectedValue",
+      "type": "object"
+    },
+    "IntegerCorrectedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "integer",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maximum": 130,
+          "minimum": 0,
+          "title": "Value",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "IntegerCorrectedValue",
+      "type": "object"
+    },
+    "MeasurementCorrectedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "measurement",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "discriminator": {
+            "mapping": {
+              "quantity": "#/$defs/QuantityValue",
+              "text": "#/$defs/TextValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "$ref": "#/$defs/TextValue"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "MeasurementCorrectedValue",
+      "type": "object"
+    },
+    "QuantityValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "QuantityValue",
+      "type": "object"
+    },
+    "RangeCorrectedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "reference_range",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/ReferenceRange"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "RangeCorrectedValue",
+      "type": "object"
+    },
+    "ReferenceRange": {
+      "additionalProperties": false,
+      "properties": {
+        "high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "High"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "title": "ReferenceRange",
+      "type": "object"
+    },
+    "StringCorrectedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "string",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "StringCorrectedValue",
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TextValue",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "approve",
+        "correct",
+        "reject"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "corrected_value": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "choice": "#/$defs/ChoiceCorrectedValue",
+              "coded": "#/$defs/CodedCorrectedValue",
+              "date": "#/$defs/DateCorrectedValue",
+              "integer": "#/$defs/IntegerCorrectedValue",
+              "measurement": "#/$defs/MeasurementCorrectedValue",
+              "reference_range": "#/$defs/RangeCorrectedValue",
+              "string": "#/$defs/StringCorrectedValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/StringCorrectedValue"
+            },
+            {
+              "$ref": "#/$defs/DateCorrectedValue"
+            },
+            {
+              "$ref": "#/$defs/IntegerCorrectedValue"
+            },
+            {
+              "$ref": "#/$defs/ChoiceCorrectedValue"
+            },
+            {
+              "$ref": "#/$defs/CodedCorrectedValue"
+            },
+            {
+              "$ref": "#/$defs/MeasurementCorrectedValue"
+            },
+            {
+              "$ref": "#/$defs/RangeCorrectedValue"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Corrected Value"
+    },
+    "expected_extraction_version": {
+      "minimum": 1,
+      "title": "Expected Extraction Version",
+      "type": "integer"
+    },
+    "extraction_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Extraction Id",
+      "type": "string"
+    },
+    "field_id": {
+      "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+      "title": "Field Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    }
+  },
+  "required": [
+    "idempotency_key",
+    "extraction_id",
+    "expected_extraction_version",
+    "field_id",
+    "action"
+  ],
+  "title": "ReviewFactCommand",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

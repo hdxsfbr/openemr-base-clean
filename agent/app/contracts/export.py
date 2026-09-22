@@ -23,6 +23,25 @@ from . import (
     TurnResponse,
     WindowParams,
 )
+from .week2 import (
+    Citation,
+    FactReview,
+    FinalClaim,
+    IntakeExtractionEnvelope,
+    LabExtractionEnvelope,
+    PromoteReviewedDocumentCommand,
+    PromoteReviewedDocumentResponse,
+    ReleaseReport,
+    ResolvedSource,
+    ReviseReviewedRecordCommand,
+    ReviseReviewedRecordResponse,
+    ReviewFactCommand,
+    ReviewedIntakeResponse,
+    ReviewedLabReport,
+    Week2Limitation,
+    WorkerHandoffRequest,
+    WorkerHandoffResult,
+)
 
 EXPORTS = {
     "tool_request.schema.json": ToolRequest,
@@ -34,13 +53,47 @@ EXPORTS = {
     "turn_claims.schema.json": TurnClaims,
     "turn_response.schema.json": TurnResponse,
     "error_envelope.schema.json": ErrorEnvelope,
+    "lab_extraction.schema.json": LabExtractionEnvelope,
+    "intake_extraction.schema.json": IntakeExtractionEnvelope,
+    "review_fact_command.schema.json": ReviewFactCommand,
+    "fact_review.schema.json": FactReview,
+    "promote_reviewed_document_command.schema.json": PromoteReviewedDocumentCommand,
+    "promote_reviewed_document_response.schema.json": PromoteReviewedDocumentResponse,
+    "revise_reviewed_record_command.schema.json": ReviseReviewedRecordCommand,
+    "revise_reviewed_record_response.schema.json": ReviseReviewedRecordResponse,
+    "reviewed_lab_report.schema.json": ReviewedLabReport,
+    "reviewed_intake_response.schema.json": ReviewedIntakeResponse,
+    "worker_handoff_request.schema.json": WorkerHandoffRequest,
+    "worker_handoff_result.schema.json": WorkerHandoffResult,
+    "resolved_source.schema.json": ResolvedSource,
+    "citation.schema.json": Citation,
+    "final_claim.schema.json": FinalClaim,
+    "week2_limitation.schema.json": Week2Limitation,
+    "release_report.schema.json": ReleaseReport,
+}
+
+WEEK2_EXPORTS = {
+    name
+    for name in EXPORTS
+    if name
+    not in {
+        "tool_request.schema.json",
+        "tool_response.schema.json",
+        "window_params.schema.json",
+        "notes_params.schema.json",
+        "labs_params.schema.json",
+        "turn_request.schema.json",
+        "turn_claims.schema.json",
+        "turn_response.schema.json",
+        "error_envelope.schema.json",
+    }
 }
 
 
-def render(model) -> str:
+def render(model, contract_version: str = CONTRACT_VERSION) -> str:
     schema = model.model_json_schema()
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["x-contract-version"] = CONTRACT_VERSION
+    schema["x-contract-version"] = contract_version
     return json.dumps(schema, indent=2, sort_keys=True) + "\n"
 
 
@@ -51,7 +104,7 @@ def main(argv: list[str]) -> int:
     drift = []
     for name, model in EXPORTS.items():
         path = out_dir / name
-        content = render(model)
+        content = render(model, "2.0.0" if name in WEEK2_EXPORTS else CONTRACT_VERSION)
         if check:
             if not path.exists() or path.read_text() != content:
                 drift.append(name)

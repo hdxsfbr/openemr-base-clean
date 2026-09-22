@@ -1,0 +1,465 @@
+{
+  "$defs": {
+    "ChoiceAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "choice",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "enum": [
+            "female",
+            "male",
+            "other",
+            "unknown",
+            "active",
+            "inactive",
+            "stopped",
+            "resolved",
+            "mild",
+            "moderate",
+            "severe",
+            "low",
+            "high",
+            "abnormal",
+            "normal"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "ChoiceAnswer",
+      "type": "object"
+    },
+    "DateAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "date",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "format": "date",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "DateAnswer",
+      "type": "object"
+    },
+    "IntegerAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "integer",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maximum": 130,
+          "minimum": 0,
+          "title": "Value",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "IntegerAnswer",
+      "type": "object"
+    },
+    "RecordProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "acted_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Acted At",
+          "type": "string"
+        },
+        "acted_by": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Acted By",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "promote",
+            "amend",
+            "withdraw"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "action_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_idempotency_key": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Action Idempotency Key",
+          "type": "string"
+        },
+        "correlation_id": {
+          "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "extraction_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Extraction Id",
+          "type": "string"
+        },
+        "extraction_version": {
+          "minimum": 1,
+          "title": "Extraction Version",
+          "type": "integer"
+        },
+        "review_set_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Review Set Sha256",
+          "type": "string"
+        },
+        "source_content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Content Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "action",
+        "action_idempotency_key",
+        "review_set_sha256",
+        "source_content_sha256",
+        "extraction_id",
+        "extraction_version",
+        "acted_by",
+        "acted_at",
+        "correlation_id"
+      ],
+      "title": "RecordProvenance",
+      "type": "object"
+    },
+    "ReviewedQuestionnaireItem": {
+      "additionalProperties": false,
+      "properties": {
+        "answer": {
+          "discriminator": {
+            "mapping": {
+              "choice": "#/$defs/ChoiceAnswer",
+              "date": "#/$defs/DateAnswer",
+              "integer": "#/$defs/IntegerAnswer",
+              "string": "#/$defs/StringAnswer"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/StringAnswer"
+            },
+            {
+              "$ref": "#/$defs/DateAnswer"
+            },
+            {
+              "$ref": "#/$defs/IntegerAnswer"
+            },
+            {
+              "$ref": "#/$defs/ChoiceAnswer"
+            }
+          ],
+          "title": "Answer"
+        },
+        "evidence_ids": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "item_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "link_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Link Id",
+          "type": "string"
+        },
+        "repeat_key": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repeat Key"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "source_field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Field Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "link_id",
+        "source_field_id",
+        "review_id",
+        "evidence_ids",
+        "answer"
+      ],
+      "title": "ReviewedQuestionnaireItem",
+      "type": "object"
+    },
+    "SourceDocumentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_count": {
+          "exclusiveMinimum": 0,
+          "title": "Byte Count",
+          "type": "integer"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "document_type": {
+          "enum": [
+            "lab_report",
+            "intake_form"
+          ],
+          "title": "Document Type",
+          "type": "string"
+        },
+        "mime_type": {
+          "enum": [
+            "application/pdf",
+            "image/png",
+            "image/jpeg"
+          ],
+          "title": "Mime Type",
+          "type": "string"
+        },
+        "openemr_document_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Openemr Document Id",
+          "type": "string"
+        },
+        "page_count": {
+          "exclusiveMinimum": 0,
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "source_document_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "upload_intent_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Upload Intent Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_document_id",
+        "openemr_document_id",
+        "upload_intent_id",
+        "document_type",
+        "content_sha256",
+        "byte_count",
+        "mime_type",
+        "page_count"
+      ],
+      "title": "SourceDocumentRef",
+      "type": "object"
+    },
+    "StringAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "string",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "StringAnswer",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authored": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Authored",
+      "type": "string"
+    },
+    "extraction_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Extraction Id",
+      "type": "string"
+    },
+    "extraction_version": {
+      "minimum": 1,
+      "title": "Extraction Version",
+      "type": "integer"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ReviewedQuestionnaireItem"
+      },
+      "maxItems": 659,
+      "minItems": 1,
+      "title": "Items",
+      "type": "array"
+    },
+    "lifecycle_reason": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lifecycle Reason"
+    },
+    "provenance": {
+      "$ref": "#/$defs/RecordProvenance"
+    },
+    "questionnaire": {
+      "const": "urn:agentforge:questionnaire:intake:v1",
+      "title": "Questionnaire",
+      "type": "string"
+    },
+    "record_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Record Id",
+      "type": "string"
+    },
+    "record_version": {
+      "minimum": 1,
+      "title": "Record Version",
+      "type": "integer"
+    },
+    "resource_type": {
+      "const": "QuestionnaireResponse",
+      "title": "Resource Type",
+      "type": "string"
+    },
+    "review_ids": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 659,
+      "minItems": 1,
+      "title": "Review Ids",
+      "type": "array"
+    },
+    "reviewed_by": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Reviewed By",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceDocumentRef"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "amended",
+        "stopped"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "subject": {
+      "pattern": "^Patient/[A-Za-z0-9.-]{1,64}$",
+      "title": "Subject",
+      "type": "string"
+    },
+    "supersedes_record_id": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Record Id"
+    }
+  },
+  "required": [
+    "record_id",
+    "record_version",
+    "resource_type",
+    "questionnaire",
+    "status",
+    "source",
+    "extraction_id",
+    "extraction_version",
+    "schema_version",
+    "subject",
+    "authored",
+    "reviewed_by",
+    "review_ids",
+    "items",
+    "provenance"
+  ],
+  "title": "ReviewedIntakeResponse",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

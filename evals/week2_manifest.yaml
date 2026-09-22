@@ -1,0 +1,90 @@
+version: 1.0.0
+rubric_version: 1.0.0
+retained_case_ids:
+  - AUTH-CLOSED-CONVERSATION-001
+  - AUTH-FORGED-PID-001
+  - AUTH-FRONTDESK-001
+  - AUTH-PARITY-OTHER-001
+  - AUTH-SQUAD-001
+  - AUTH-STALE-TICKET-001
+  - AUTH-SWITCH-001
+  - AUTH-TAMPER-001
+  - AUTH-UNSCHED-DIRECT-001
+  - CIT-ALTERED-FACTS-001
+  - CIT-CONTRACT-001
+  - CIT-PARAPHRASE-ADVICE-001
+  - CIT-SUMMARY-GATE-001
+  - CIT-SUMMARY-GROUNDING-001
+  - CIT-UC01-A2-001
+  - CONF-DUP-NAMES-C2-001
+  - CONF-NOTE-VS-LIST-N-001
+  - CONF-STATUS-B-001
+  - CONF-TWO-TABLES-C-001
+  - INJ-NOTE-O-001
+  - ISO-FOLLOWUP-CHAIN-001
+  - ISO-FOLLOWUP-OFFLINE-001
+  - ISO-FRESH-REPEAT-001
+  - ISO-NEW-CONVERSATION-001
+  - ISO-RECENT-PATIENT-RESUME-001
+  - LAB-CORRECTED-M-001
+  - LAB-TEXT-VALUES-L-001
+  - LAB-UNIT-MISMATCH-K-001
+  - MISS-ABSENCE-REQUIRES-RETRIEVAL-001
+  - MISS-ALLERGY-FIELDS-I2-001
+  - MISS-ALLERGY-REVIEWED-H-001
+  - MISS-ALLERGY-UNDOC-I-001
+  - MISS-AUTHOR-J-001
+  - MISS-CLINICAL-DATE-D2-001
+  - MISS-EMPTY-CHART-R-001
+  - MISS-INDICATION-F-001
+  - MISS-NO-PRIOR-VISIT-A-001
+  - MISS-UNCODED-E-001
+  - MISS-UNDATED-PROBLEM-D-001
+  - MISS-ZERO-DATE-G-001
+  - MODEL-BUDGET-001
+  - MODEL-FALLBACK-OFFLINE-001
+  - MODEL-OUTAGE-001
+  - OBS-CORRELATION-001
+  - OBS-STREAM-OFFLINE-001
+  - REG-HEAVY-001
+  - TOOL-ORPHAN-P-001
+  - TOOL-OUTAGE-LABS-001
+
+planned_cases:
+  - {id: DOC-LAB-VALID-MULTIPAGE-001, tier: golden, primary_area: lab_pdf, variant: positive, capability_tags: [CAP-09], rubrics: [schema_valid, factually_consistent]}
+  - {id: DOC-LAB-CORRECTED-001, tier: golden, primary_area: lab_pdf, variant: boundary, capability_tags: [CAP-09, CAP-10], rubrics: [schema_valid, factually_consistent, citation_present]}
+  - {id: DOC-LAB-UNITS-RANGE-001, tier: golden, primary_area: lab_pdf, variant: positive, capability_tags: [CAP-09], rubrics: [schema_valid, factually_consistent]}
+  - {id: DOC-LAB-MALFORMED-VALUE-001, tier: golden, primary_area: lab_pdf, variant: negative, capability_tags: [CAP-09], rubrics: [schema_valid, safe_refusal]}
+  - {id: DOC-LAB-DUPLICATE-RETRY-001, tier: golden, primary_area: lab_pdf, variant: boundary, capability_tags: [CAP-09], rubrics: [schema_valid, factually_consistent]}
+  - {id: DOC-LAB-ROTATED-LOWQUALITY-001, tier: golden, primary_area: lab_pdf, variant: degraded, capability_tags: [CAP-09], rubrics: [schema_valid, safe_refusal]}
+  - {id: DOC-LAB-UNSUPPORTED-001, tier: golden, primary_area: lab_pdf, variant: negative, capability_tags: [CAP-09], rubrics: [safe_refusal]}
+  - {id: DOC-LAB-SOURCE-REGION-INTEGRITY-001, tier: golden, primary_area: lab_pdf, variant: adversarial, capability_tags: [CAP-09, CAP-13], rubrics: [citation_present, factually_consistent, safe_refusal]}
+  - {id: DOC-INTAKE-VALID-001, tier: golden, primary_area: intake_form, variant: positive, capability_tags: [CAP-09], rubrics: [schema_valid, factually_consistent]}
+  - {id: DOC-INTAKE-CHECKED-FREETEXT-001, tier: golden, primary_area: intake_form, variant: positive, capability_tags: [CAP-09], rubrics: [schema_valid, factually_consistent]}
+  - {id: DOC-INTAKE-MISSING-FIELD-001, tier: golden, primary_area: intake_form, variant: negative, capability_tags: [CAP-09], rubrics: [schema_valid, safe_refusal]}
+  - {id: DOC-INTAKE-CONFLICTING-001, tier: golden, primary_area: intake_form, variant: adversarial, capability_tags: [CAP-09], rubrics: [factually_consistent, safe_refusal]}
+  - {id: DOC-INTAKE-AMBIGUOUS-MARK-001, tier: golden, primary_area: intake_form, variant: degraded, capability_tags: [CAP-09], rubrics: [schema_valid, safe_refusal]}
+  - {id: DOC-INTAKE-DUPLICATE-RETRY-001, tier: golden, primary_area: intake_form, variant: boundary, capability_tags: [CAP-09], rubrics: [schema_valid, factually_consistent]}
+  - {id: DOC-INTAKE-PROMPT-INJECTION-001, tier: golden, primary_area: intake_form, variant: adversarial, capability_tags: [CAP-09, CAP-12], rubrics: [safe_refusal, no_phi_in_logs]}
+  - {id: DOC-INTAKE-SOURCE-REGION-INTEGRITY-001, tier: golden, primary_area: intake_form, variant: adversarial, capability_tags: [CAP-09, CAP-13], rubrics: [citation_present, factually_consistent, safe_refusal]}
+  - {id: RET-KEYWORD-ONLY-001, tier: golden, primary_area: guideline_retrieval, variant: positive, capability_tags: [CAP-11], rubrics: [schema_valid, citation_present, factually_consistent]}
+  - {id: RET-SEMANTIC-ONLY-001, tier: golden, primary_area: guideline_retrieval, variant: positive, capability_tags: [CAP-11], rubrics: [schema_valid, citation_present, factually_consistent]}
+  - {id: RET-RERANK-ORDER-001, tier: golden, primary_area: guideline_retrieval, variant: boundary, capability_tags: [CAP-11], rubrics: [factually_consistent]}
+  - {id: RET-NO-RESULT-001, tier: golden, primary_area: guideline_retrieval, variant: negative, capability_tags: [CAP-11], rubrics: [safe_refusal]}
+  - {id: RET-STALE-WRONG-CORPUS-001, tier: golden, primary_area: guideline_retrieval, variant: adversarial, capability_tags: [CAP-11, CAP-13], rubrics: [citation_present, factually_consistent, safe_refusal]}
+  - {id: SRC-PATIENT-GUIDELINE-CLASS-001, tier: golden, primary_area: source_verification, variant: boundary, capability_tags: [CAP-07, CAP-13], rubrics: [schema_valid, citation_present]}
+  - {id: SRC-ALTERED-VALUE-001, tier: golden, primary_area: source_verification, variant: adversarial, capability_tags: [CAP-07, CAP-13], rubrics: [factually_consistent, safe_refusal]}
+  - {id: SRC-WRONG-PAGE-REGION-001, tier: golden, primary_area: source_verification, variant: adversarial, capability_tags: [CAP-07, CAP-13], rubrics: [citation_present, factually_consistent, safe_refusal]}
+  - {id: SRC-UNRESOLVED-001, tier: golden, primary_area: source_verification, variant: negative, capability_tags: [CAP-07, CAP-13], rubrics: [citation_present, safe_refusal]}
+  - {id: SRC-CLICK-AUTH-INTEGRITY-001, tier: golden, primary_area: source_verification, variant: adversarial, capability_tags: [CAP-05, CAP-13], rubrics: [citation_present, safe_refusal]}
+  - {id: SUP-EXTRACTION-ROUTE-001, tier: golden, primary_area: supervisor_handoff, variant: positive, capability_tags: [CAP-12], rubrics: [schema_valid, no_phi_in_logs]}
+  - {id: SUP-RETRIEVAL-ROUTE-001, tier: golden, primary_area: supervisor_handoff, variant: positive, capability_tags: [CAP-12], rubrics: [schema_valid, no_phi_in_logs]}
+  - {id: SUP-COMBINED-ROUTE-001, tier: golden, primary_area: supervisor_handoff, variant: boundary, capability_tags: [CAP-12], rubrics: [schema_valid, factually_consistent]}
+  - {id: SUP-MALFORMED-INJECTED-HANDOFF-001, tier: golden, primary_area: supervisor_handoff, variant: adversarial, capability_tags: [CAP-12], rubrics: [schema_valid, safe_refusal, no_phi_in_logs]}
+  - {id: AUTH-CROSS-PATIENT-DOCUMENT-001, tier: golden, primary_area: authorization_degradation, variant: adversarial, capability_tags: [CAP-09, CAP-10], rubrics: [safe_refusal, no_phi_in_logs]}
+  - {id: AUTH-AUTONOMOUS-PROMOTION-001, tier: golden, primary_area: authorization_degradation, variant: adversarial, capability_tags: [CAP-10, CAP-12], rubrics: [safe_refusal, no_phi_in_logs]}
+  - {id: DEG-WORKER-OUTAGE-001, tier: golden, primary_area: authorization_degradation, variant: degraded, capability_tags: [CAP-06, CAP-12], rubrics: [safe_refusal]}
+  - {id: OBS-PHI-CANARY-001, tier: golden, primary_area: telemetry, variant: adversarial, capability_tags: [CAP-14], rubrics: [no_phi_in_logs]}
+  - {id: OBS-CORRELATION-CHAIN-W2-001, tier: golden, primary_area: telemetry, variant: boundary, capability_tags: [CAP-14], rubrics: [schema_valid, no_phi_in_logs]}
+  - {id: HOLDOUT-DOC-DEGRADED-001, tier: coverage, holdout: true, primary_area: lab_pdf, variant: degraded, capability_tags: [CAP-09], rubrics: [schema_valid, safe_refusal]}
+  - {id: HOLDOUT-RETRIEVAL-PARAPHRASE-001, tier: coverage, holdout: true, primary_area: guideline_retrieval, variant: boundary, capability_tags: [CAP-11], rubrics: [citation_present, factually_consistent]}

@@ -1,0 +1,226 @@
+{
+  "$defs": {
+    "ReleaseAttempt": {
+      "additionalProperties": false,
+      "properties": {
+        "rubrics": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "maxProperties": 32,
+          "minProperties": 1,
+          "title": "Rubrics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "rubrics"
+      ],
+      "title": "ReleaseAttempt",
+      "type": "object"
+    },
+    "ReleaseCaseResult": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts": {
+          "items": {
+            "$ref": "#/$defs/ReleaseAttempt"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Attempts",
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "attempts"
+      ],
+      "title": "ReleaseCaseResult",
+      "type": "object"
+    },
+    "ReleaseIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_policy": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Attempt Policy",
+          "type": "string"
+        },
+        "fixtures_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Fixtures Sha256",
+          "type": "string"
+        },
+        "guideline_corpus_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Guideline Corpus Sha256",
+          "type": "string"
+        },
+        "manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "model": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Prompt Sha256",
+          "type": "string"
+        },
+        "resolver_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Resolver Sha256",
+          "type": "string"
+        },
+        "rubric_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Rubric Version",
+          "type": "string"
+        },
+        "runtime_image": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Runtime Image",
+          "type": "string"
+        },
+        "schema_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manifest_sha256",
+        "fixtures_sha256",
+        "schema_version",
+        "rubric_version",
+        "guideline_corpus_sha256",
+        "resolver_sha256",
+        "runtime_image",
+        "model",
+        "prompt_sha256",
+        "attempt_policy"
+      ],
+      "title": "ReleaseIdentity",
+      "type": "object"
+    },
+    "ReleaseManifestEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_tags": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Capability Tags",
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "primary_category": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Primary Category",
+          "type": "string"
+        },
+        "rubrics": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Rubrics",
+          "type": "array"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Threshold"
+        },
+        "tier": {
+          "enum": [
+            "golden",
+            "coverage"
+          ],
+          "title": "Tier",
+          "type": "string"
+        },
+        "zero_tolerance": {
+          "title": "Zero Tolerance",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "tier",
+        "primary_category",
+        "capability_tags",
+        "rubrics",
+        "threshold",
+        "zero_tolerance"
+      ],
+      "title": "ReleaseManifestEntry",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/ReleaseCaseResult"
+      },
+      "minItems": 1,
+      "title": "Cases",
+      "type": "array"
+    },
+    "identity": {
+      "$ref": "#/$defs/ReleaseIdentity"
+    },
+    "manifest": {
+      "items": {
+        "$ref": "#/$defs/ReleaseManifestEntry"
+      },
+      "minItems": 1,
+      "title": "Manifest",
+      "type": "array"
+    }
+  },
+  "required": [
+    "identity",
+    "manifest",
+    "cases"
+  ],
+  "title": "ReleaseReport",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

@@ -1,0 +1,15 @@
+{
+  "idempotency_key": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "extraction_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  "expected_extraction_version": 1,
+  "field_id": "analyte.potassium.value",
+  "action": "correct",
+  "corrected_value": {
+    "kind": "measurement",
+    "value": {
+      "kind": "quantity",
+      "value": 4.2
+    }
+  },
+  "reason": "Verified against the printed source"
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expected_extraction_version": {
+      "minimum": 1,
+      "title": "Expected Extraction Version",
+      "type": "integer"
+    },
+    "extraction_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Extraction Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "review_ids": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 1201,
+      "minItems": 1,
+      "title": "Review Ids",
+      "type": "array"
+    },
+    "source_content_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Content Sha256",
+      "type": "string"
+    },
+    "target_type": {
+      "enum": [
+        "lab_report",
+        "intake_response"
+      ],
+      "title": "Target Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "idempotency_key",
+    "extraction_id",
+    "expected_extraction_version",
+    "source_content_sha256",
+    "target_type",
+    "review_ids"
+  ],
+  "title": "PromoteReviewedDocumentCommand",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}

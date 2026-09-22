@@ -1,0 +1,767 @@
+{
+  "$defs": {
+    "CodedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "CodedValue",
+      "type": "object"
+    },
+    "FieldEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "box": {
+          "$ref": "#/$defs/NormalizedBox"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Confidence"
+        },
+        "evidence_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "ocr_span_end": {
+          "minimum": 1,
+          "title": "Ocr Span End",
+          "type": "integer"
+        },
+        "ocr_span_start": {
+          "minimum": 0,
+          "title": "Ocr Span Start",
+          "type": "integer"
+        },
+        "ocr_text_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Ocr Text Sha256",
+          "type": "string"
+        },
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "printed_quote": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Printed Quote",
+          "type": "string"
+        },
+        "rendered_page_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Rendered Page Sha256",
+          "type": "string"
+        },
+        "validation": {
+          "items": {
+            "$ref": "#/$defs/ValidationCode"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Validation",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "page_number",
+        "box",
+        "printed_quote",
+        "ocr_span_start",
+        "ocr_span_end",
+        "ocr_text_sha256",
+        "rendered_page_sha256",
+        "confidence",
+        "validation"
+      ],
+      "title": "FieldEvidence",
+      "type": "object"
+    },
+    "GuidelineChunkSource": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Approved At",
+          "type": "string"
+        },
+        "canonical_url": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "^https://[^\\s#]+(?:#[^\\s]+)?$",
+          "title": "Canonical Url",
+          "type": "string"
+        },
+        "chunk_id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "chunk_ordinal": {
+          "minimum": 0,
+          "title": "Chunk Ordinal",
+          "type": "integer"
+        },
+        "chunk_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Chunk Sha256",
+          "type": "string"
+        },
+        "corpus_retrieved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Corpus Retrieved At",
+          "type": "string"
+        },
+        "corpus_version": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Corpus Version",
+          "type": "string"
+        },
+        "document_id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "exact_text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Exact Text",
+          "type": "string"
+        },
+        "href": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "^https://[^\\s#]+(?:#[^\\s]+)?$",
+          "title": "Href",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "publication_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publication Date"
+        },
+        "publisher": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Publisher",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "section_path": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Section Path",
+          "type": "array"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^guideline:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "source_type": {
+          "const": "guideline",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "topic": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type",
+        "source_id",
+        "corpus_version",
+        "document_id",
+        "chunk_id",
+        "publisher",
+        "title",
+        "jurisdiction",
+        "canonical_url",
+        "topic",
+        "section_path",
+        "chunk_ordinal",
+        "exact_text",
+        "source_sha256",
+        "chunk_sha256",
+        "retrieved_at",
+        "corpus_retrieved_at",
+        "approved_at",
+        "href"
+      ],
+      "title": "GuidelineChunkSource",
+      "type": "object"
+    },
+    "NormalizedBox": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Height"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Width"
+        },
+        "x": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "X"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Y"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "NormalizedBox",
+      "type": "object"
+    },
+    "OpenEmrRecordSource": {
+      "additionalProperties": false,
+      "properties": {
+        "chart_section": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Chart Section",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "href": {
+          "maxLength": 1000,
+          "pattern": "^/[^#\\x00-\\x1f]{0,999}$",
+          "title": "Href",
+          "type": "string"
+        },
+        "record_label": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Record Label",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^openemr:[A-Za-z0-9_-]{1,64}:[0-9]+(?::[0-9a-f-]{36})?$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "source_type": {
+          "const": "openemr_record",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "source_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Source Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type",
+        "source_id",
+        "source_ref",
+        "chart_section",
+        "record_label",
+        "source_version",
+        "retrieved_at",
+        "fields",
+        "href"
+      ],
+      "title": "OpenEmrRecordSource",
+      "type": "object"
+    },
+    "QuantityValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "QuantityValue",
+      "type": "object"
+    },
+    "ReferenceRange": {
+      "additionalProperties": false,
+      "properties": {
+        "high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "High"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "title": "ReferenceRange",
+      "type": "object"
+    },
+    "ReviewedDocumentFieldSource": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "href": {
+          "maxLength": 1000,
+          "pattern": "^/[^#\\x00-\\x1f]{0,999}$",
+          "title": "Href",
+          "type": "string"
+        },
+        "record_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Record Id",
+          "type": "string"
+        },
+        "record_status": {
+          "enum": [
+            "active",
+            "amended"
+          ],
+          "title": "Record Status",
+          "type": "string"
+        },
+        "record_type": {
+          "enum": [
+            "lab_report",
+            "intake_response"
+          ],
+          "title": "Record Type",
+          "type": "string"
+        },
+        "record_version": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Record Version",
+          "type": "integer"
+        },
+        "retrieved_at": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "review_decision": {
+          "enum": [
+            "approved",
+            "corrected"
+          ],
+          "title": "Review Decision",
+          "type": "string"
+        },
+        "review_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Review Id",
+          "type": "string"
+        },
+        "reviewed_value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "$ref": "#/$defs/CodedValue"
+            },
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "$ref": "#/$defs/TextValue"
+            },
+            {
+              "$ref": "#/$defs/ReferenceRange"
+            }
+          ],
+          "title": "Reviewed Value"
+        },
+        "schema_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Content Sha256",
+          "type": "string"
+        },
+        "source_document_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^document:[0-9a-f-]{36}:record:[0-9a-f-]{36}:v:[1-9][0-9]*:field:[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_type": {
+          "const": "reviewed_document",
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type",
+        "source_id",
+        "source_document_id",
+        "source_content_sha256",
+        "record_id",
+        "record_version",
+        "record_status",
+        "record_type",
+        "field_id",
+        "review_id",
+        "review_decision",
+        "reviewed_value",
+        "evidence",
+        "schema_version",
+        "retrieved_at",
+        "href"
+      ],
+      "title": "ReviewedDocumentFieldSource",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "Where a record came from. `source_id` is what claims cite and what the\nmodule maps to a chart URL.",
+      "properties": {
+        "id": {
+          "minimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "table": {
+          "maxLength": 64,
+          "title": "Table",
+          "type": "string"
+        },
+        "uuid": {
+          "anyOf": [
+            {
+              "maxLength": 36,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uuid"
+        }
+      },
+      "required": [
+        "source_id",
+        "table",
+        "id"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TextValue",
+      "type": "object"
+    },
+    "ValidationCode": {
+      "enum": [
+        "valid",
+        "low_confidence",
+        "missing",
+        "ambiguous",
+        "conflicting",
+        "invalid_type",
+        "invalid_format",
+        "quote_mismatch",
+        "out_of_bounds"
+      ],
+      "title": "ValidationCode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "guideline": "#/$defs/GuidelineChunkSource",
+      "openemr_record": "#/$defs/OpenEmrRecordSource",
+      "reviewed_document": "#/$defs/ReviewedDocumentFieldSource"
+    },
+    "propertyName": "source_type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/OpenEmrRecordSource"
+    },
+    {
+      "$ref": "#/$defs/ReviewedDocumentFieldSource"
+    },
+    {
+      "$ref": "#/$defs/GuidelineChunkSource"
+    }
+  ],
+  "title": "ResolvedSource",
+  "x-contract-version": "2.0.0"
+}

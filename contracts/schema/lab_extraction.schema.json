@@ -1,0 +1,961 @@
+{
+  "$defs": {
+    "CodedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "system": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system",
+        "code"
+      ],
+      "title": "CodedValue",
+      "type": "object"
+    },
+    "ExtractionState": {
+      "enum": [
+        "schema_valid",
+        "review_required",
+        "rejected",
+        "unavailable"
+      ],
+      "title": "ExtractionState",
+      "type": "string"
+    },
+    "FieldEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "box": {
+          "$ref": "#/$defs/NormalizedBox"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Confidence"
+        },
+        "evidence_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "ocr_span_end": {
+          "minimum": 1,
+          "title": "Ocr Span End",
+          "type": "integer"
+        },
+        "ocr_span_start": {
+          "minimum": 0,
+          "title": "Ocr Span Start",
+          "type": "integer"
+        },
+        "ocr_text_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Ocr Text Sha256",
+          "type": "string"
+        },
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "printed_quote": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Printed Quote",
+          "type": "string"
+        },
+        "rendered_page_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Rendered Page Sha256",
+          "type": "string"
+        },
+        "validation": {
+          "items": {
+            "$ref": "#/$defs/ValidationCode"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Validation",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "page_number",
+        "box",
+        "printed_quote",
+        "ocr_span_start",
+        "ocr_span_end",
+        "ocr_text_sha256",
+        "rendered_page_sha256",
+        "confidence",
+        "validation"
+      ],
+      "title": "FieldEvidence",
+      "type": "object"
+    },
+    "LabExtractionPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "analytes": {
+          "items": {
+            "$ref": "#/$defs/ProposedAnalyte"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Analytes",
+          "type": "array"
+        },
+        "collection_date": {
+          "$ref": "#/$defs/ProposedField_date_"
+        }
+      },
+      "required": [
+        "collection_date",
+        "analytes"
+      ],
+      "title": "LabExtractionPayload",
+      "type": "object"
+    },
+    "NormalizedBox": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Height"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Width"
+        },
+        "x": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "X"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Y"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "NormalizedBox",
+      "type": "object"
+    },
+    "OcrPage": {
+      "additionalProperties": false,
+      "properties": {
+        "page_number": {
+          "minimum": 1,
+          "title": "Page Number",
+          "type": "integer"
+        },
+        "preprocessing_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Preprocessing Version",
+          "type": "string"
+        },
+        "rendered_page_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Rendered Page Sha256",
+          "type": "string"
+        },
+        "renderer_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Renderer Version",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 100000,
+          "title": "Text",
+          "type": "string"
+        },
+        "text_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Text Sha256",
+          "type": "string"
+        },
+        "tokens": {
+          "items": {
+            "$ref": "#/$defs/OcrToken"
+          },
+          "maxItems": 50000,
+          "title": "Tokens",
+          "type": "array"
+        }
+      },
+      "required": [
+        "page_number",
+        "text",
+        "text_sha256",
+        "rendered_page_sha256",
+        "renderer_version",
+        "preprocessing_version"
+      ],
+      "title": "OcrPage",
+      "type": "object"
+    },
+    "OcrToken": {
+      "additionalProperties": false,
+      "properties": {
+        "box": {
+          "$ref": "#/$defs/NormalizedBox"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Confidence"
+        },
+        "span_end": {
+          "minimum": 1,
+          "title": "Span End",
+          "type": "integer"
+        },
+        "span_start": {
+          "minimum": 0,
+          "title": "Span Start",
+          "type": "integer"
+        },
+        "text": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "token_index": {
+          "minimum": 0,
+          "title": "Token Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "token_index",
+        "text",
+        "span_start",
+        "span_end",
+        "box",
+        "confidence"
+      ],
+      "title": "OcrToken",
+      "type": "object"
+    },
+    "ProposedAnalyte": {
+      "additionalProperties": false,
+      "properties": {
+        "abnormal_flag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposedField_Literal__low____high____abnormal____normal____unknown___"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "analyte_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Analyte Id",
+          "type": "string"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposedField_CodedValue_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reference_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposedField_ReferenceRange_"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "test_name": {
+          "$ref": "#/$defs/ProposedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_200_____"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_80_____"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "$ref": "#/$defs/ProposedField_Annotated_Union_QuantityValue__TextValue___FieldInfo_annotation_NoneType__required_True__discriminator__kind____"
+        }
+      },
+      "required": [
+        "analyte_id",
+        "test_name",
+        "value"
+      ],
+      "title": "ProposedAnalyte",
+      "type": "object"
+    },
+    "ProposedField_Annotated_Union_QuantityValue__TextValue___FieldInfo_annotation_NoneType__required_True__discriminator__kind____": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "quantity": "#/$defs/QuantityValue",
+                  "text": "#/$defs/TextValue"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/QuantityValue"
+                },
+                {
+                  "$ref": "#/$defs/TextValue"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "state",
+        "evidence"
+      ],
+      "title": "ProposedField[Annotated[Union[QuantityValue, TextValue], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]]",
+      "type": "object"
+    },
+    "ProposedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_200_____": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "state",
+        "evidence"
+      ],
+      "title": "ProposedField[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[MinLen(min_length=1), MaxLen(max_length=200)])]]",
+      "type": "object"
+    },
+    "ProposedField_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata__MinLen_min_length_1___MaxLen_max_length_80_____": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "state",
+        "evidence"
+      ],
+      "title": "ProposedField[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[MinLen(min_length=1), MaxLen(max_length=80)])]]",
+      "type": "object"
+    },
+    "ProposedField_CodedValue_": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodedValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "state",
+        "evidence"
+      ],
+      "title": "ProposedField[CodedValue]",
+      "type": "object"
+    },
+    "ProposedField_Literal__low____high____abnormal____normal____unknown___": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "high",
+                "abnormal",
+                "normal",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "state",
+        "evidence"
+      ],
+      "title": "ProposedField[Literal['low', 'high', 'abnormal', 'normal', 'unknown']]",
+      "type": "object"
+    },
+    "ProposedField_ReferenceRange_": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "state",
+        "evidence"
+      ],
+      "title": "ProposedField[ReferenceRange]",
+      "type": "object"
+    },
+    "ProposedField_date_": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FieldEvidence"
+          },
+          "maxItems": 3,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "field_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ExtractionState"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "state",
+        "evidence"
+      ],
+      "title": "ProposedField[date]",
+      "type": "object"
+    },
+    "QuantityValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "QuantityValue",
+      "type": "object"
+    },
+    "ReferenceRange": {
+      "additionalProperties": false,
+      "properties": {
+        "high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "High"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "title": "ReferenceRange",
+      "type": "object"
+    },
+    "SourceDocumentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_count": {
+          "exclusiveMinimum": 0,
+          "title": "Byte Count",
+          "type": "integer"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "document_type": {
+          "enum": [
+            "lab_report",
+            "intake_form"
+          ],
+          "title": "Document Type",
+          "type": "string"
+        },
+        "mime_type": {
+          "enum": [
+            "application/pdf",
+            "image/png",
+            "image/jpeg"
+          ],
+          "title": "Mime Type",
+          "type": "string"
+        },
+        "openemr_document_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Openemr Document Id",
+          "type": "string"
+        },
+        "page_count": {
+          "exclusiveMinimum": 0,
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "source_document_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Source Document Id",
+          "type": "string"
+        },
+        "upload_intent_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Upload Intent Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_document_id",
+        "openemr_document_id",
+        "upload_intent_id",
+        "document_type",
+        "content_sha256",
+        "byte_count",
+        "mime_type",
+        "page_count"
+      ],
+      "title": "SourceDocumentRef",
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TextValue",
+      "type": "object"
+    },
+    "ValidationCode": {
+      "enum": [
+        "valid",
+        "low_confidence",
+        "missing",
+        "ambiguous",
+        "conflicting",
+        "invalid_type",
+        "invalid_format",
+        "quote_mismatch",
+        "out_of_bounds"
+      ],
+      "title": "ValidationCode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "extraction_id": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "title": "Extraction Id",
+      "type": "string"
+    },
+    "extraction_version": {
+      "minimum": 1,
+      "title": "Extraction Version",
+      "type": "integer"
+    },
+    "ocr_pages": {
+      "items": {
+        "$ref": "#/$defs/OcrPage"
+      },
+      "maxItems": 20,
+      "minItems": 1,
+      "title": "Ocr Pages",
+      "type": "array"
+    },
+    "payload": {
+      "$ref": "#/$defs/LabExtractionPayload"
+    },
+    "schema_name": {
+      "const": "lab-report",
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceDocumentRef"
+    },
+    "state": {
+      "$ref": "#/$defs/ExtractionState"
+    }
+  },
+  "required": [
+    "extraction_id",
+    "extraction_version",
+    "schema_name",
+    "schema_version",
+    "source",
+    "state",
+    "created_at",
+    "ocr_pages",
+    "payload"
+  ],
+  "title": "LabExtractionEnvelope",
+  "type": "object",
+  "x-contract-version": "2.0.0"
+}
