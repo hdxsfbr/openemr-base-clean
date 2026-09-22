@@ -20,6 +20,10 @@ COPY requirements.lock ./
 RUN pip install -r requirements.lock
 COPY pyproject.toml README.md ./
 COPY app ./app
+# The resolver and retriever load this committed, approved active corpus at
+# runtime.  It is source metadata/chunks only; pinned model binaries remain in
+# the separately provisioned read-only volume.
+COPY guideline_corpus ./guideline_corpus
 COPY scripts ./scripts
 COPY BUILD_COMMIT ./BUILD_COMMIT
 RUN pip install --no-deps .

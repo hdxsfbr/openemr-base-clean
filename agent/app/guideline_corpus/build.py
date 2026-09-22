@@ -28,8 +28,12 @@ import tokenizers
 from tokenizers import Tokenizer
 
 
-REPOSITORY = Path(__file__).resolve().parents[3]
-CORPUS_ROOT = REPOSITORY / "agent" / "guideline_corpus"
+# The package is installed at /app/app in the runtime image, with the checked-in
+# corpus at /app/guideline_corpus.  Derive that stable agent root first rather
+# than assuming a source-checkout parent such as /repository/agent.
+AGENT_ROOT = Path(__file__).resolve().parents[2]
+REPOSITORY = AGENT_ROOT.parent
+CORPUS_ROOT = AGENT_ROOT / "guideline_corpus"
 MANIFEST_PATH = CORPUS_ROOT / "approved_manifest.json"
 ACTIVE_POINTER_PATH = CORPUS_ROOT / "active.json"
 SOURCE_INPUT_PATH = REPOSITORY / "docs" / "research" / "week2-retrieval-benchmark" / "corpus.jsonl"
