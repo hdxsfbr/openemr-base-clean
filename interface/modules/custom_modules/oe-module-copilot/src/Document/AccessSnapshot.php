@@ -20,6 +20,8 @@ final readonly class AccessSnapshot
         public bool $squadAllowed,
         public bool $breakGlass,
         public string $principal,
+        public bool $reviewAcl,
+        public bool $targetWriteAcl,
     ) {
     }
 }

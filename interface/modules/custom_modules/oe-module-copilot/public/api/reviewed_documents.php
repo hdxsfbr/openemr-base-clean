@@ -15,6 +15,7 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Session\SessionWrapperFactory;
 use OpenEMR\Modules\Copilot\Document\DocumentLifecycleException;
 use OpenEMR\Modules\Copilot\Document\Review\ReviewWorkflowFactory;
+use OpenEMR\Modules\Copilot\Document\Review\ReviewWorkspaceFactory;
 use OpenEMR\Modules\Copilot\Gateway\Audit;
 use OpenEMR\Modules\Copilot\Http\Json;
 
@@ -52,6 +53,16 @@ try {
     }
     unset($body['csrf_token']);
     $path = '/' . trim((string) ($_SERVER['PATH_INFO'] ?? ''), '/');
+
+    if ($path === '/review-workspace') {
+        if ($body !== []) {
+            throw new DocumentLifecycleException('invalid_contract', false, 'The review read request is invalid.', 422);
+        }
+        Json::send(200, ReviewWorkspaceFactory::browser()->read($correlationId), $correlationId);
+    }
+    if ($path === '/review-source') {
+        Json::send(200, ReviewWorkspaceFactory::browser()->source($body, $correlationId), $correlationId);
+    }
     $workflow = ReviewWorkflowFactory::browser();
 
     if ($path === '/document-reviews') {

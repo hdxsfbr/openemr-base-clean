@@ -45,6 +45,8 @@ final class DocumentAuthorizationTest extends TestCase
         yield 'squad denied' => [FixedAccessSnapshot::snapshot(squadAllowed: false), 'forbidden'];
         yield 'break glass' => [FixedAccessSnapshot::snapshot(breakGlass: true), 'forbidden'];
         yield 'model write attempt' => [FixedAccessSnapshot::snapshot(principal: 'agent'), 'forbidden'];
+        yield 'non-physician reviewer' => [FixedAccessSnapshot::snapshot(reviewAcl: false), 'forbidden'];
+        yield 'missing target write access' => [FixedAccessSnapshot::snapshot(targetWriteAcl: false), 'forbidden'];
     }
 
     #[DataProvider('deniedSnapshots')]
@@ -76,6 +78,36 @@ final class DocumentAuthorizationTest extends TestCase
             self::assertCount(1, $audit->events);
         }
     }
+
+    public function testUploadAuthorityDoesNotImplyReviewOrPromotionAuthority(): void
+    {
+        $authorization = new DocumentAuthorization(
+            new FixedAccessSnapshot(FixedAccessSnapshot::snapshot(reviewAcl: false, targetWriteAcl: false)),
+            new PolicyAudit()
+        );
+
+        self::assertSame(42, $authorization->authorize('upload', 'corr-upload-only')->pid);
+        foreach (['review', 'promotion', 'amendment', 'withdrawal'] as $operation) {
+            try {
+                $authorization->authorize($operation, 'corr-upload-only');
+                self::fail('Upload-only authority must not permit ' . $operation . '.');
+            } catch (DocumentLifecycleException $exception) {
+                self::assertSame('forbidden', $exception->errorCode);
+            }
+        }
+    }
+
+    public function testReviewerWithoutTargetWriteAccessCannotPromote(): void
+    {
+        $authorization = new DocumentAuthorization(
+            new FixedAccessSnapshot(FixedAccessSnapshot::snapshot(reviewAcl: true, targetWriteAcl: false)),
+            new PolicyAudit()
+        );
+
+        self::assertSame(42, $authorization->authorize('review', 'corr-review-only')->pid);
+        $this->expectException(DocumentLifecycleException::class);
+        $authorization->authorize('promotion', 'corr-review-only');
+    }
 }
 
 final class FixedAccessSnapshot implements AccessSnapshotPort
@@ -95,6 +127,8 @@ final class FixedAccessSnapshot implements AccessSnapshotPort
         bool $squadAllowed = true,
         bool $breakGlass = false,
         string $principal = 'browser',
+        bool $reviewAcl = true,
+        bool $targetWriteAcl = true,
     ): AccessSnapshot {
         return new AccessSnapshot(
             new DocumentContext('default', 7, 'synthetic-physician', 'Physicians', 42, 'patient-uuid-42'),
@@ -102,7 +136,9 @@ final class FixedAccessSnapshot implements AccessSnapshotPort
             $docsAcl,
             $squadAllowed,
             $breakGlass,
-            $principal
+            $principal,
+            $reviewAcl,
+            $targetWriteAcl
         );
     }
 }

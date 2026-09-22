@@ -125,6 +125,48 @@
 
 #copilot-panel .copilot-upload-controls .btn { justify-self: start; }
 
+#copilot-panel .copilot-review {
+    max-height: 52%;
+    flex: 0 1 auto;
+    overflow-y: auto;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background: #fff;
+}
+
+#copilot-panel .copilot-review > summary {
+    color: #2457a6;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+#copilot-panel #copilot-review-status { margin: 0.4rem 0; }
+#copilot-panel .copilot-review-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem; margin-bottom: 0.45rem; }
+#copilot-panel .copilot-review-fact { padding: 0.6rem 0; border-top: 1px solid #e1e5e9; }
+#copilot-panel .copilot-review-fact-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+#copilot-panel .copilot-review-fact-head h6 { margin: 0; overflow-wrap: anywhere; font-size: 0.82rem; }
+#copilot-panel .copilot-review-state { border: 1px solid #adb5bd; background: #f8f9fa; color: #343a40; text-transform: capitalize; }
+#copilot-panel .copilot-review-state-approved { border-color: #5c946b; background: #eff8f1; color: #225c31; }
+#copilot-panel .copilot-review-state-corrected { border-color: #b7791f; background: #fffaf0; color: #744210; }
+#copilot-panel .copilot-review-state-rejected { border-color: #b94a48; background: #fff5f5; color: #822727; }
+#copilot-panel .copilot-review-proposed { margin-top: 0.3rem; overflow-wrap: anywhere; font-weight: 600; }
+#copilot-panel .copilot-review-current { margin-top: 0.25rem; color: #744210; font-size: 0.8rem; }
+#copilot-panel .copilot-review-source-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+#copilot-panel .copilot-review-source { min-height: 2.75rem; }
+#copilot-panel .copilot-review-fields { display: grid; gap: 0.35rem; margin-top: 0.45rem; }
+#copilot-panel .copilot-review-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+#copilot-panel .copilot-review-actions .btn,
+#copilot-panel .copilot-review-promotion .btn { min-height: 2.75rem; }
+#copilot-panel .copilot-review-promotion { padding-top: 0.65rem; border-top: 2px solid #d7dce1; }
+#copilot-panel .copilot-review-promotion .small { margin-top: 0.35rem; }
+#copilot-panel .copilot-reviewed-record { margin: 0.65rem 0; padding: 0.65rem; border: 1px solid #5c946b; border-radius: 0.4rem; background: #f4fbf6; }
+#copilot-panel .copilot-reviewed-record h6 { margin-bottom: 0.25rem; }
+#copilot-panel .copilot-review-readback { margin: 0; }
+#copilot-panel .copilot-review-readback-row { display: grid; grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1fr); gap: 0.5rem; padding-top: 0.3rem; }
+#copilot-panel .copilot-review-readback-row dt,
+#copilot-panel .copilot-review-readback-row dd { margin: 0; overflow-wrap: anywhere; font-size: 0.78rem; }
+
 #copilot-panel .copilot-transcript {
     display: flex;
     min-height: 0;
@@ -379,6 +421,12 @@
     #copilot-panel .copilot-source-pane { padding-right: 0.65rem; padding-left: 0.65rem; }
     #copilot-panel .copilot-view-tabs { padding-right: 0.65rem; padding-left: 0.65rem; }
     #copilot-panel .copilot-view-tabs .btn { min-width: 0; flex: 1 1 50%; white-space: normal; }
+    #copilot-panel .copilot-review { max-height: 58%; padding-right: 0.65rem; padding-left: 0.65rem; }
+    #copilot-panel .copilot-review-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+    #copilot-panel .copilot-review-actions .btn,
+    #copilot-panel .copilot-review-promotion .btn,
+    #copilot-panel .copilot-review-source { width: 100%; white-space: normal; }
+    #copilot-panel .copilot-review-readback-row { grid-template-columns: minmax(0, 1fr); gap: 0.05rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

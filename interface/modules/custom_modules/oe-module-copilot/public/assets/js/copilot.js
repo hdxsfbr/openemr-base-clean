@@ -39,6 +39,9 @@
     var uploadFile = document.getElementById('copilot-upload-file');
     var uploadSubmit = document.getElementById('copilot-upload-submit');
     var uploadStatus = document.getElementById('copilot-upload-status');
+    var reviewPanel = document.getElementById('copilot-review');
+    var reviewStatus = document.getElementById('copilot-review-status');
+    var reviewWorkspace = document.getElementById('copilot-review-workspace');
     var menuItem = document.getElementById('copilot_menu');
     var menuTrigger = menuItem ? menuItem.querySelector('a') : null;
     var state = {
@@ -52,7 +55,9 @@
         briefOnOpen: false,
         briefStarted: false,
         activeCitationId: null,
-        sourceViewActive: false
+        sourceViewActive: false,
+        reviewData: null,
+        reviewBusy: false
     };
     var lastTrigger = null;
 
@@ -82,7 +87,7 @@
     sourceTabs.appendChild(sourceTab);
     if (drawerBody) {
         drawerBody.insertBefore(sourceTabs, drawerBody.firstChild);
-        [document.getElementById('copilot-upload'), transcript, composer].forEach(function (node) {
+        [document.getElementById('copilot-upload'), reviewPanel, transcript, composer].forEach(function (node) {
             if (node) { answerPane.appendChild(node); }
         });
         sourcePane.appendChild(sourceLive);
@@ -322,10 +327,13 @@
         var badge = el('div', 'copilot-source-class', data.lane === 'guideline_evidence' ? 'Guideline evidence' : 'Patient record');
         sourcePane.appendChild(badge);
 
-        if (source.source_type === 'reviewed_document') {
+        if (source.source_type === 'reviewed_document' || source.source_type === 'document_proposal') {
             var metadata = el('dl', 'copilot-source-metadata');
             metadata.appendChild(sourceRow('Document type', source.document_type));
-            metadata.appendChild(sourceRow('Record version', String(source.record_version)));
+            metadata.appendChild(sourceRow(
+                source.source_type === 'reviewed_document' ? 'Record version' : 'Extraction version',
+                String(source.source_type === 'reviewed_document' ? source.record_version : source.extraction_version)
+            ));
             metadata.appendChild(sourceRow('Location', 'Page ' + source.page_number + ' · ' + source.field_id));
             sourcePane.appendChild(metadata);
 
@@ -334,8 +342,13 @@
                 values.appendChild(el('div', 'copilot-correction-marker', 'Physician corrected'));
             }
             var reviewed = el('div', 'copilot-reviewed-value');
-            reviewed.appendChild(el('strong', null, source.reviewed.label + ': '));
-            reviewed.appendChild(document.createTextNode(displaySourceValue(source.reviewed.value)));
+            if (source.source_type === 'reviewed_document') {
+                reviewed.appendChild(el('strong', null, source.reviewed.label + ': '));
+                reviewed.appendChild(document.createTextNode(displaySourceValue(source.reviewed.value)));
+            } else {
+                reviewed.appendChild(el('strong', null, source.proposed.label + ': '));
+                reviewed.appendChild(document.createTextNode(displaySourceValue(source.proposed.value)));
+            }
             var printed = el('div', 'copilot-printed-value');
             printed.appendChild(el('strong', null, source.printed.label + ': '));
             printed.appendChild(document.createTextNode(displaySourceValue(source.printed.value)));
@@ -740,6 +753,321 @@
         });
     }
 
+    // ---- physician document review (read-back before every explicit write) ----
+    function setReviewStatus(message, tone) {
+        if (!reviewStatus) { return; }
+        reviewStatus.textContent = message || '';
+        reviewStatus.className = 'small ' + (tone || 'text-muted');
+    }
+    function setReviewBusy(busy) {
+        state.reviewBusy = busy;
+        if (!reviewWorkspace) { return; }
+        Array.prototype.forEach.call(reviewWorkspace.querySelectorAll('button, input, textarea'), function (control) {
+            control.disabled = busy || control.getAttribute('data-server-disabled') === 'true';
+        });
+    }
+    function reviewValue(value) {
+        if (value === null || value === undefined) { return 'No value extracted'; }
+        if (typeof value === 'string' || typeof value === 'number') { return String(value); }
+        if (typeof value !== 'object' || Array.isArray(value)) { return 'Structured value'; }
+        if (value.kind === 'quantity' || value.kind === 'text') { return String(value.value); }
+        if (value.display) { return String(value.display); }
+        if (value.text) { return String(value.text); }
+        if (value.low !== undefined || value.high !== undefined) {
+            return String(value.low !== undefined ? value.low : '—') + '–' + String(value.high !== undefined ? value.high : '—')
+                + (value.unit ? ' ' + value.unit : '');
+        }
+        return JSON.stringify(value);
+    }
+    function correctionInputValue(fieldId, proposed) {
+        if (/\.(code|reference_range)$/.test(fieldId) && proposed && typeof proposed === 'object') {
+            return JSON.stringify(proposed);
+        }
+        return reviewValue(proposed);
+    }
+    function correctionFor(fieldId, proposed, raw) {
+        var trimmed = raw.trim();
+        if (!trimmed) { throw new Error('Enter the corrected value.'); }
+        if (fieldId === 'collection_date' || /\.date_of_birth$/.test(fieldId)) {
+            return { kind: 'date', value: trimmed };
+        }
+        if (/\.onset_age_years$/.test(fieldId)) {
+            if (!/^\d+$/.test(trimmed)) { throw new Error('Enter a whole number of years.'); }
+            return { kind: 'integer', value: Number(trimmed) };
+        }
+        if (/\.(administrative_sex|status|severity|abnormal_flag)$/.test(fieldId)) {
+            return { kind: 'choice', value: trimmed };
+        }
+        if (/\.code$/.test(fieldId)) {
+            return { kind: 'coded', value: JSON.parse(trimmed) };
+        }
+        if (/\.reference_range$/.test(fieldId)) {
+            return { kind: 'reference_range', value: JSON.parse(trimmed) };
+        }
+        if (/\.value$/.test(fieldId) && proposed && typeof proposed === 'object'
+            && (proposed.kind === 'quantity' || proposed.kind === 'text')) {
+            return { kind: 'measurement', value: { kind: proposed.kind, value: trimmed } };
+        }
+        return { kind: 'string', value: trimmed };
+    }
+    function reviewError(error, fallback) {
+        return error && error.data && error.data.limitation
+            ? error.data.limitation
+            : (error && error.message && error.message.indexOf('HTTP ') !== 0 ? error.message : fallback);
+    }
+    function reviewRequest(path, payload) {
+        return refreshSession().then(function () {
+            return postJson(modulePath + '/public/api/reviewed_documents.php' + path,
+                Object.assign({ csrf_token: state.csrf }, payload || {}),
+                { 'X-Correlation-Id': state.correlationId || panel.getAttribute('data-correlation-id') }, 20000);
+        }).then(function (response) {
+            if (!response.ok || !response.data) {
+                var error = new Error(response.data && response.data.code ? response.data.code : ('HTTP ' + response.status));
+                error.data = response.data;
+                throw error;
+            }
+            return response.data;
+        });
+    }
+    function submitReview(fact, action, correctedInput, reasonInput) {
+        if (state.reviewBusy || !state.reviewData || !state.reviewData.extraction) { return; }
+        var extraction = state.reviewData.extraction;
+        var command = {
+            idempotency_key: uploadUuid(),
+            extraction_id: extraction.extraction_id,
+            expected_extraction_version: extraction.extraction_version,
+            field_id: fact.field_id,
+            action: action
+        };
+        try {
+            if (action === 'correct') {
+                command.corrected_value = correctionFor(fact.field_id, fact.proposed_value, correctedInput.value);
+                command.reason = reasonInput.value.trim();
+                if (!command.reason) { throw new Error('Explain why the value was corrected.'); }
+            } else if (action === 'reject') {
+                command.reason = reasonInput.value.trim();
+                if (!command.reason) { throw new Error('Explain why the proposed fact was rejected.'); }
+            }
+        } catch (error) {
+            setReviewStatus(error.message || 'The review fields are invalid.', 'text-danger');
+            return;
+        }
+        setReviewBusy(true);
+        setReviewStatus('Saving the explicit physician decision…', 'text-muted');
+        reviewRequest('/document-reviews', command).then(function () {
+            return loadReviewWorkspace(false);
+        }).catch(function (error) {
+            setReviewStatus(reviewError(error, 'The review decision was not saved. The chart is unchanged.'), 'text-danger');
+        }).finally(function () { setReviewBusy(false); });
+    }
+    function openReviewSource(fact, evidence, control) {
+        if (!state.reviewData || !state.reviewData.extraction || state.reviewBusy) { return; }
+        var extraction = state.reviewData.extraction;
+        state.activeCitationId = 'review:' + evidence.evidence_id;
+        showSourceView();
+        sourcePane.textContent = '';
+        sourcePane.appendChild(sourceLive);
+        sourcePane.appendChild(el('div', 'copilot-source-loading', 'Reauthorizing and checking source integrity…'));
+        sourceLive.textContent = 'Opening proposed fact source';
+        reviewRequest('/review-source', {
+            extraction_id: extraction.extraction_id,
+            expected_extraction_version: extraction.extraction_version,
+            source_document_id: extraction.source_document_id,
+            source_content_sha256: extraction.source_content_sha256,
+            field_id: fact.field_id,
+            evidence_id: evidence.evidence_id,
+            page_number: evidence.page_number,
+            rendered_page_sha256: evidence.rendered_page_sha256
+        }).then(renderSource).catch(function (error) {
+            renderSourceLimitation(error.data || null);
+        });
+        if (control) { control.setAttribute('aria-pressed', 'true'); }
+    }
+    function reviewedRecordValues(record) {
+        var values = [];
+        if (!record || typeof record !== 'object') { return values; }
+        if (record.collection_date && record.collection_date.source_field_id) {
+            values.push([record.collection_date.source_field_id, record.collection_date.value]);
+        }
+        (record.analytes || []).forEach(function (analyte) {
+            Object.keys(analyte).forEach(function (key) {
+                var field = analyte[key];
+                if (field && field.source_field_id) { values.push([field.source_field_id, field.value]); }
+            });
+        });
+        (record.items || []).forEach(function (item) {
+            if (item && item.source_field_id && item.answer) { values.push([item.source_field_id, item.answer.value]); }
+        });
+        return values;
+    }
+    function renderReviewedRecord(current) {
+        var card = el('section', 'copilot-reviewed-record');
+        card.appendChild(el('h6', null, 'Current reviewed record'));
+        card.appendChild(el('p', 'small mb-1', 'Version ' + current.record_version + ' · ' + current.status.replace(/_/g, ' ')));
+        var list = el('dl', 'copilot-review-readback');
+        reviewedRecordValues(current.record).forEach(function (entry) {
+            var row = el('div', 'copilot-review-readback-row');
+            row.appendChild(el('dt', null, entry[0]));
+            row.appendChild(el('dd', null, reviewValue(entry[1])));
+            list.appendChild(row);
+        });
+        card.appendChild(list);
+        return card;
+    }
+    function renderReviewFact(fact) {
+        var card = el('section', 'copilot-review-fact');
+        var heading = el('div', 'copilot-review-fact-head');
+        heading.appendChild(el('h6', null, fact.field_id.replace(/[._-]/g, ' ')));
+        var decision = fact.current_decision && fact.current_decision.decision ? fact.current_decision.decision : 'pending';
+        heading.appendChild(el('span', 'badge copilot-review-state copilot-review-state-' + decision, decision.replace(/_/g, ' ')));
+        card.appendChild(heading);
+        card.appendChild(el('div', 'copilot-review-proposed', reviewValue(fact.proposed_value)));
+        card.appendChild(el('div', 'small text-muted', 'Extraction: ' + String(fact.extraction_state || 'unavailable').replace(/_/g, ' ')));
+        if (decision === 'corrected' && fact.current_decision.final_value !== undefined) {
+            card.appendChild(el('div', 'copilot-review-current', 'Reviewed value: ' + reviewValue(fact.current_decision.final_value)));
+        }
+
+        var evidenceItems = Array.isArray(fact.evidence) ? fact.evidence : [];
+        if (evidenceItems.length) {
+            var sourceActions = el('div', 'copilot-review-source-actions');
+            evidenceItems.forEach(function (evidence, index) {
+                var sourceButton = el('button', 'btn btn-sm btn-outline-secondary copilot-review-source',
+                    'View source ' + (index + 1) + ' · page ' + evidence.page_number);
+                sourceButton.type = 'button';
+                sourceButton.setAttribute('data-review-action', 'source');
+                sourceButton.setAttribute('aria-pressed', 'false');
+                sourceButton.addEventListener('click', function () { openReviewSource(fact, evidence, sourceButton); });
+                sourceActions.appendChild(sourceButton);
+            });
+            card.appendChild(sourceActions);
+        } else {
+            card.appendChild(el('div', 'small text-warning', 'No source region is available for this proposed fact.'));
+        }
+
+        var correction = el('input', 'form-control form-control-sm');
+        correction.type = 'text';
+        correction.value = correctionInputValue(fact.field_id, fact.proposed_value);
+        correction.maxLength = 2000;
+        correction.setAttribute('aria-label', 'Corrected value for ' + fact.field_id);
+        var reason = el('textarea', 'form-control form-control-sm');
+        reason.rows = 2;
+        reason.maxLength = 500;
+        reason.placeholder = 'Reason required for correction or rejection';
+        reason.setAttribute('aria-label', 'Reason for changing ' + fact.field_id);
+        var fields = el('div', 'copilot-review-fields');
+        fields.appendChild(correction);
+        fields.appendChild(reason);
+        card.appendChild(fields);
+
+        var actions = el('div', 'copilot-review-actions');
+        var approve = el('button', 'btn btn-sm btn-outline-success', 'Approve');
+        var correct = el('button', 'btn btn-sm btn-outline-primary', 'Save correction');
+        var reject = el('button', 'btn btn-sm btn-outline-danger', 'Reject');
+        approve.type = correct.type = reject.type = 'button';
+        approve.setAttribute('data-review-action', 'approve');
+        correct.setAttribute('data-review-action', 'correct');
+        reject.setAttribute('data-review-action', 'reject');
+        var cannotAccept = fact.proposed_value === null || evidenceItems.length === 0
+            || ['rejected', 'unavailable'].indexOf(fact.extraction_state) >= 0;
+        if (cannotAccept) {
+            approve.disabled = true;
+            correct.disabled = true;
+            approve.setAttribute('data-server-disabled', 'true');
+            correct.setAttribute('data-server-disabled', 'true');
+        }
+        approve.addEventListener('click', function () { submitReview(fact, 'approve', correction, reason); });
+        correct.addEventListener('click', function () { submitReview(fact, 'correct', correction, reason); });
+        reject.addEventListener('click', function () { submitReview(fact, 'reject', correction, reason); });
+        actions.appendChild(approve);
+        actions.appendChild(correct);
+        actions.appendChild(reject);
+        card.appendChild(actions);
+        return card;
+    }
+    function promoteReviewedDocument() {
+        if (state.reviewBusy || !state.reviewData || !state.reviewData.extraction
+            || !state.reviewData.promotion || state.reviewData.promotion.state !== 'ready') { return; }
+        var extraction = state.reviewData.extraction;
+        setReviewBusy(true);
+        setReviewStatus('Creating one immutable reviewed record…', 'text-muted');
+        reviewRequest('/document-promotions', {
+            idempotency_key: uploadUuid(),
+            extraction_id: extraction.extraction_id,
+            expected_extraction_version: extraction.extraction_version,
+            source_content_sha256: extraction.source_content_sha256,
+            target_type: extraction.target_type,
+            review_ids: state.reviewData.promotion.review_ids.slice()
+        }).then(function () {
+            return loadReviewWorkspace(false);
+        }).catch(function (error) {
+            setReviewStatus(reviewError(error, 'The reviewed record was not created. No chart record changed.'), 'text-danger');
+        }).finally(function () { setReviewBusy(false); });
+    }
+    function renderReviewWorkspace(data) {
+        if (!reviewWorkspace || !reviewPanel) { return; }
+        state.reviewData = data;
+        reviewWorkspace.textContent = '';
+        if (!data || data.status === 'empty' || !data.extraction) {
+            setReviewStatus('No extracted document is waiting for physician review.', 'text-muted');
+            return;
+        }
+        reviewPanel.open = true;
+        var summary = el('div', 'copilot-review-summary');
+        summary.appendChild(el('strong', null, data.extraction.document_type === 'lab_report' ? 'Laboratory report' : 'Intake form'));
+        summary.appendChild(el('span', 'small text-muted', ' Extraction v' + data.extraction.extraction_version
+            + ' · ' + String(data.extraction.extraction_state).replace(/_/g, ' ')));
+        reviewWorkspace.appendChild(summary);
+        (data.facts || []).forEach(function (fact) { reviewWorkspace.appendChild(renderReviewFact(fact)); });
+
+        if (data.promotion && data.promotion.current_record) {
+            reviewWorkspace.appendChild(renderReviewedRecord(data.promotion.current_record));
+        }
+        var promotion = el('div', 'copilot-review-promotion');
+        var promote = el('button', 'btn btn-sm btn-primary', 'Promote reviewed document');
+        promote.type = 'button';
+        promote.setAttribute('data-review-action', 'promote');
+        var ready = data.promotion && data.promotion.state === 'ready';
+        promote.disabled = !ready;
+        if (!ready) { promote.setAttribute('data-server-disabled', 'true'); }
+        promote.addEventListener('click', promoteReviewedDocument);
+        promotion.appendChild(promote);
+        if (data.promotion && data.promotion.state === 'promoted') {
+            promotion.appendChild(el('div', 'small text-success', 'The current reviewed record is read back above. No further write occurs automatically.'));
+        } else if (!ready) {
+            var count = data.promotion ? data.promotion.blocker_count : 0;
+            promotion.appendChild(el('div', 'small text-warning', count + ' proposed value(s) still block promotion.'));
+        } else {
+            promotion.appendChild(el('div', 'small text-muted', 'Promotion occurs only when you activate this button.'));
+        }
+        reviewWorkspace.appendChild(promotion);
+        setReviewStatus(data.status === 'promoted' ? 'Reviewed record read back from OpenEMR.'
+            : (ready ? 'All promotable values have current physician decisions.' : 'Physician review is required.'),
+        data.status === 'promoted' || ready ? 'text-success' : 'text-warning');
+    }
+    function loadReviewWorkspace(refresh) {
+        if (!reviewPanel || !reviewWorkspace) { return Promise.resolve(null); }
+        setReviewStatus('Reading the latest extraction and current decisions…', 'text-muted');
+        var ready = refresh === false ? Promise.resolve() : refreshSession();
+        return ready.then(function () {
+            return postJson(modulePath + '/public/api/reviewed_documents.php/review-workspace', {
+                csrf_token: state.csrf
+            }, { 'X-Correlation-Id': state.correlationId || panel.getAttribute('data-correlation-id') }, 15000);
+        }).then(function (response) {
+            if (!response.ok || !response.data) {
+                var error = new Error(response.data && response.data.code ? response.data.code : 'unavailable');
+                error.data = response.data;
+                throw error;
+            }
+            renderReviewWorkspace(response.data);
+            return response.data;
+        }).catch(function (error) {
+            state.reviewData = null;
+            reviewWorkspace.textContent = '';
+            setReviewStatus(reviewError(error, 'Document review is unavailable. No review or chart write occurred.'), 'text-danger');
+            return null;
+        });
+    }
+
     // ---- patient-bound source upload ----
     function uploadUuid() {
         if (window.crypto && typeof window.crypto.randomUUID === 'function') { return window.crypto.randomUUID(); }
@@ -805,6 +1133,7 @@
             var duplicate = response.data.warnings && response.data.warnings[0];
             setUploadState(false, duplicate ? duplicate.message : 'Source saved to the open chart.', duplicate ? 'text-warning' : 'text-success');
             uploadFile.value = '';
+            loadReviewWorkspace(false);
         }).catch(function (error) {
             var limitation = error && error.data && error.data.limitation;
             setUploadState(false, limitation || 'The source could not be uploaded. The chart is unchanged.', 'text-danger');
@@ -835,7 +1164,10 @@
     }
     function synchronizeChart() {
         if (state.syncPromise) { return state.syncPromise; }
-        state.syncPromise = refreshSession().then(resumeConversation).then(function (conversationId) {
+        state.syncPromise = refreshSession().then(function () {
+            return Promise.all([resumeConversation(), loadReviewWorkspace(false)]);
+        }).then(function (results) {
+            var conversationId = results[0];
             state.conversationId = conversationId;
             if (conversationId === state.renderedConversationId) { return false; }
             state.correlationId = null;

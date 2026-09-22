@@ -14,7 +14,7 @@ namespace OpenEMR\Modules\Copilot\Document\Review;
 use OpenEMR\Common\Database\QueryUtils;
 use Opis\JsonSchema\Validator;
 
-final class OpenEmrReviewRepository implements ReviewRepositoryPort
+final class OpenEmrReviewRepository implements ReviewRepositoryPort, ReviewWorkspaceRepositoryPort
 {
     public function __construct(private readonly string $schemaDirectory)
     {
@@ -40,32 +40,47 @@ final class OpenEmrReviewRepository implements ReviewRepositoryPort
             . 'ON u.source_document_id = e.source_document_id WHERE e.extraction_id = ? LIMIT 1 FOR UPDATE',
             [$extractionId]
         );
-        if ($row === null) {
-            return null;
-        }
-        $envelope = $this->json((string) $row['extraction_json']);
-        return [
-            'extraction_id' => (string) $row['extraction_id'],
-            'extraction_version' => (int) $row['extraction_version'],
-            'source_document_id' => (string) $row['source_document_id'],
-            'source_content_sha256' => (string) $row['content_sha256'],
-            'site_id' => (string) $row['site_id'],
-            'pid' => (int) $row['pid'],
-            'schema_name' => (string) $row['schema_name'],
-            'schema_version' => (string) $row['schema_version'],
-            'state' => (string) $row['state'],
-            'source' => $envelope['source'] ?? [
-                'source_document_id' => (string) $row['source_document_id'],
-                'openemr_document_id' => (string) $row['openemr_document_id'],
-                'upload_intent_id' => (string) $row['upload_intent_id'],
-                'document_type' => (string) $row['category'],
-                'content_sha256' => (string) $row['content_sha256'],
-                'byte_count' => (int) $row['actual_byte_count'],
-                'mime_type' => (string) $row['actual_mime_type'],
-                'page_count' => (int) $row['actual_page_count'],
-            ],
-            'payload' => $envelope['payload'] ?? [],
-        ];
+        return $row === null ? null : $this->extraction($row);
+    }
+
+    public function findLatestExtractionForPatient(string $siteId, int $pid): ?array
+    {
+        $row = $this->one(
+            'SELECT e.*, u.site_id, u.pid, u.openemr_document_id, u.upload_intent_id, u.category, '
+            . 'u.content_sha256, u.actual_byte_count, u.actual_mime_type, u.actual_page_count '
+            . 'FROM copilot_document_extraction e JOIN copilot_document_upload u '
+            . 'ON u.source_document_id = e.source_document_id '
+            . 'WHERE u.site_id = ? AND u.pid = ? AND u.completed_at IS NOT NULL '
+            . 'ORDER BY e.created_at DESC, e.extraction_version DESC, e.extraction_id DESC LIMIT 1',
+            [$siteId, $pid]
+        );
+        return $row === null ? null : $this->extraction($row);
+    }
+
+    public function findProposedFactsForExtraction(string $extractionId): array
+    {
+        $rows = QueryUtils::fetchRecords(
+            'SELECT * FROM copilot_proposed_fact WHERE extraction_id = ? ORDER BY field_id',
+            [$extractionId]
+        );
+        return array_values(array_map(function (array $row): array {
+            return [
+                'extraction_id' => (string) $row['extraction_id'],
+                'field_id' => (string) $row['field_id'],
+                'typed_value' => $row['typed_value_json'] === null ? null : $this->jsonValue((string) $row['typed_value_json']),
+                'evidence' => $this->jsonList((string) $row['evidence_json']),
+                'state' => (string) $row['state'],
+            ];
+        }, $rows));
+    }
+
+    public function findLatestRecordForExtraction(string $extractionId): ?array
+    {
+        $row = $this->one(
+            'SELECT * FROM copilot_promoted_record WHERE extraction_id = ? ORDER BY created_at DESC, record_version DESC LIMIT 1',
+            [$extractionId]
+        );
+        return $row === null ? null : $this->record($row);
     }
 
     public function findProposedFact(string $extractionId, string $fieldId): ?array
@@ -89,7 +104,7 @@ final class OpenEmrReviewRepository implements ReviewRepositoryPort
         return [
             'extraction_id' => (string) $row['extraction_id'],
             'field_id' => (string) $row['field_id'],
-            'typed_value' => $row['typed_value_json'] === null ? null : $this->json((string) $row['typed_value_json']),
+            'typed_value' => $row['typed_value_json'] === null ? null : $this->jsonValue((string) $row['typed_value_json']),
             'evidence_ids' => $ids,
             'state' => (string) $row['state'],
         ];
@@ -204,6 +219,34 @@ final class OpenEmrReviewRepository implements ReviewRepositoryPort
     }
 
     /** @param array<string, mixed> $row @return array<string, mixed> */
+    private function extraction(array $row): array
+    {
+        $envelope = $this->json((string) $row['extraction_json']);
+        return [
+            'extraction_id' => (string) $row['extraction_id'],
+            'extraction_version' => (int) $row['extraction_version'],
+            'source_document_id' => (string) $row['source_document_id'],
+            'source_content_sha256' => (string) $row['content_sha256'],
+            'site_id' => (string) $row['site_id'],
+            'pid' => (int) $row['pid'],
+            'schema_name' => (string) $row['schema_name'],
+            'schema_version' => (string) $row['schema_version'],
+            'state' => (string) $row['state'],
+            'source' => $envelope['source'] ?? [
+                'source_document_id' => (string) $row['source_document_id'],
+                'openemr_document_id' => (string) $row['openemr_document_id'],
+                'upload_intent_id' => (string) $row['upload_intent_id'],
+                'document_type' => (string) $row['category'],
+                'content_sha256' => (string) $row['content_sha256'],
+                'byte_count' => (int) $row['actual_byte_count'],
+                'mime_type' => (string) $row['actual_mime_type'],
+                'page_count' => (int) $row['actual_page_count'],
+            ],
+            'payload' => $envelope['payload'] ?? [],
+        ];
+    }
+
+    /** @param array<string, mixed> $row @return array<string, mixed> */
     private function review(array $row): array
     {
         $review = $this->json((string) $row['review_json']);
@@ -267,6 +310,26 @@ final class OpenEmrReviewRepository implements ReviewRepositoryPort
         $value = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($value)) {
             throw new \RuntimeException('Stored review JSON is invalid');
+        }
+        return $value;
+    }
+
+    private function jsonValue(string $json): mixed
+    {
+        return json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function jsonList(string $json): array
+    {
+        $value = $this->jsonValue($json);
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new \RuntimeException('Stored evidence JSON is invalid');
+        }
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                throw new \RuntimeException('Stored evidence JSON is invalid');
+            }
         }
         return $value;
     }

@@ -23,6 +23,8 @@ final class DocumentAuthorization implements AuthorizationPort
         'amendment' => ['browser'],
         'withdrawal' => ['browser'],
     ];
+    private const REVIEW_OPERATIONS = ['review', 'promotion', 'amendment', 'withdrawal'];
+    private const TARGET_WRITE_OPERATIONS = ['promotion', 'amendment', 'withdrawal'];
 
     public function __construct(
         private readonly AccessSnapshotPort $access,
@@ -46,6 +48,10 @@ final class DocumentAuthorization implements AuthorizationPort
             $reason = 'acl';
         } elseif (!in_array($snapshot->principal, self::PRINCIPALS[$operation], true)) {
             $reason = 'principal';
+        } elseif (in_array($operation, self::REVIEW_OPERATIONS, true) && !$snapshot->reviewAcl) {
+            $reason = 'review_acl';
+        } elseif (in_array($operation, self::TARGET_WRITE_OPERATIONS, true) && !$snapshot->targetWriteAcl) {
+            $reason = 'target_write_acl';
         }
 
         if ($reason !== null) {

@@ -68,6 +68,25 @@ final class ReviewPromotionTest extends TestCase
         self::assertCount(1, $repository->outbox);
     }
 
+    public function testApprovalAcceptsSchemaValidExplicitNullOptionalFields(): void
+    {
+        $repository = new InMemoryReviewRepository();
+        $repository->seedLabExtraction();
+
+        $review = $this->workflow($repository)->review([
+            'idempotency_key' => '9e9f7257-86bc-49b5-a17b-14f2d49ae515',
+            'extraction_id' => InMemoryReviewRepository::EXTRACTION_ID,
+            'expected_extraction_version' => 1,
+            'field_id' => 'analyte.potassium.value',
+            'action' => 'approve',
+            'corrected_value' => null,
+            'reason' => null,
+        ], 'corr-review-explicit-nulls');
+
+        self::assertSame('approved', $review['decision']);
+        self::assertSame(['kind' => 'quantity', 'value' => '4.2'], $review['final_value']);
+    }
+
     public function testCorrectionIsAppendOnlyAndAnIdempotencyKeyCannotChangeItsValue(): void
     {
         $repository = new InMemoryReviewRepository();

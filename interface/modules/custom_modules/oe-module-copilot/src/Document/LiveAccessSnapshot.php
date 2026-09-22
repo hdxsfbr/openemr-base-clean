@@ -41,6 +41,8 @@ final class LiveAccessSnapshot implements AccessSnapshotPort
         $squad = $patientExists ? (string) ($patients[0]['squad'] ?? '') : '';
         $squadAllowed = $patientExists && ($squad === '' || AclMain::aclCheckCore('squads', $squad, $username));
         $docsAcl = $active && $patientExists && AclMain::aclCheckCore('patients', 'docs', $username);
+        $reviewAcl = $active && $patientExists && AclMain::aclCheckCore('patients', 'med', $username, 'write');
+        $targetWriteAcl = $active && $patientExists && AclMain::aclCheckCore('patients', 'docs', $username, 'write');
         $breakGlass = $username !== '' && ContextBuilder::isBreakGlass($username);
 
         return new AccessSnapshot(
@@ -49,7 +51,9 @@ final class LiveAccessSnapshot implements AccessSnapshotPort
             (bool) $docsAcl,
             (bool) $squadAllowed,
             $breakGlass,
-            $this->principal
+            $this->principal,
+            (bool) $reviewAcl,
+            (bool) $targetWriteAcl
         );
     }
 }

@@ -674,7 +674,6 @@ final class ReviewPromotionWorkflow
         $hasReason = array_key_exists('reason', $command) && is_string($command['reason']) && strlen($command['reason']) >= 1 && strlen($command['reason']) <= 500;
         if (($command['action'] === 'correct') !== $hasCorrection
             || (($command['action'] !== 'approve') !== $hasReason)
-            || ($command['action'] === 'approve' && (array_key_exists('reason', $command) || array_key_exists('corrected_value', $command)))
         ) {
             throw $this->failure('invalid_contract', 'The review decision fields are invalid.', 422);
         }
