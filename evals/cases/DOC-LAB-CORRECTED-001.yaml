@@ -9,5 +9,6 @@ risk: "Corrected lab result preserves correction provenance"
 capability_tags: [CAP-09, CAP-10]
 rubrics: [schema_valid, factually_consistent, citation_present]
 zero_tolerance: true
-mode: pending
-pending_seam: "document extraction lifecycle is not implemented"
+mode: offline
+pytest:
+  - tests/test_week2_verifier.py::test_reviewed_lab_result_requires_exact_fields_and_cites_every_evidence_region

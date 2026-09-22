@@ -1,6 +1,6 @@
 {
   "identity": {
-    "manifest_sha256": "aa39f36452f8e374be908fc7c0001901463501972fc68688a6e02ca697162e26",
+    "manifest_sha256": "bad12866a0e1bd95b5c0656cdae6154d389d085a37b6ff6df4589a6ece37851b",
     "fixtures_sha256": "9fbf961fe74d57cb21642d84164aa64232af25785898bfbc078a32424793ed30",
     "schema_version": "2.0.0",
     "rubric_version": "1.0.0",
@@ -32,6 +32,7 @@
     "DOC-INTAKE-SOURCE-REGION-INTEGRITY-001": {"citation_present": true, "factually_consistent": true, "safe_refusal": true},
     "DOC-INTAKE-VALID-001": {"schema_valid": true, "factually_consistent": true},
     "DOC-LAB-DUPLICATE-RETRY-001": {"schema_valid": true, "factually_consistent": true},
+    "DOC-LAB-CORRECTED-001": {"schema_valid": true, "factually_consistent": true, "citation_present": true},
     "DOC-LAB-MALFORMED-VALUE-001": {"schema_valid": true, "safe_refusal": true},
     "DOC-LAB-ROTATED-LOWQUALITY-001": {"schema_valid": true, "safe_refusal": true},
     "DOC-LAB-SOURCE-REGION-INTEGRITY-001": {"citation_present": true, "factually_consistent": true, "safe_refusal": true},
