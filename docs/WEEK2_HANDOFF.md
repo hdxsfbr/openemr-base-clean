@@ -3,9 +3,12 @@
 **Status:** Local implementation seams are substantially complete on branch
 `codex/week2-implementation` as of 2026-09-21, but the mandatory runtime is not
 complete. Production document extraction now has a durable module job, signed
-internal gateway, and separate worker, but source-view and Week 2 chat adapters
-are not wired into FastAPI startup; `document_ready` remains false and source
-review fails closed. Deployment, protected-branch configuration, an owner-approved
+internal gateway, and separate worker. FastAPI installs a guideline-only
+source-review adapter when the approved corpus capability is enabled; it
+reopens the immutable corpus at click time and fails closed on a changed source.
+Native-record and reviewed-document source adapters, plus the Week 2 chat
+coordinator, are not wired into the live turn path; `document_ready` remains
+false. Deployment, protected-branch configuration, an owner-approved
 full baseline, and live browser/load/rollback evidence also remain open.
 
 Start with

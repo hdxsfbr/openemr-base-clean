@@ -25,6 +25,7 @@ from .metrics import metrics
 from .settings import settings
 from .state_store import drop_token, mark_conversation_closed, put_token
 from .source_review import SourceReviewEnvelope
+from .contracts.week2 import Citation
 from .telemetry import finish_turn_trace, trace_config, turn_trace
 from .turn_outcome import verification_outcome
 
@@ -265,7 +266,11 @@ async def get_turn_source(
     for turn in values.get("history") or []:
         if turn.get("turn_id") != turn_id:
             continue
-        for claim in turn.get("claims") or []:
+        # Week 1 patient claims retain the legacy `claims` list while the
+        # Week 2 evidence lane is persisted separately during the compatible
+        # response-contract transition.  Both are server-rendered claims; the
+        # browser never supplies source metadata.
+        for claim in [*(turn.get("claims") or []), *(turn.get("guideline_claims") or [])]:
             for citation in claim.get("citations") or []:
                 if citation.get("citation_id") == citation_id:
                     trusted_citation = citation
@@ -279,7 +284,11 @@ async def get_turn_source(
     try:
         resolved = await resolver.resolve(conversation_id, turn_id, trusted_citation, correlation_id)
         envelope = SourceReviewEnvelope.model_validate(resolved)
-        if envelope.citation.model_dump(mode="json") != trusted_citation:
+        # Compare canonical typed citations.  A resolver may add an explicit
+        # optional ``null`` field while reserializing an otherwise identical
+        # server-rendered citation; raw-dict equality would incorrectly turn
+        # that safe source open into an unavailable response.
+        if envelope.citation != Citation.model_validate(trusted_citation):
             raise ValueError("citation changed during source resolution")
     except Exception:  # noqa: BLE001 - source content and dependency details must not escape
         return _error(503, "dependency_unavailable", "The cited source is unavailable.", correlation_id)

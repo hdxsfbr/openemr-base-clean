@@ -22,6 +22,7 @@ from .logging_setup import configure_logging
 from .metrics import metrics
 from .model import live_model
 from .readiness import ReadinessReport, evaluate
+from .source_review import configured_guideline_source_resolver
 from .settings import settings
 from .state_store import checkpoint_path, sweep_closed_checkpoints
 from .telemetry import guard_environment
@@ -70,6 +71,11 @@ async def lifespan(app: FastAPI):
             runtime = Runtime(gateway=gateway, model=model)
             app.state.runtime = runtime
             app.state.graph = build_graph(runtime, checkpointer=saver)
+            source_review_resolver = configured_guideline_source_resolver(settings)
+            if source_review_resolver is not None:
+                app.state.source_review_resolver = source_review_resolver
+            elif hasattr(app.state, "source_review_resolver"):
+                del app.state.source_review_resolver
             app.state.checkpoint_path = path
             retention_task = asyncio.create_task(_retention_sweeper(path))
             settings.transient_dir.mkdir(parents=True, exist_ok=True)
