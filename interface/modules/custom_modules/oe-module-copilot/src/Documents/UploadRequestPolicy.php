@@ -12,7 +12,8 @@ final class UploadRequestPolicy
     /** @param array<string, mixed> $body */
     public static function acceptsIntent(array $body): bool
     {
-        return ($body['document_type'] ?? null) === SourceDocumentRepository::DOCUMENT_TYPE
+        return is_string($body['document_type'] ?? null)
+            && SourceDocumentRepository::supportsDocumentType($body['document_type'])
             && !array_key_exists('pid', $body)
             && !array_key_exists('patient_id', $body);
     }

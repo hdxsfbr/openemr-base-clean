@@ -12,18 +12,26 @@ use OpenEMR\Common\Uuid\UuidRegistry;
 /** Persistent intent-to-source mapping. No document content or extracted value is stored here. */
 final class SourceDocumentRepository
 {
-    public const DOCUMENT_TYPE = 'lab_pdf';
+    public const DOCUMENT_TYPES = ['lab_pdf', 'intake_form'];
 
     /** @return array{contract_version: string, intent_id: string, document_type: string, status: string} */
-    public function createIntent(UploadContext $ctx): array
+    public function createIntent(UploadContext $ctx, string $documentType): array
     {
+        if (!self::supportsDocumentType($documentType)) {
+            throw new SourceUploadException('invalid_file');
+        }
         $intentId = bin2hex(random_bytes(16));
         QueryUtils::sqlInsert(
             'INSERT INTO copilot_source_upload_intent '
             . '(id, site_id, user_id, pid, document_type, state, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 15 MINUTE))',
-            [$intentId, $ctx->siteId, $ctx->userId, $ctx->pid, self::DOCUMENT_TYPE, 'pending']
+            [$intentId, $ctx->siteId, $ctx->userId, $ctx->pid, $documentType, 'pending']
         );
-        return ['contract_version' => '2.0.0', 'intent_id' => $intentId, 'document_type' => self::DOCUMENT_TYPE, 'status' => 'pending'];
+        return ['contract_version' => '2.0.0', 'intent_id' => $intentId, 'document_type' => $documentType, 'status' => 'pending'];
+    }
+
+    public static function supportsDocumentType(string $documentType): bool
+    {
+        return in_array($documentType, self::DOCUMENT_TYPES, true);
     }
 
     /** @return array<string, mixed>|null */
@@ -62,7 +70,7 @@ final class SourceDocumentRepository
         }
         if (
             $intent['site_id'] !== $ctx->siteId || (int) $intent['user_id'] !== $ctx->userId
-            || (int) $intent['pid'] !== $ctx->pid || $intent['document_type'] !== self::DOCUMENT_TYPE
+            || (int) $intent['pid'] !== $ctx->pid || !self::supportsDocumentType((string) $intent['document_type'])
         ) {
             throw new SourceUploadException('duplicate_or_replay');
         }
@@ -75,7 +83,7 @@ final class SourceDocumentRepository
     }
 
     /** Claim a pending intent atomically, so two same-intent POSTs cannot both create documents. */
-    private function claimIntent(UploadContext $ctx, string $intentId): void
+    private function claimIntent(UploadContext $ctx, string $intentId, string $expectedDocumentType): string
     {
         QueryUtils::sqlStatementThrowException('START TRANSACTION');
         try {
@@ -86,13 +94,15 @@ final class SourceDocumentRepository
             $intent = $rows[0] ?? null;
             if (
                 $intent === null || $intent['site_id'] !== $ctx->siteId || (int) $intent['user_id'] !== $ctx->userId
-                || (int) $intent['pid'] !== $ctx->pid || $intent['document_type'] !== self::DOCUMENT_TYPE
+                || (int) $intent['pid'] !== $ctx->pid || !self::supportsDocumentType((string) $intent['document_type'])
+                || $intent['document_type'] !== $expectedDocumentType
                 || $intent['state'] !== 'pending' || strtotime((string) $intent['expires_at']) < time()
             ) {
                 throw new SourceUploadException('duplicate_or_replay');
             }
             QueryUtils::sqlStatementThrowException('UPDATE copilot_source_upload_intent SET state = ? WHERE id = ?', ['processing', $intentId]);
             QueryUtils::sqlStatementThrowException('COMMIT');
+            return (string) $intent['document_type'];
         } catch (\Throwable $e) {
             QueryUtils::sqlStatementThrowException('ROLLBACK');
             if ($e instanceof SourceUploadException) {
@@ -102,14 +112,14 @@ final class SourceDocumentRepository
         }
     }
 
-    /** @param array{mime_type: string, byte_size: int, page_count: int, content_hash: string} $file */
+    /** @param array{document_type: string, mime_type: string, byte_size: int, page_count: int, content_hash: string} $file */
     public function store(UploadContext $ctx, string $intentId, array $file, string $bytes): array
     {
         $existing = $this->sourceForIntent($intentId);
         if ($existing !== null) {
             return $existing;
         }
-        $this->claimIntent($ctx, $intentId);
+        $documentType = $this->claimIntent($ctx, $intentId, (string) ($file['document_type'] ?? ''));
 
         try {
             $category = QueryUtils::fetchRecords('SELECT id FROM categories WHERE name = ? AND aco_spec = ? LIMIT 1', ['AgentForge Lab Uploads', 'patients|docs']);
@@ -118,7 +128,8 @@ final class SourceDocumentRepository
             }
             $document = new \Document();
             // Filename is module-owned and carries no original filename or patient identifier.
-            $error = $document->createDocument($ctx->pid, (int) $category[0]['id'], 'agentforge-lab.pdf', $file['mime_type'], $bytes);
+            $filename = $documentType === 'intake_form' ? 'agentforge-intake.pdf' : 'agentforge-lab.pdf';
+            $error = $document->createDocument($ctx->pid, (int) $category[0]['id'], $filename, $file['mime_type'], $bytes);
             if ($error !== '') {
                 throw new SourceUploadException('storage_unavailable');
             }
@@ -132,7 +143,7 @@ final class SourceDocumentRepository
                 'INSERT INTO copilot_source_document '
                 . '(source_id, site_id, pid, native_document_id, native_document_uuid, content_hash, document_type, mime_type, byte_size, page_count, version, created_at) '
                 . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())',
-                [$sourceId, $ctx->siteId, $ctx->pid, $documentId, $uuid, $file['content_hash'], self::DOCUMENT_TYPE, $file['mime_type'], $file['byte_size'], $file['page_count']]
+                [$sourceId, $ctx->siteId, $ctx->pid, $documentId, $uuid, $file['content_hash'], $documentType, $file['mime_type'], $file['byte_size'], $file['page_count']]
             );
             QueryUtils::sqlStatementThrowException('UPDATE copilot_source_upload_intent SET state = ?, source_id = ?, completed_at = NOW() WHERE id = ?', ['stored', $sourceId, $intentId]);
             return $this->findSource($sourceId) ?? throw new SourceUploadException('storage_unavailable');

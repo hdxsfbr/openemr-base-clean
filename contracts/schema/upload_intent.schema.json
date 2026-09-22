@@ -1,9 +1,10 @@
 {
   "$defs": {
     "DocumentType": {
-      "description": "Closed for Slice 1A. Intake is introduced by the later contract change.",
+      "description": "The only two Week 2 source types accepted at the upload boundary.",
       "enum": [
-        "lab_pdf"
+        "lab_pdf",
+        "intake_form"
       ],
       "title": "DocumentType",
       "type": "string"

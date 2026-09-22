@@ -1,0 +1,132 @@
+{
+  "contract_version": "2.0.0",
+  "demographics": {
+    "given_name": {
+      "value": "Synthetic",
+      "evidence": {
+        "state": "present",
+        "confidence": "high",
+        "source_citation": {
+          "source_type": "document",
+          "source_id": "document:0123456789abcdef0123456789abcdef",
+          "page_or_section": 1,
+          "field_or_chunk_id": "given_name",
+          "quote_or_value": "Synthetic",
+          "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    "date_of_birth": {
+      "value": null,
+      "evidence": {
+        "state": "ambiguous",
+        "confidence": "low",
+        "source_citation": {
+          "source_type": "document",
+          "source_id": "document:0123456789abcdef0123456789abcdef",
+          "page_or_section": 1,
+          "field_or_chunk_id": "date_of_birth",
+          "quote_or_value": "DOB: 01/02 or 02/01",
+          "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    }
+  },
+  "chief_concern": {
+    "value": "Persistent cough",
+    "evidence": {
+      "state": "present",
+      "confidence": "medium",
+      "source_citation": {
+        "source_type": "document",
+        "source_id": "document:0123456789abcdef0123456789abcdef",
+        "page_or_section": 1,
+        "field_or_chunk_id": "chief_concern",
+        "quote_or_value": "Persistent cough",
+        "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  },
+  "medications": [
+    {
+      "entry_id": "11111111111111111111111111111111",
+      "name": {
+        "value": "Example medication",
+        "evidence": {
+          "state": "present",
+          "confidence": "medium",
+          "source_citation": {
+            "source_type": "document",
+            "source_id": "document:0123456789abcdef0123456789abcdef",
+            "page_or_section": 1,
+            "field_or_chunk_id": "medication_name",
+            "quote_or_value": "Example medication",
+            "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      }
+    }
+  ],
+  "allergies": [
+    {
+      "entry_id": "22222222222222222222222222222222",
+      "substance": {
+        "value": "Example allergen",
+        "evidence": {
+          "state": "unchecked",
+          "confidence": "high",
+          "source_citation": {
+            "source_type": "document",
+            "source_id": "document:0123456789abcdef0123456789abcdef",
+            "page_or_section": 1,
+            "field_or_chunk_id": "allergy_substance",
+            "quote_or_value": "Example allergen unchecked",
+            "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "reaction": {
+        "value": null,
+        "evidence": {
+          "state": "missing",
+          "confidence": "unknown"
+        }
+      }
+    }
+  ],
+  "family_history": [
+    {
+      "entry_id": "33333333333333333333333333333333",
+      "relationship": {
+        "value": "Parent",
+        "evidence": {
+          "state": "present",
+          "confidence": "medium",
+          "source_citation": {
+            "source_type": "document",
+            "source_id": "document:0123456789abcdef0123456789abcdef",
+            "page_or_section": 1,
+            "field_or_chunk_id": "family_relationship",
+            "quote_or_value": "Parent",
+            "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "condition": {
+        "value": "Example condition",
+        "evidence": {
+          "state": "conflicting",
+          "confidence": "low",
+          "source_citation": {
+            "source_type": "document",
+            "source_id": "document:0123456789abcdef0123456789abcdef",
+            "page_or_section": 1,
+            "field_or_chunk_id": "family_condition",
+            "quote_or_value": "Example condition / no condition",
+            "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      }
+    }
+  ]
+}

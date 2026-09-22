@@ -23,7 +23,7 @@ try {
         'SELECT id, foreign_id, hash, deleted, mimetype FROM documents WHERE id = ? AND foreign_id = ?',
         [(int) $source['native_document_id'], $ctx->pid]
     );
-    if (count($rows) !== 1 || (int) $rows[0]['deleted'] !== 0 || $rows[0]['hash'] !== $source['content_hash'] || $rows[0]['mimetype'] !== 'application/pdf') {
+    if (count($rows) !== 1 || (int) $rows[0]['deleted'] !== 0 || $rows[0]['hash'] !== $source['content_hash'] || $rows[0]['mimetype'] !== $source['mime_type']) {
         throw new GatewayDenied('source_integrity', 409);
     }
     $bytes = (new \Document((int) $source['native_document_id']))->get_data();
@@ -33,8 +33,8 @@ try {
     Audit::event('copilot-document-source-open', $ctx->username, $ctx->groupName, true, $ctx->pid, [
         'source_id' => $sourceId, 'correlation_id' => $correlationId,
     ]);
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: inline; filename="agentforge-lab.pdf"');
+    header('Content-Type: ' . $source['mime_type']);
+    header('Content-Disposition: inline; filename="agentforge-' . ($source['document_type'] === 'intake_form' ? 'intake' : 'lab') . '.pdf"');
     header('Cache-Control: no-store');
     header('X-Correlation-Id: ' . $correlationId);
     echo $bytes;

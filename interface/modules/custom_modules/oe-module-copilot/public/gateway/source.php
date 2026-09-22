@@ -23,7 +23,7 @@ try {
     $ctx = (new ContextBuilder(new ConversationRepository()))->build($token, $correlationId);
     $result = (new SourceReader())->read($ctx, (string) ($_GET['source_id'] ?? ''));
     Audit::toolRead($ctx, 'source_document', ['source_id' => $result['source']['source_id'], 'bytes' => (int) $result['source']['byte_size']]);
-    header('Content-Type: application/pdf');
+    header('Content-Type: ' . $result['source']['mime_type']);
     header('Cache-Control: no-store');
     header('X-Correlation-Id: ' . $correlationId);
     header('X-Copilot-Source-Id: ' . $result['source']['source_id']);

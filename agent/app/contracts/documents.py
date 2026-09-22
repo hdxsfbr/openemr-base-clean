@@ -27,9 +27,10 @@ DOCUMENT_CONTRACT_VERSION = "2.0.0"
 
 
 class DocumentType(StrEnum):
-    """Closed for Slice 1A. Intake is introduced by the later contract change."""
+    """The only two Week 2 source types accepted at the upload boundary."""
 
     lab_pdf = "lab_pdf"
+    intake_form = "intake_form"
 
 
 class UploadStatus(StrEnum):
@@ -97,6 +98,139 @@ class ExtractionConfidence(StrEnum):
     unknown = "unknown"
 
 
+class ExtractionStatus(StrEnum):
+    """Terminal status of the bounded, review-only intake-extractor job."""
+
+    complete = "complete"
+    partial = "partial"
+    unavailable = "unavailable"
+    failed = "failed"
+
+
+class IntakeFieldState(StrEnum):
+    """What was printed on an intake form, never a clinical acceptance state."""
+
+    present = "present"
+    checked = "checked"
+    unchecked = "unchecked"
+    missing = "missing"
+    ambiguous = "ambiguous"
+    conflicting = "conflicting"
+    unreadable = "unreadable"
+
+
+class IntakeFieldEvidence(StrictModel):
+    state: IntakeFieldState
+    confidence: ExtractionConfidence
+    source_citation: SourceCitation | None = None
+
+    @model_validator(mode="after")
+    def evidence_matches_state(self) -> "IntakeFieldEvidence":
+        if self.state in {IntakeFieldState.present, IntakeFieldState.checked, IntakeFieldState.unchecked} and self.source_citation is None:
+            raise ValueError("a printed intake field needs a source citation")
+        if self.state in {IntakeFieldState.missing, IntakeFieldState.unreadable} and self.source_citation is not None:
+            raise ValueError("missing or unreadable intake fields cannot claim source evidence")
+        return self
+
+
+class IntakeTextField(StrictModel):
+    value: str | None = Field(default=None, max_length=2000)
+    evidence: IntakeFieldEvidence
+
+    @model_validator(mode="after")
+    def value_matches_state(self) -> "IntakeTextField":
+        if self.evidence.state in {IntakeFieldState.present, IntakeFieldState.checked, IntakeFieldState.unchecked} and not self.value:
+            raise ValueError("a present intake text field needs a value")
+        if self.value is not None and self.evidence.source_citation is None:
+            raise ValueError("an intake value needs a source citation")
+        if self.evidence.state in {IntakeFieldState.missing, IntakeFieldState.unreadable} and self.value is not None:
+            raise ValueError("missing or unreadable intake text cannot have a value")
+        return self
+
+
+class IntakeDateField(StrictModel):
+    value: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    evidence: IntakeFieldEvidence
+
+    @model_validator(mode="after")
+    def value_matches_state(self) -> "IntakeDateField":
+        if self.evidence.state is IntakeFieldState.present and self.value is None:
+            raise ValueError("a present intake date needs a value")
+        if self.value is not None and self.evidence.source_citation is None:
+            raise ValueError("an intake date needs a source citation")
+        if self.evidence.state in {IntakeFieldState.missing, IntakeFieldState.unreadable} and self.value is not None:
+            raise ValueError("missing or unreadable intake dates cannot have a value")
+        return self
+
+
+class IntakeDemographics(StrictModel):
+    given_name: IntakeTextField | None = None
+    family_name: IntakeTextField | None = None
+    date_of_birth: IntakeDateField | None = None
+    administrative_sex: IntakeTextField | None = None
+    gender_identity: IntakeTextField | None = None
+    pronouns: IntakeTextField | None = None
+    address: IntakeTextField | None = None
+    phone: IntakeTextField | None = None
+
+
+class IntakeMedication(StrictModel):
+    entry_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    name: IntakeTextField
+    strength: IntakeTextField | None = None
+    dose: IntakeTextField | None = None
+    route: IntakeTextField | None = None
+    frequency: IntakeTextField | None = None
+    status: IntakeTextField | None = None
+
+
+class IntakeAllergy(StrictModel):
+    entry_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    substance: IntakeTextField
+    reaction: IntakeTextField | None = None
+    severity: IntakeTextField | None = None
+    status: IntakeTextField | None = None
+
+
+class IntakeFamilyHistory(StrictModel):
+    entry_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    relationship: IntakeTextField
+    condition: IntakeTextField
+    onset_age_years: IntakeTextField | None = None
+
+
+class IntakeExtraction(StrictModel):
+    """Review-only intake proposal. It cannot select or mutate the patient chart."""
+
+    contract_version: Literal["2.0.0"] = DOCUMENT_CONTRACT_VERSION
+    demographics: IntakeDemographics
+    chief_concern: IntakeTextField | None = None
+    medications: list[IntakeMedication] = Field(default_factory=list, max_length=50)
+    allergies: list[IntakeAllergy] = Field(default_factory=list, max_length=50)
+    family_history: list[IntakeFamilyHistory] = Field(default_factory=list, max_length=50)
+
+
+class IntakeExtractionRequest(StrictModel):
+    source_id: DocumentSourceId
+
+
+class IntakeExtractionResult(StrictModel):
+    contract_version: Literal["2.0.0"] = DOCUMENT_CONTRACT_VERSION
+    source_id: DocumentSourceId
+    handoff_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    status: ExtractionStatus
+    extraction: IntakeExtraction | None = None
+    limitations: list[DocumentLimitation] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def only_verified_preview_data_is_renderable(self) -> "IntakeExtractionResult":
+        if self.status in (ExtractionStatus.complete, ExtractionStatus.partial) and self.extraction is None:
+            raise ValueError("a completed intake extraction needs verified extraction data")
+        if self.status in (ExtractionStatus.unavailable, ExtractionStatus.failed) and self.extraction is not None:
+            raise ValueError("a failed intake extraction cannot expose unverified data")
+        return self
+
+
 class LabFieldEvidence(StrictModel):
     state: ExtractionState
     confidence: ExtractionConfidence
@@ -138,15 +272,6 @@ class LabExtraction(StrictModel):
         return self
 
 
-class ExtractionStatus(StrEnum):
-    """Terminal status of the bounded, review-only intake-extractor job."""
-
-    complete = "complete"
-    partial = "partial"
-    unavailable = "unavailable"
-    failed = "failed"
-
-
 class LabExtractionRequest(StrictModel):
     """The browser may name only the immutable source it just stored.
 
@@ -185,6 +310,12 @@ class SourceDocument(StrictModel):
     mime_type: Literal["application/pdf"]
     byte_size: int = Field(gt=0, le=20 * 1024 * 1024)
     page_count: int = Field(ge=1, le=20)
+
+    @model_validator(mode="after")
+    def document_type_limits_are_preserved(self) -> "SourceDocument":
+        if self.document_type is DocumentType.intake_form and (self.byte_size > 10 * 1024 * 1024 or self.page_count > 10):
+            raise ValueError("intake forms are limited to 10 MiB and 10 pages")
+        return self
 
 
 class UploadIntent(StrictModel):

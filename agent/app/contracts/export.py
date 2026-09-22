@@ -14,6 +14,8 @@ from pathlib import Path
 from . import (
     CONTRACT_VERSION,
     ErrorEnvelope,
+    IntakeExtraction,
+    IntakeExtractionResult,
     LabExtraction,
     LabExtractionResult,
     LabsParams,
@@ -40,6 +42,8 @@ EXPORTS = {
     "error_envelope.schema.json": ErrorEnvelope,
     "lab_extraction.schema.json": LabExtraction,
     "lab_extraction_result.schema.json": LabExtractionResult,
+    "intake_extraction.schema.json": IntakeExtraction,
+    "intake_extraction_result.schema.json": IntakeExtractionResult,
     "upload_intent.schema.json": UploadIntent,
     "upload_result.schema.json": UploadResult,
 }

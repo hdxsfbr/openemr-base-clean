@@ -1,0 +1,529 @@
+{
+  "$defs": {
+    "ExtractionConfidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unknown"
+      ],
+      "title": "ExtractionConfidence",
+      "type": "string"
+    },
+    "IntakeAllergy": {
+      "additionalProperties": false,
+      "properties": {
+        "entry_id": {
+          "pattern": "^[a-f0-9]{32}$",
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "reaction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "substance": {
+          "$ref": "#/$defs/IntakeTextField"
+        }
+      },
+      "required": [
+        "entry_id",
+        "substance"
+      ],
+      "title": "IntakeAllergy",
+      "type": "object"
+    },
+    "IntakeDateField": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/IntakeFieldEvidence"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "evidence"
+      ],
+      "title": "IntakeDateField",
+      "type": "object"
+    },
+    "IntakeDemographics": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "administrative_sex": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "date_of_birth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeDateField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "family_name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "gender_identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "given_name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pronouns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "IntakeDemographics",
+      "type": "object"
+    },
+    "IntakeFamilyHistory": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "$ref": "#/$defs/IntakeTextField"
+        },
+        "entry_id": {
+          "pattern": "^[a-f0-9]{32}$",
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "onset_age_years": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "relationship": {
+          "$ref": "#/$defs/IntakeTextField"
+        }
+      },
+      "required": [
+        "entry_id",
+        "relationship",
+        "condition"
+      ],
+      "title": "IntakeFamilyHistory",
+      "type": "object"
+    },
+    "IntakeFieldEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "$ref": "#/$defs/ExtractionConfidence"
+        },
+        "source_citation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceCitation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "state": {
+          "$ref": "#/$defs/IntakeFieldState"
+        }
+      },
+      "required": [
+        "state",
+        "confidence"
+      ],
+      "title": "IntakeFieldEvidence",
+      "type": "object"
+    },
+    "IntakeFieldState": {
+      "description": "What was printed on an intake form, never a clinical acceptance state.",
+      "enum": [
+        "present",
+        "checked",
+        "unchecked",
+        "missing",
+        "ambiguous",
+        "conflicting",
+        "unreadable"
+      ],
+      "title": "IntakeFieldState",
+      "type": "string"
+    },
+    "IntakeMedication": {
+      "additionalProperties": false,
+      "properties": {
+        "dose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "entry_id": {
+          "pattern": "^[a-f0-9]{32}$",
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "frequency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "$ref": "#/$defs/IntakeTextField"
+        },
+        "route": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "strength": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IntakeTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "entry_id",
+        "name"
+      ],
+      "title": "IntakeMedication",
+      "type": "object"
+    },
+    "IntakeTextField": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/IntakeFieldEvidence"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "evidence"
+      ],
+      "title": "IntakeTextField",
+      "type": "object"
+    },
+    "NormalizedBox": {
+      "additionalProperties": false,
+      "description": "Coordinates normalized to the source page, never pixels from a transient render.",
+      "properties": {
+        "height": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Height",
+          "type": "number"
+        },
+        "left": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Left",
+          "type": "number"
+        },
+        "top": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Top",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Width",
+          "type": "number"
+        }
+      },
+      "required": [
+        "left",
+        "top",
+        "width",
+        "height"
+      ],
+      "title": "NormalizedBox",
+      "type": "object"
+    },
+    "SourceCitation": {
+      "additionalProperties": false,
+      "description": "The PRD's minimum citation plus immutable source-integrity fields.",
+      "properties": {
+        "field_or_chunk_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Or Chunk Id",
+          "type": "string"
+        },
+        "normalized_box": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "page_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Hash"
+        },
+        "page_or_section": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Page Or Section",
+          "type": "integer"
+        },
+        "quote_or_value": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Quote Or Value",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{128}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^(openemr|document|guideline):[A-Za-z0-9_\\-.:]{1,200}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_type": {
+          "const": "document",
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type",
+        "source_id",
+        "page_or_section",
+        "field_or_chunk_id",
+        "quote_or_value",
+        "source_hash"
+      ],
+      "title": "SourceCitation",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Review-only intake proposal. It cannot select or mutate the patient chart.",
+  "properties": {
+    "allergies": {
+      "items": {
+        "$ref": "#/$defs/IntakeAllergy"
+      },
+      "maxItems": 50,
+      "title": "Allergies",
+      "type": "array"
+    },
+    "chief_concern": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IntakeTextField"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "demographics": {
+      "$ref": "#/$defs/IntakeDemographics"
+    },
+    "family_history": {
+      "items": {
+        "$ref": "#/$defs/IntakeFamilyHistory"
+      },
+      "maxItems": 50,
+      "title": "Family History",
+      "type": "array"
+    },
+    "medications": {
+      "items": {
+        "$ref": "#/$defs/IntakeMedication"
+      },
+      "maxItems": 50,
+      "title": "Medications",
+      "type": "array"
+    }
+  },
+  "required": [
+    "demographics"
+  ],
+  "title": "IntakeExtraction",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}
