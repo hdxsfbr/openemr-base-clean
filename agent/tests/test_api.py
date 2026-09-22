@@ -48,6 +48,20 @@ def test_turn_requires_token_and_matching_conversation(client: TestClient) -> No
     assert r.status_code == 403
 
 
+def test_access_log_redacts_conversation_identifier(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+    token = mint_for_tests(CID, "abcdefabcdefabca", TEST_SECRET)
+    with caplog.at_level("INFO", logger="copilot.api"):
+        response = client.post(
+            f"/v1/conversations/{CID}/guideline-evidence",
+            json={"concepts": ["hypertension"], "topic_filter": "hypertension"},
+            headers={"X-Copilot-Token": token},
+        )
+    assert response.status_code == 503
+    requests = [record for record in caplog.records if record.name == "copilot.api" and record.getMessage() == "request"]
+    assert requests and requests[-1].path == "guideline_evidence"
+    assert all(CID not in str(record.__dict__) for record in requests)
+
+
 def test_turn_returns_contract_shaped_response_with_correlation_id(client: TestClient) -> None:
     from app.metrics import metrics
 
