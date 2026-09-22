@@ -124,6 +124,7 @@ class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
     model_calls: int = 0
 
     @property
@@ -134,6 +135,7 @@ class Usage:
         self.input_tokens += other.input_tokens
         self.output_tokens += other.output_tokens
         self.cache_read_tokens += other.cache_read_tokens
+        self.cache_creation_tokens += other.cache_creation_tokens
         self.model_calls += other.model_calls
 
 
@@ -198,6 +200,7 @@ def _usage_of(response: Any) -> Usage:
         input_tokens=int(getattr(u, "input_tokens", 0) or 0),
         output_tokens=int(getattr(u, "output_tokens", 0) or 0),
         cache_read_tokens=int(getattr(u, "cache_read_input_tokens", 0) or 0),
+        cache_creation_tokens=int(getattr(u, "cache_creation_input_tokens", 0) or 0),
         model_calls=1,
     )
 

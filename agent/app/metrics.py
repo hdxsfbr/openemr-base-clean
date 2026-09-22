@@ -48,6 +48,8 @@ class Metrics:
         self.tool_status = Counter()
         self.rejections = Counter()
         self.tokens = Counter()
+        self.model_cost_usd = Counter()
+        self.daily_model_spend_usd = 0.0
         self.verification = Counter()
         self.panel_events = Counter()
         self.first_turns = Counter()
@@ -98,12 +100,18 @@ class Metrics:
         with self.lock:
             self.turns[status] += 1
             self.latencies.append((time.time(), latency_ms))
-            for k in ("input_tokens", "output_tokens", "cache_read_tokens", "model_calls"):
+            for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens", "model_calls"):
                 self.tokens[k] += int(usage.get(k, 0) or 0)
             for r in rejected or []:
                 self.rejections[str(r.get("rule", "?"))[:40]] += 1
             if verification is not None:
                 self.verification[verification if verification in VERIFICATION_OUTCOMES else REASON_OTHER] += 1
+
+    def model_spend(self, operation: str, cost_usd: float, daily_total_usd: float) -> None:
+        bounded = operation if operation in ("plan", "narrate", "extraction") else REASON_OTHER
+        with self.lock:
+            self.model_cost_usd[bounded] += max(0.0, cost_usd)
+            self.daily_model_spend_usd = max(0.0, daily_total_usd)
 
     def window(self, seconds: float = 300.0) -> dict[str, float]:
         now = time.time()
@@ -143,6 +151,11 @@ class Metrics:
             lines.append("# TYPE copilot_tokens_total counter")
             for k, n in self.tokens.items():
                 lines.append(f'copilot_tokens_total{{kind="{k}"}} {n}')
+            lines.append("# TYPE copilot_model_cost_usd_total counter")
+            for operation, amount in self.model_cost_usd.items():
+                lines.append(f'copilot_model_cost_usd_total{{operation="{operation}"}} {amount:.6f}')
+            lines.append("# TYPE copilot_daily_model_spend_usd gauge")
+            lines.append(f"copilot_daily_model_spend_usd {self.daily_model_spend_usd:.6f}")
             lines.append(f"copilot_in_flight {self.in_flight}")
             lines.append("# TYPE copilot_turns_in_flight gauge")
             lines.append(f"copilot_turns_in_flight {self.turns_in_flight}")

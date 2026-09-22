@@ -53,6 +53,8 @@ tar -C "${repo_root}/interface/modules/custom_modules" -cf - --exclude='__pycach
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/build/openemr -xf -'
 tar -C "${repo_root}/agent" -cf - --exclude='.venv' --exclude='__pycache__' --exclude='.pytest_cache' --exclude='*.egg-info' --exclude='build' --exclude='tests' . \
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/build/agent -xf -'
+tar -C "${repo_root}/docs/research/week2-retrieval-benchmark" -cf - corpus.jsonl manifest.json \
+    | ssh "${ssh_options[@]}" "${ssh_target}" 'mkdir -p /opt/agentforge/build/agent/guideline-corpus && tar -C /opt/agentforge/build/agent/guideline-corpus -xf -'
 tar -C "${repo_root}/evals/fixtures" -cf - cohort \
     | ssh "${ssh_options[@]}" "${ssh_target}" 'tar -C /opt/agentforge/demo -xf -'
 

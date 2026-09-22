@@ -5,7 +5,11 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/app/model-cache \
+    HF_HUB_DISABLE_TELEMETRY=1
+
+ARG CACHE_GUIDELINE_MODELS=0
 
 RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin copilot \
     && mkdir -p /app /var/lib/copilot \
@@ -20,7 +24,11 @@ COPY requirements.lock ./
 RUN pip install -r requirements.lock
 COPY pyproject.toml README.md ./
 COPY app ./app
+COPY guideline-corpus ./guideline-corpus
 RUN pip install --no-deps .
+RUN mkdir -p /app/model-cache \
+    && if [ "$CACHE_GUIDELINE_MODELS" = "1" ]; then python -m app.cache_guideline_models; fi \
+    && chown -R copilot:copilot /app/model-cache /app/guideline-corpus
 
 USER copilot
 EXPOSE 8080

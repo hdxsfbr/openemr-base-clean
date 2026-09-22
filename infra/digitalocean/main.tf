@@ -5,6 +5,7 @@ locals {
   known_hourly_prices = {
     "s-2vcpu-4gb" = 0.03571
     "s-4vcpu-8gb" = 0.07143
+    "c-4"          = 0.11667
   }
 }
 

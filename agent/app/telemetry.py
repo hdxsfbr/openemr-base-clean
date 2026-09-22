@@ -405,7 +405,12 @@ def record_tool_result(obs: Any, response: Any) -> None:
 def record_usage(gen: Any, usage: Any, **metadata: Any) -> None:
     try:
         gen.update(
-            usage_details={"input": usage.input_tokens, "output": usage.output_tokens, "cache_read_input_tokens": usage.cache_read_tokens},
+            usage_details={
+                "input": usage.input_tokens,
+                "output": usage.output_tokens,
+                "cache_read_input_tokens": usage.cache_read_tokens,
+                "cache_creation_input_tokens": usage.cache_creation_tokens,
+            },
             metadata={k: v for k, v in metadata.items() if v is not None},
         )
     except Exception:  # noqa: BLE001

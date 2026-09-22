@@ -40,6 +40,13 @@ report it). Layout under `app/`:
 - `contracts/`: Pydantic contracts (`CONTRACT_VERSION` 1.2.0); `python -m
   app.contracts.export` writes `contracts/schema/*.json`, `--check` fails on
   drift (run in CI).
+- `guideline_retriever.py`: exact-hash frozen corpus loading, FTS5 plus pinned
+  BGE/FAISS retrieval, RRF, pinned local MiniLM reranking, a two-second hard
+  deadline, and the reference-only evidence worker (concurrency two).
+- `week2_operations.py`: restart-safe UTC-day model-cost reservations and
+  settlement, extraction storage/version admission, and the marked transient
+  artifact sweeper. `state_store.py` separately records first close time and
+  removes both LangGraph checkpoint tables after 24 hours.
 - `model.py` (Anthropic SDK, circuit breaker, one retry on 429/5xx, strict
   tool schemas), `model_output.py` (the model-facing output schema: one
   malformed claim costs that claim, not the turn), `gateway_client.py` (the
@@ -119,6 +126,8 @@ settings, their code defaults, and what the demo Droplet's
 | `COPILOT_EVIDENCE_PACK_MAX_CHARS` | `48000` | about 12K tokens |
 | `COPILOT_CONVERSATION_IDLE_MINUTES` | `30` | declared, but nothing under `app/` reads it; the module retires idle conversations (`ConversationRepository::IDLE_MINUTES`) |
 | `COPILOT_STATE_DIR` | `/var/lib/copilot` | checkpointer; on the Droplet the alerts job keeps its state file on the same volume |
+| `COPILOT_SPEND_LEDGER_PATH`, `COPILOT_MODEL_CALL_RESERVATION_USD` | `/var/lib/copilot/week2-spend.sqlite3`, `0.15` | shared durable reservation/settlement ledger; warn at `$14`, refuse reservations above `$20` per UTC day |
+| `COPILOT_GUIDELINE_ENABLED`, `COPILOT_GUIDELINE_CORPUS_PATH`, `COPILOT_GUIDELINE_MANIFEST_PATH` | `false`, `/app/guideline-corpus/corpus.jsonl`, `/app/guideline-corpus/manifest.json` | release image enables the capability only with the exact corpus and pinned local model artifacts |
 | `COPILOT_READY_CACHE_SECONDS` | `30.0` | |
 | `COPILOT_FAULT_INJECTION` | `false` | demo compose: `1`, honors `X-Copilot-Fault` (`model`, `tool:<name>`, `budget`) for the collection's failure examples and the eval fault cases |
 

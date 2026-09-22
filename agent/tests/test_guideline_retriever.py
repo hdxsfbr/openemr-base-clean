@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import statistics
+import threading
 import time
 from pathlib import Path
 
@@ -466,3 +467,55 @@ def test_query_contract_does_not_mistake_low_dose_ct_for_medication_dosing() -> 
     })
 
     assert query.intent == "guideline_evidence"
+
+
+def test_evidence_worker_refuses_above_two_active_retrievals_without_queueing_content() -> None:
+    chunk = _chunk("hypertension-001", "Screen adults for high blood pressure.")
+    retriever = BoundedGuidelineRetriever(
+        chunks=[chunk],
+        active_corpus_version="uspstf-2026q3",
+        corpus_retrieved_at="2026-09-21T00:00:00Z",
+        approved_at="2026-09-21T00:00:00Z",
+        sparse=RankedIds([chunk.chunk_id]),
+        dense=RankedIds([chunk.chunk_id]),
+        reranker=Scores({chunk.chunk_id: 1.0}),
+    )
+    query = EvidenceQuery.model_validate({
+        "question": "Show exact guideline evidence about adult hypertension screening.",
+        "concepts": ["adult hypertension", "screening"],
+        "intent": "guideline_evidence",
+        "active_corpus_version": "uspstf-2026q3",
+    })
+    capacity = threading.BoundedSemaphore(2)
+    assert capacity.acquire(blocking=False)
+    assert capacity.acquire(blocking=False)
+    worker = EvidenceRetrieverWorker(retriever=retriever, store=MemoryEvidenceStore(query), capacity=capacity)
+    handoff = WorkerHandoffRequest.model_validate({
+        "handoff_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "correlation_id": "conversation.turn-01",
+        "event_kind": "chat_turn",
+        "worker": "evidence_retriever",
+        "reason_code": "explicit_guideline_request",
+        "attempt": 1,
+        "deadline_at": "2026-09-22T00:00:02Z",
+        "input_refs": [
+            {
+                "kind": "evidence_query",
+                "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "version": "1.0.0",
+                "integrity_sha256": hashlib.sha256(query.model_dump_json().encode()).hexdigest(),
+            },
+            {
+                "kind": "corpus",
+                "id": "uspstf-2026q3",
+                "version": "uspstf-2026q3",
+                "integrity_sha256": "c" * 64,
+            },
+        ],
+        "contract_versions": {"evidence_query": "1.0.0", "handoff": "1.0.0"},
+    })
+
+    result = worker.run(handoff, now="2026-09-22T00:00:00Z")
+
+    assert result.status == "unavailable"
+    assert result.limitation_codes == ["guideline_capacity_exhausted"]

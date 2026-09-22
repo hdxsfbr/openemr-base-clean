@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -72,6 +73,11 @@ class Settings(BaseSettings):
 
     # Writable directory for the checkpointer (ADR-0005).
     state_dir: Path = Path("/var/lib/copilot")
+    spend_ledger_path: Path = Path("/var/lib/copilot/week2-spend.sqlite3")
+    model_call_reservation_usd: Decimal = Decimal("0.15")
+    guideline_enabled: bool = False
+    guideline_corpus_path: Path = Path("/app/guideline-corpus/corpus.jsonl")
+    guideline_manifest_path: Path = Path("/app/guideline-corpus/manifest.json")
     ready_cache_seconds: float = 30.0
 
     # Demo/CI only: honors X-Copilot-Fault (model, tool:<name>, tracer, budget).

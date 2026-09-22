@@ -493,10 +493,18 @@ class BoundedGuidelineRetriever:
 class EvidenceRetrieverWorker:
     """Execute one reference-only, no-retry evidence-retrieval handoff."""
 
-    def __init__(self, *, retriever: BoundedGuidelineRetriever, store: EvidenceStorePort, monotonic=time.monotonic) -> None:
+    def __init__(
+        self,
+        *,
+        retriever: BoundedGuidelineRetriever,
+        store: EvidenceStorePort,
+        monotonic=time.monotonic,
+        capacity: threading.BoundedSemaphore | None = None,
+    ) -> None:
         self._retriever = retriever
         self._store = store
         self._monotonic = monotonic
+        self._capacity = capacity or threading.BoundedSemaphore(2)
 
     def run(self, handoff: WorkerHandoffRequest, *, now: str) -> WorkerHandoffResult:
         started = self._monotonic()
@@ -508,15 +516,28 @@ class EvidenceRetrieverWorker:
             return self._terminal(handoff, started, "unavailable", "guideline_timeout", True)
         if len(query_refs) != 1 or len(corpus_refs) != 1:
             return self._terminal(handoff, started, "failed", "guideline_handoff_invalid", False)
-
+        if not self._capacity.acquire(blocking=False):
+            return self._terminal(handoff, started, "unavailable", "guideline_capacity_exhausted", True)
         try:
-            query = self._store.load_query(query_refs[0])
+            return self._run_with_capacity(handoff, query_refs[0], corpus_refs[0], now, started)
+        finally:
+            self._capacity.release()
+
+    def _run_with_capacity(
+        self,
+        handoff: WorkerHandoffRequest,
+        query_ref: VersionedReference,
+        corpus_ref: VersionedReference,
+        now: str,
+        started: float,
+    ) -> WorkerHandoffResult:
+        try:
+            query = self._store.load_query(query_ref)
         except Exception:
             return self._terminal(handoff, started, "unavailable", "guideline_query_unavailable", True)
         query_hash = hashlib.sha256(query.model_dump_json().encode()).hexdigest()
-        if query_refs[0].integrity_sha256 != query_hash:
+        if query_ref.integrity_sha256 != query_hash:
             return self._terminal(handoff, started, "failed", "guideline_integrity_failure", False)
-        corpus_ref = corpus_refs[0]
         if corpus_ref.id != query.active_corpus_version or corpus_ref.version != query.active_corpus_version:
             return self._terminal(handoff, started, "failed", "guideline_wrong_corpus", False)
 

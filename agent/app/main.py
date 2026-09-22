@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -20,8 +22,9 @@ from .metrics import metrics
 from .model import live_model
 from .readiness import ReadinessReport, evaluate
 from .settings import settings
-from .state_store import checkpoint_path
+from .state_store import checkpoint_path, sweep_closed_checkpoints
 from .telemetry import guard_environment
+from .week2_operations import BudgetedModel, DailySpendLedger
 
 configure_logging()
 log = logging.getLogger("copilot.api")
@@ -43,21 +46,55 @@ async def lifespan(app: FastAPI):
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
     gateway = HttpGateway()
+    retention_task: asyncio.Task | None = None
+    path = checkpoint_path()
     try:
-        async with AsyncSqliteSaver.from_conn_string(checkpoint_path()) as saver:
+        async with AsyncSqliteSaver.from_conn_string(path) as saver:
             # Every checkpoint read/write serializes on the saver's own
             # asyncio.Lock (langgraph.checkpoint.sqlite.aio), including the
             # commit -- WAL + NORMAL synchronous shrinks what that commit
             # costs while the lock is held, instead of a full fsync per step.
             await saver.conn.execute("PRAGMA journal_mode=WAL")
             await saver.conn.execute("PRAGMA synchronous=NORMAL")
-            runtime = Runtime(gateway=gateway, model=live_model())
+            provider = live_model()
+            model = None
+            if provider is not None:
+                ledger = DailySpendLedger(settings.spend_ledger_path)
+                model = BudgetedModel(
+                    provider,
+                    ledger=ledger,
+                    reservation_usd=settings.model_call_reservation_usd,
+                )
+            runtime = Runtime(gateway=gateway, model=model)
             app.state.runtime = runtime
             app.state.graph = build_graph(runtime, checkpointer=saver)
+            app.state.checkpoint_path = path
+            retention_task = asyncio.create_task(_retention_sweeper(path))
             log.info("agent ready", extra={"component": "startup"})
             yield
     finally:
+        if retention_task is not None:
+            retention_task.cancel()
+            try:
+                await retention_task
+            except asyncio.CancelledError:
+                pass
         await gateway.aclose()
+
+
+async def _retention_sweeper(path: str) -> None:
+    while True:
+        try:
+            removed = await asyncio.to_thread(
+                sweep_closed_checkpoints,
+                path,
+                now=datetime.now(timezone.utc),
+            )
+            if removed:
+                log.info("closed checkpoints swept", extra={"component": "retention", "record_count": removed})
+        except Exception as exc:  # noqa: BLE001 - class only; the service remains available
+            log.warning("checkpoint sweep failed: %s", exc.__class__.__name__, extra={"component": "retention"})
+        await asyncio.sleep(3600)
 
 
 app = FastAPI(title="AgentForge Clinical Co-Pilot Agent", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan)

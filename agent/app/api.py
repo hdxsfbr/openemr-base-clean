@@ -9,6 +9,7 @@ import json
 import secrets
 import time
 from collections import defaultdict, deque
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Header, Request
@@ -21,7 +22,7 @@ from .delegation import Delegation, DelegationError, verify
 from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
 from .settings import settings
-from .state_store import drop_token, put_token
+from .state_store import drop_token, mark_conversation_closed, put_token
 from .telemetry import finish_turn_trace, trace_config, turn_trace
 from .turn_outcome import verification_outcome
 
@@ -245,4 +246,7 @@ async def end_conversation(conversation_id: str, request: Request, authorization
     graph = request.app.state.graph
     config = {"configurable": {"thread_id": conversation_id}}
     await graph.aupdate_state(config, {"closed": True})
+    retention_path = getattr(request.app.state, "checkpoint_path", None)
+    if retention_path is not None:
+        mark_conversation_closed(retention_path, conversation_id, closed_at=datetime.now(timezone.utc))
     return JSONResponse(content={"conversation_id": conversation_id, "closed": True, "correlation_id": correlation_id}, headers={"X-Correlation-Id": correlation_id})

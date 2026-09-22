@@ -11,9 +11,9 @@ variable "region" {
 }
 
 variable "droplet_size" {
-  description = "Droplet size slug. The default is the recommended smoke-test size."
+  description = "Droplet size slug. Week 2 uses four dedicated vCPUs and 8 GiB RAM."
   type        = string
-  default     = "s-2vcpu-4gb"
+  default     = "c-4"
 }
 
 variable "droplet_image" {

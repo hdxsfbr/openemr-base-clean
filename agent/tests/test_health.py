@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main as main_module
-from app.readiness import DependencyStatus
+from app.readiness import CapabilityStatus, DependencyStatus, check_guideline, check_spend_ledger
 from app.settings import Settings
 
 
@@ -77,6 +77,32 @@ def test_ready_is_200_when_all_dependencies_pass(client: TestClient, tmp_path: P
     assert response.json()["status"] == "ready"
 
 
+def test_optional_capability_failure_is_degraded_but_does_not_make_core_unready(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_evaluate(_settings):
+        from app.readiness import ReadinessReport
+        import time
+
+        return ReadinessReport(
+            ok=True,
+            checked_at=time.time(),
+            dependencies=[DependencyStatus("tracer", False, "unreachable")],
+            capabilities=[
+                CapabilityStatus("core_ready", True, "ready"),
+                CapabilityStatus("telemetry_ready", False, "dependency_unavailable"),
+            ],
+        )
+
+    monkeypatch.setattr(main_module, "evaluate", fake_evaluate)
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "degraded"
+    assert response.json()["capabilities"]["telemetry_ready"]["ok"] is False
+
+
 # /ready probes the tracer (A1): keys present is not enough, the Langfuse host must answer.
 
 import base64  # noqa: E402
@@ -137,3 +163,44 @@ async def test_check_tracer_calls_the_projects_endpoint_with_basic_auth(tmp_path
 async def test_check_tracer_reports_a_non_200_as_http_status(tmp_path: Path) -> None:
     status = await check_tracer(_tracer_settings(tmp_path), transport=httpx.MockTransport(lambda request: httpx.Response(401)))
     assert (status.ok, status.detail) == (False, "http_401")
+
+
+def test_spend_ledger_readiness_reports_daily_limit_without_exposing_path(tmp_path: Path) -> None:
+    from datetime import datetime, timezone
+    from decimal import Decimal
+
+    from app.week2_operations import DailySpendLedger
+
+    path = tmp_path / "spend.sqlite3"
+    settings = Settings(spend_ledger_path=path, model_call_reservation_usd=Decimal("0.15"))
+    ledger = DailySpendLedger(path)
+    ledger.reserve(
+        reservation_id="fill-day",
+        operation="chat",
+        maximum_usd=Decimal("20"),
+        now=datetime.now(timezone.utc),
+    )
+
+    status = check_spend_ledger(settings)
+
+    assert (status.ok, status.detail) == (False, "daily_limit")
+    assert str(path) not in status.detail
+
+
+def test_guideline_readiness_requires_exact_fresh_corpus_and_pinned_local_models() -> None:
+    from datetime import datetime, timezone
+
+    root = Path(__file__).parents[2] / "docs" / "research" / "week2-retrieval-benchmark"
+    settings = Settings(
+        guideline_enabled=True,
+        guideline_corpus_path=root / "corpus.jsonl",
+        guideline_manifest_path=root / "manifest.json",
+    )
+
+    status = check_guideline(
+        settings,
+        now=datetime(2026, 9, 22, tzinfo=timezone.utc),
+        model_artifact_check=lambda: True,
+    )
+
+    assert (status.ok, status.detail) == (True, "ready")

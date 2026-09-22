@@ -67,7 +67,13 @@ class Runtime:
 
 
 def _usage_dict(u: Usage) -> dict[str, int | float]:
-    return {"input_tokens": u.input_tokens, "output_tokens": u.output_tokens, "cache_read_tokens": u.cache_read_tokens, "model_calls": u.model_calls}
+    return {
+        "input_tokens": u.input_tokens,
+        "output_tokens": u.output_tokens,
+        "cache_read_tokens": u.cache_read_tokens,
+        "cache_creation_tokens": u.cache_creation_tokens,
+        "model_calls": u.model_calls,
+    }
 
 
 def _add_usage(state: TurnState, u: Usage) -> dict[str, int | float]:
