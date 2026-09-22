@@ -49,3 +49,30 @@ The first command covers exact active-corpus verification, altered active-row
 withholding, and denied re-open. It is not deployment evidence. Deployed
 privacy scans, authenticated smoke, latency, quality, and CI identity evidence
 are recorded only when actually run; missing channels are **NOT RUN**.
+
+## Observed deployed evidence — 2026-09-22
+
+The candidate-matched synthetic deployment at
+`d75c91f83a3823a9320e01003e6a0cd025dc073f` recorded agent image
+`sha256:a918571d0709828b163d95a5ab8b053c52b8265dba45c147bd76a2aae1f4d35f`
+and OpenEMR image
+`sha256:922784f4678952ca7711088eeadaf03603699af8443dc4ce4bc64d6f33f81ed5`.
+The hardened deploy job and generic smoke both passed.
+
+A synthetic authenticated request produced one verifier-authorized exact
+guideline claim and the fixed applicability notice; fresh-ticket source reopen
+returned 200. The same bounded smoke observed unauthenticated request 401,
+PHI-bearing extra-field rejection 400, and tampered source identity 403.
+The privacy canary was absent from deployed agent, OpenEMR, and Caddy logs,
+Prometheus metrics, and agent checkpoints after the run. The request-log path
+redaction remediation is included in this candidate.
+
+Five completed finite-topic requests measured worker p50 1372.1 ms, worker p95
+1725.3 ms, and endpoint p95 1753.1 ms. The owner accepted the 2.0-second p95
+gate in ADR-0014 while retaining the 2.0-second hard deadline and full hybrid
+pipeline. This is small-sample synthetic evidence (`n=5`), not a capacity,
+cold-start, mixed-load, CPU/RSS, or broader quality measurement.
+
+External traces, worker-handoff store inspection, CI captured-artifact scans,
+and a full live eval are **NOT RUN**: this release session did not have a safe
+read-only interface for those protected/external channels. They are not PASS.

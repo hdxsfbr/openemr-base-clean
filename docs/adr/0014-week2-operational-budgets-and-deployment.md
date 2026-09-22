@@ -51,7 +51,7 @@ not evidence that the Week 2 controls below are implemented.
    fail.
 5. The accepted latency gates retain the 30-second complete-turn target and
    45-second release block, add a 90-second extraction p95 under the existing
-   95-second cap, and require guideline retrieval p95 at or below 1.5 seconds
+   95-second cap, and require guideline retrieval p95 at or below 2.0 seconds
    under a two-second hard deadline. The exact component gates are normative in
    the supporting specification.
 6. Chat retains its `$0.0223` target and `$0.0446` release block. Extraction
@@ -116,3 +116,19 @@ host, component CPU/RSS/disk effects, all token billing classes, privacy canary
 scans, correlation reconstruction, retention sweeps, and injected readiness and
 degradation failures. Results must label every statement as observed, inferred,
 or planned.
+
+## Amendment — 2026-09-22: guideline retrieval p95 risk acceptance
+
+The owner accepted a narrow change to the guideline-retrieval p95 gate from
+1.5 seconds to 2.0 seconds after the candidate-matched synthetic deployment
+at commit `d75c91f83a3823a9320e01003e6a0cd025dc073f` completed five bounded,
+authenticated hypertension requests: worker p50 was 1372.1 ms, worker p95 was
+1725.3 ms, and endpoint p95 was 1753.1 ms. All five requests completed.
+
+The two-second per-request deadline remains unchanged. This acceptance does
+not authorize skipping sparse retrieval, dense retrieval, fusion, the pinned
+local reranker, integrity verification, or typed limitation behavior; it does
+not change corpus or model revisions. It accepts a small synthetic `n=5`
+measurement only for this release gate. Capacity, cold-start, mixed-load,
+CPU/RSS, and broader quality evidence remain required before any broader
+operational claim.

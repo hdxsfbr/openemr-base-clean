@@ -123,7 +123,7 @@ page above 2% over five minutes; healthy-stack tool unavailability warns above
 2% and pages above 5% over five minutes or when one tool exceeds 50%.
 Additional Week 2 alerts warn/page at the storage thresholds below, page on a
 missed 95-second extraction deadline or duplicate terminal handoff, warn when
-guideline p95 exceeds 1.5 seconds, and page when the daily dollar ledger reaches
+guideline p95 exceeds 2.0 seconds, and page when the daily dollar ledger reaches
 its `$20` halt. Alert payloads follow the same PHI-free event allowlist.
 
 ## Trace and correlation topology
@@ -226,7 +226,7 @@ success/failure, document type, chart size, cache state, and concurrency.
 | Worker-handoff creation | p95 <= 50 ms | Combined supervisor and handoff p95 <= 100 ms. |
 | Upload acceptance after bytes arrive | p95 <= 2 s | Fail before permanent storage by 5 s. |
 | Upload to review-ready extraction | p50 <= 45 s; p95 <= 90 s | Existing 95 s cap; terminal extraction limitation. |
-| Local guideline pipeline | p50 <= 500 ms; p95 <= 1.5 s | Two-second deadline; return `guideline_retrieval_unavailable`; no RRF-only fallback. |
+| Local guideline pipeline | p50 <= 500 ms; p95 <= 2.0 s | Two-second deadline; return `guideline_retrieval_unavailable`; no RRF-only fallback. The 2.0 s p95 gate is a dated owner risk acceptance in ADR-0014; it does not permit an over-deadline request. |
 | Deterministic verification | p95 <= 150 ms | Fail closed. |
 | First useful patient evidence | p95 target <= 2 s | Release-blocking above 4 s. |
 | Complete chart-only or mixed-evidence turn | p95 target <= 30 s | Release-blocking above 45 s. |
