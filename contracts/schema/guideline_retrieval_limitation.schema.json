@@ -5,7 +5,12 @@
         "guideline_retrieval_unavailable",
         "guideline_corpus_stale",
         "guideline_no_evidence",
-        "guideline_query_rejected"
+        "guideline_query_rejected",
+        "guideline_retrieval_timeout",
+        "guideline_retrieval_canceled",
+        "guideline_duplicate_handoff",
+        "guideline_stale_handoff",
+        "guideline_malformed_output"
       ],
       "title": "GuidelineRetrievalLimitationCode",
       "type": "string"
