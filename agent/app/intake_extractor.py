@@ -7,13 +7,13 @@ system-processing ports.
 
 from __future__ import annotations
 
-import hashlib
 import copy
+import hashlib
 import time
 from concurrent.futures import Executor, ThreadPoolExecutor, TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Literal, Mapping, Protocol
+from typing import Iterator, Literal, Mapping, Protocol
 
 from .contracts.week2 import (
     IntakeExtractionEnvelope,
@@ -296,6 +296,7 @@ class IntakeExtractorWorker:
                 lambda: self._source_store.load_authorized(source_ref),
                 started,
                 pipeline_budget,
+                cancellation_id=handoff.handoff_id,
             )
             self._check_canceled(handoff.handoff_id)
             self._validate_source_reference(source_ref, authorized)
@@ -303,6 +304,7 @@ class IntakeExtractorWorker:
                 lambda: self._extraction_store.find_terminal(handoff.handoff_id),
                 started,
                 pipeline_budget,
+                cancellation_id=handoff.handoff_id,
             )
             if terminal is not None:
                 return self._result(
@@ -317,6 +319,7 @@ class IntakeExtractorWorker:
                 lambda: self._renderer.render(authorized),
                 started,
                 pipeline_budget,
+                cancellation_id=handoff.handoff_id,
             )
             self._check_canceled(handoff.handoff_id)
             self._validate_rendered_pages(rendered, authorized.source)
@@ -324,6 +327,7 @@ class IntakeExtractorWorker:
                 lambda: self._ocr.recognize(rendered),
                 started,
                 pipeline_budget,
+                cancellation_id=handoff.handoff_id,
             )
             self._check_canceled(handoff.handoff_id)
             ocr_pages = [OcrPage.model_validate(page) for page in raw_ocr_pages]
@@ -340,13 +344,19 @@ class IntakeExtractorWorker:
                 started,
                 pipeline_budget,
                 stage_budget=first_budget,
+                cancellation_id=handoff.handoff_id,
             )
             self._check_canceled(handoff.handoff_id)
             usage = draft.usage
             region_retry_count = 0
             if draft.ambiguous_regions:
                 region_retry_count = 1
-                crops = self._bounded_crops(rendered, draft.ambiguous_regions)
+                crops = self._run_bounded(
+                    lambda: self._bounded_crops(rendered, draft.ambiguous_regions, draft.payload),
+                    started,
+                    pipeline_budget,
+                    cancellation_id=handoff.handoff_id,
+                )
                 if self._remaining(started, pipeline_budget) <= REGION_RETRY_BACKOFF_SECONDS:
                     raise DocumentPipelineTimeout
                 self._sleep(REGION_RETRY_BACKOFF_SECONDS)
@@ -361,14 +371,20 @@ class IntakeExtractorWorker:
                     started,
                     pipeline_budget,
                     stage_budget=retry_budget,
+                    cancellation_id=handoff.handoff_id,
                 )
                 usage = usage + refined.usage
                 draft = refined
                 self._check_canceled(handoff.handoff_id)
             payload, review_required = self._normalize_payload(draft.payload)
-            identity = self._extraction_store.allocate_identity(
-                handoff.handoff_id,
-                authorized.source.source_document_id,
+            identity = self._run_bounded(
+                lambda: self._extraction_store.allocate_identity(
+                    handoff.handoff_id,
+                    authorized.source.source_document_id,
+                ),
+                started,
+                pipeline_budget,
+                cancellation_id=handoff.handoff_id,
             )
             envelope_type = (
                 LabExtractionEnvelope
@@ -391,7 +407,9 @@ class IntakeExtractorWorker:
                 lambda: self._extraction_store.save_once(handoff.handoff_id, envelope),
                 started,
                 pipeline_budget,
+                cancellation_id=handoff.handoff_id,
             )
+            self._validate_output_reference(output_ref, envelope)
         except MalformedDocument:
             return self._result(handoff, started, "failed", [], ["document_malformed"], False)
         except UnreadableDocument:
@@ -454,6 +472,7 @@ class IntakeExtractorWorker:
         pipeline_budget: float,
         *,
         stage_budget: float | None = None,
+        cancellation_id: str | None = None,
     ):
         timeout = self._remaining(started, pipeline_budget)
         if stage_budget is not None:
@@ -461,19 +480,30 @@ class IntakeExtractorWorker:
         if timeout <= 0:
             raise DocumentPipelineTimeout
         future = self._executor.submit(operation)
-        try:
-            return future.result(timeout=timeout)
-        except FutureTimeout as exc:
-            future.cancel()
-            raise DocumentPipelineTimeout from exc
+        operation_started = self._monotonic()
+        while True:
+            remaining = timeout - (self._monotonic() - operation_started)
+            if remaining <= 0:
+                future.cancel()
+                raise DocumentPipelineTimeout
+            try:
+                return future.result(timeout=min(0.05, remaining))
+            except FutureTimeout:
+                if cancellation_id is not None and self._cancellation.is_cancelled(cancellation_id):
+                    future.cancel()
+                    raise DocumentCanceled
 
     def _bounded_crops(
         self,
         rendered_pages: list[RenderedPage],
         regions: tuple[BoundedRegion, ...],
+        payload: Mapping[str, object],
     ) -> tuple[RegionCrop, ...]:
         if not 1 <= len(regions) <= 20:
             raise ValueError("region retry requires one to twenty bounded regions")
+        retryable_fields = self._retryable_region_field_ids(payload)
+        if not retryable_fields or any(region.field_id not in retryable_fields for region in regions):
+            raise ValueError("region retry must be bound to an ambiguous proposed field")
         pages = {page.page_number: page for page in rendered_pages}
         crops: list[RegionCrop] = []
         for region in regions:
@@ -487,30 +517,32 @@ class IntakeExtractorWorker:
         return tuple(crops)
 
     @staticmethod
+    def _retryable_region_field_ids(payload: Mapping[str, object]) -> set[str]:
+        return {
+            str(field["field_id"])
+            for field in _proposed_fields(payload)
+            if {
+                code
+                for evidence in field["evidence"]
+                for code in evidence.get("validation", [])
+            }
+            & {"ambiguous", "low_confidence"}
+        }
+
+    @staticmethod
     def _normalize_payload(payload: Mapping[str, object]) -> tuple[dict[str, object], bool]:
         normalized = copy.deepcopy(dict(payload))
         review_required = False
-
-        def visit(value: object) -> None:
-            nonlocal review_required
-            if isinstance(value, dict):
-                if {"field_id", "value", "state", "evidence"} <= value.keys():
-                    diagnostics = {
-                        code
-                        for evidence in value["evidence"]
-                        for code in evidence.get("validation", [])
-                    }
-                    if diagnostics - {"valid"}:
-                        value["state"] = "review_required"
-                    if value["state"] != "schema_valid":
-                        review_required = True
-                for nested in value.values():
-                    visit(nested)
-            elif isinstance(value, list):
-                for nested in value:
-                    visit(nested)
-
-        visit(normalized)
+        for field in _proposed_fields(normalized):
+            diagnostics = {
+                code
+                for evidence in field["evidence"]
+                for code in evidence.get("validation", [])
+            }
+            if diagnostics - {"valid"}:
+                field["state"] = "review_required"
+            if field["state"] != "schema_valid":
+                review_required = True
         return normalized, review_required
 
     @staticmethod
@@ -554,22 +586,23 @@ class IntakeExtractorWorker:
     def _validate_exact_quotes(envelope: ExtractionEnvelope) -> None:
         pages = {page.page_number: page for page in envelope.ocr_pages}
         payload = envelope.payload.model_dump(mode="python")
+        for field in _proposed_fields(payload):
+            for evidence in field["evidence"]:
+                page = pages[evidence["page_number"]]
+                quote = page.text[evidence["ocr_span_start"] : evidence["ocr_span_end"]]
+                if evidence["printed_quote"] != quote:
+                    raise ValueError("field evidence quote does not match retained OCR")
 
-        def visit(value: object) -> None:
-            if isinstance(value, dict):
-                if {"field_id", "value", "state", "evidence"} <= value.keys():
-                    for evidence in value["evidence"]:
-                        page = pages[evidence["page_number"]]
-                        quote = page.text[evidence["ocr_span_start"] : evidence["ocr_span_end"]]
-                        if evidence["printed_quote"] != quote:
-                            raise ValueError("field evidence quote does not match retained OCR")
-                for nested in value.values():
-                    visit(nested)
-            elif isinstance(value, list):
-                for nested in value:
-                    visit(nested)
-
-        visit(payload)
+    @staticmethod
+    def _validate_output_reference(reference: VersionedReference, envelope: ExtractionEnvelope) -> None:
+        expected_hash = hashlib.sha256(envelope.model_dump_json().encode()).hexdigest()
+        if (
+            reference.kind != "extraction"
+            or reference.id != envelope.extraction_id
+            or reference.version != str(envelope.extraction_version)
+            or reference.integrity_sha256 != expected_hash
+        ):
+            raise ValueError("persisted extraction reference does not match its immutable envelope")
 
     def _result(
         self,
@@ -641,3 +674,14 @@ def _utc(value: str) -> datetime:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("timestamp must include a UTC offset")
     return parsed.astimezone(timezone.utc)
+
+
+def _proposed_fields(value: object) -> Iterator[dict[str, object]]:
+    if isinstance(value, dict):
+        if {"field_id", "value", "state", "evidence"} <= value.keys():
+            yield value
+        for nested in value.values():
+            yield from _proposed_fields(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _proposed_fields(nested)

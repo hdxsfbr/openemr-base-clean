@@ -127,6 +127,17 @@ class ReplayExtractionStore(ExtractionStore):
         raise AssertionError("a terminal handoff must not overwrite its extraction")
 
 
+class MismatchedReferenceStore(ExtractionStore):
+    def save_once(self, handoff_id: str, extraction: object) -> VersionedReference:
+        super().save_once(handoff_id, extraction)
+        return VersionedReference(
+            kind="extraction",
+            id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            version="99",
+            integrity_sha256="b" * 64,
+        )
+
+
 class Renderer:
     def render(self, source: AuthorizedSourceVersion) -> list[RenderedPage]:
         pixels = b"deterministic rendered page"
@@ -390,6 +401,20 @@ class RegionRetryExtractor:
         return Extractor().extract(document_type, [], timeout_seconds=timeout_seconds)
 
 
+class UnboundedRegionExtractor(RegionRetryExtractor):
+    def extract(self, document_type: str, ocr_pages: list[object], *, timeout_seconds: float) -> ExtractionDraft:
+        self.budgets.append(timeout_seconds)
+        draft = Extractor().extract(document_type, ocr_pages, timeout_seconds=timeout_seconds)
+        return ExtractionDraft(
+            payload=draft.payload,
+            ambiguous_regions=(BoundedRegion(
+                field_id="analyte.potassium.value",
+                page_number=1,
+                box={"x": 0.3, "y": 0.2, "width": 0.2, "height": 0.1},
+            ),),
+        )
+
+
 class ManualClock:
     def __init__(self) -> None:
         self.value = 0.0
@@ -434,6 +459,14 @@ class SlowExtractor:
 class Canceled:
     def is_cancelled(self, handoff_id: str) -> bool:
         return True
+
+
+class DelayedCancellation:
+    def __init__(self) -> None:
+        self.started = time.monotonic()
+
+    def is_cancelled(self, handoff_id: str) -> bool:
+        return time.monotonic() - self.started >= 0.02
 
 
 @dataclass(frozen=True)
@@ -663,6 +696,27 @@ def test_one_bounded_region_retry_may_resolve_an_ambiguous_proposal() -> None:
     assert store.saved.payload.analytes[0].value.state == "schema_valid"
 
 
+def test_region_retry_rejects_a_crop_not_bound_to_an_ambiguous_field() -> None:
+    source = _source()
+    store = ExtractionStore()
+    extractor = UnboundedRegionExtractor()
+    worker = IntakeExtractorWorker(
+        source_store=SourceStore(source),
+        extraction_store=store,
+        renderer=RegionRetryRenderer(),
+        ocr=Ocr(),
+        extractor=extractor,
+        sleep=lambda seconds: None,
+    )
+
+    result = worker.run(_handoff(source), now="2026-09-21T12:00:00Z")
+
+    assert result.status == "failed"
+    assert result.limitation_codes == ["document_extraction_invalid"]
+    assert extractor.budgets == [60.0]
+    assert store.saved is None
+
+
 def test_rotated_source_succeeds_only_after_deterministic_orientation_normalization() -> None:
     source = _source()
     store = ExtractionStore()
@@ -749,6 +803,29 @@ def test_canceled_job_stops_without_loading_or_persisting_document_content() -> 
     assert result.retryable is False
     assert result.output_refs == []
     assert store.saved is None
+
+
+def test_cancellation_interrupts_a_running_system_boundary_before_its_deadline() -> None:
+    source = _source()
+    store = ExtractionStore()
+    worker = IntakeExtractorWorker(
+        source_store=SourceStore(source),
+        extraction_store=store,
+        renderer=Renderer(),
+        ocr=Ocr(),
+        extractor=SlowExtractor(),
+        cancellation=DelayedCancellation(),
+    )
+
+    started = time.monotonic()
+    result = worker.run(_handoff(source), now="2026-09-21T12:00:00Z")
+    elapsed = time.monotonic() - started
+
+    assert result.status == "canceled"
+    assert result.limitation_codes == ["document_canceled"]
+    assert result.output_refs == []
+    assert store.saved is None
+    assert elapsed < 0.08
 
 
 def test_malformed_document_fails_without_retry_or_persistence() -> None:
@@ -885,6 +962,24 @@ def test_duplicate_terminal_still_reauthorizes_the_exact_source_version_before_r
 
     assert result.status == "failed"
     assert result.limitation_codes == ["document_source_mismatch"]
+    assert result.output_refs == []
+
+
+def test_persisted_extraction_reference_must_match_the_immutable_saved_envelope() -> None:
+    source = _source()
+    store = MismatchedReferenceStore()
+    worker = IntakeExtractorWorker(
+        source_store=SourceStore(source),
+        extraction_store=store,
+        renderer=Renderer(),
+        ocr=Ocr(),
+        extractor=Extractor(),
+    )
+
+    result = worker.run(_handoff(source), now="2026-09-21T12:00:00Z")
+
+    assert result.status == "failed"
+    assert result.limitation_codes == ["document_extraction_invalid"]
     assert result.output_refs == []
 
 
