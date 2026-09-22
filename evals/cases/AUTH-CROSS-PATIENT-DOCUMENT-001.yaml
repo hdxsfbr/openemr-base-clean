@@ -9,5 +9,6 @@ risk: "Cross-patient document access is denied"
 capability_tags: [CAP-09, CAP-10]
 rubrics: [safe_refusal, no_phi_in_logs]
 zero_tolerance: true
-mode: pending
-pending_seam: "authenticated document lifecycle is not implemented"
+mode: offline
+pytest:
+  - tests/test_week2_verifier.py::test_document_source_requires_current_hash_version_and_patient_binding
