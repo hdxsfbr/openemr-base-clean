@@ -41,6 +41,23 @@ def _valid_correlation_id(value: str | None) -> str:
     return secrets.token_hex(8)
 
 
+def _request_path_class(path: str) -> str:
+    """Return a bounded route label without retaining a conversation identifier."""
+    if path in {"/health", "/ready", "/metrics"}:
+        return path.removeprefix("/")
+    if path.startswith("/v1/conversations/"):
+        if path.endswith("/turns"):
+            return "turn"
+        if path.endswith("/guideline-evidence"):
+            return "guideline_evidence"
+        if path.endswith("/guideline-source"):
+            return "guideline_source"
+        if path.endswith("/lab-extractions"):
+            return "lab_extraction"
+        return "conversation"
+    return "other"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     guard_environment()
@@ -85,20 +102,20 @@ app.include_router(v1_router)
 async def correlation_and_access_log(request: Request, call_next):
     correlation_id = _valid_correlation_id(request.headers.get(CORRELATION_HEADER))
     request.state.correlation_id = correlation_id
+    path_class = _request_path_class(request.url.path)
     started = time.perf_counter()
     metrics.in_flight += 1
     try:
         response: Response = await call_next(request)
     except Exception:  # noqa: BLE001
-        log.exception("unhandled", extra={"correlation_id": correlation_id, "path": request.url.path, "method": request.method})
+        log.exception("unhandled", extra={"correlation_id": correlation_id, "path": path_class, "method": request.method})
         response = JSONResponse(status_code=500, content={"code": "internal_error", "message": "Request failed.", "correlation_id": correlation_id})
     finally:
         metrics.in_flight -= 1
     correlation_id = getattr(request.state, "correlation_id", correlation_id)
     response.headers[CORRELATION_HEADER] = correlation_id
-    path_class = "turn" if request.url.path.endswith("/turns") else request.url.path.split("/")[1] or "root"
     metrics.request(path_class, response.status_code)
-    log.info("request", extra={"correlation_id": correlation_id, "path": request.url.path, "method": request.method, "status": response.status_code, "duration_ms": round((time.perf_counter() - started) * 1000, 1)})
+    log.info("request", extra={"correlation_id": correlation_id, "path": path_class, "method": request.method, "status": response.status_code, "duration_ms": round((time.perf_counter() - started) * 1000, 1)})
     return response
 
 
