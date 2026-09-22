@@ -60,6 +60,10 @@ def test_json_report_groups_attempts_and_carries_comparable_identity(tmp_path: P
     ]
     assert report["identity"]["manifest_sha256"]
     assert report["identity"]["fixtures_sha256"]
+    assert report["identity"]["candidate_commit"] == "candidate123"
+    assert report["identity"]["extraction_identity"].startswith("source-sha256:")
+    assert report["identity"]["embedding_identity"].startswith("source-sha256:")
+    assert report["identity"]["reranker_identity"].startswith("source-sha256:")
     manifest_entry = next(
         entry for entry in report["manifest"] if entry["id"] == result.id
     )

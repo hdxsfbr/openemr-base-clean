@@ -708,8 +708,11 @@ def report_identity(meta: dict[str, Any]) -> dict[str, str]:
     guideline = ROOT / "docs" / "research" / "week2-retrieval-benchmark" / "corpus.jsonl"
     resolver_inputs = [ROOT / "contracts" / "schema" / "resolved_source.schema.json"]
     prompt_inputs = [ROOT / "agent" / "app" / "model.py"]
+    extraction_inputs = [ROOT / "agent" / "app" / "intake_extractor.py"]
+    retrieval_inputs = [ROOT / "agent" / "app" / "guideline_retriever.py"]
     runtime_image = os.environ.get("COPILOT_RUNTIME_IMAGE") or f"local-source:{meta['commit']}"
     return {
+        "candidate_commit": str(meta.get("candidate_commit", meta["commit"])),
         "manifest_sha256": _paths_hash(manifest_paths),
         "fixtures_sha256": _paths_hash(fixture_paths),
         "schema_version": "2.0.0",
@@ -719,6 +722,9 @@ def report_identity(meta: dict[str, Any]) -> dict[str, str]:
         "runtime_image": runtime_image,
         "model": str(meta["model"]),
         "prompt_sha256": _paths_hash(prompt_inputs),
+        "extraction_identity": "source-sha256:" + _paths_hash(extraction_inputs),
+        "embedding_identity": "source-sha256:" + _paths_hash(retrieval_inputs),
+        "reranker_identity": "source-sha256:" + _paths_hash(retrieval_inputs),
         "attempt_policy": "one-required-attempt",
     }
 
@@ -1017,6 +1023,12 @@ def main() -> int:
     meta = {
         "full_run": full_run,
         "commit": git_sha(),
+        "candidate_commit": os.environ.get("CI_COMMIT_SHA") or subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        ).stdout.strip() or "unknown",
         "environment": args.base_url,
         "model": args.model,
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),

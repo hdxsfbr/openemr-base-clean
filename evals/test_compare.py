@@ -23,6 +23,9 @@ def _report(failed: set[str] | None = None) -> dict[str, object]:
             "runtime_image": "agentforge@sha256:" + "e" * 64,
             "model": "fixture-model",
             "prompt_sha256": "f" * 64,
+            "extraction_identity": "source-sha256:" + "1" * 64,
+            "embedding_identity": "source-sha256:" + "2" * 64,
+            "reranker_identity": "source-sha256:" + "3" * 64,
             "attempt_policy": "one-required-attempt",
         },
         "manifest": [

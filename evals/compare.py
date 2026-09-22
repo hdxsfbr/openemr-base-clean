@@ -25,6 +25,9 @@ REQUIRED_IDENTITY_KEYS = (
     "runtime_image",
     "model",
     "prompt_sha256",
+    "extraction_identity",
+    "embedding_identity",
+    "reranker_identity",
     "attempt_policy",
 )
 REQUIRED_RUBRICS = {

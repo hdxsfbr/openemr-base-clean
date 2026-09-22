@@ -1,6 +1,6 @@
 {
   "identity": {
-    "manifest_sha256": "a364e8a3b6b07a9844badbbcc57b20be505cf472e8e6ba7332b25b0e7345b735",
+    "manifest_sha256": "c82469de90d85bbee4a043bc912b8d2da41a488346994af378635a90064eab72",
     "fixtures_sha256": "9fbf961fe74d57cb21642d84164aa64232af25785898bfbc078a32424793ed30",
     "schema_version": "2.0.0",
     "rubric_version": "1.0.0",
@@ -9,6 +9,9 @@
     "runtime_image": "local-offline",
     "model": "deterministic-offline",
     "prompt_sha256": "8adcbe3ef55bcd6937401506ed5019efbac71f19fef864781a219ee26dd767fc",
+    "extraction_identity": "source-sha256:8e28a9e1976af3eabe95c61589a79e688607c269e2c4dd76edc590a0243eb925",
+    "embedding_identity": "source-sha256:6543f4d93ee924df13480e7407ff3b5317d63252317886d9fec0f2520ee94032",
+    "reranker_identity": "source-sha256:6543f4d93ee924df13480e7407ff3b5317d63252317886d9fec0f2520ee94032",
     "attempt_policy": "one-required-attempt"
   },
   "expected_rubrics": {
