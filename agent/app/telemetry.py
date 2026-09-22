@@ -45,11 +45,13 @@ METADATA_KEYS = frozenset({
     "summary_basis", "summary_replaced", "prompt_version",
     "effort", "attempt", "stop_reason",
     "reason", "record_count", "truncated", "gateway_latency_ms",
+    "handoff_id", "contract_version", "model_version", "retrieval_hit_count", "extraction_confidence", "eval_outcome",
 })
 # Enum-shaped: lowercase-led snake/colon tokens ("partial", "lexicon:judgment", "http_503", "n/a").
 # Rejects names, dates, MRN/SSN/phone shapes, non-ASCII, and anything with whitespace.
 _ENUM_SHAPED = re.compile(r"[a-z][a-z0-9_:/]{0,63}")
 _PROMPT_VERSION = re.compile(r"[0-9a-f]{12}")
+_CONTRACT_VERSION = re.compile(r"\d+\.\d+\.\d+")
 
 
 def _phi_free_scalar(key: str, value: Any) -> bool:
@@ -57,7 +59,8 @@ def _phi_free_scalar(key: str, value: Any) -> bool:
         return True
     if not isinstance(value, str):
         return False
-    return bool((_PROMPT_VERSION if key == "prompt_version" else _ENUM_SHAPED).fullmatch(value))
+    pattern = _PROMPT_VERSION if key == "prompt_version" else _CONTRACT_VERSION if key == "contract_version" else _ENUM_SHAPED
+    return bool(pattern.fullmatch(value))
 
 
 def _phi_free_metadata(data: Any) -> bool:

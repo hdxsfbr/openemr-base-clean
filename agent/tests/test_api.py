@@ -90,12 +90,17 @@ def test_invalid_body_is_400_and_metrics_exposed(client: TestClient) -> None:
 
 
 def test_lab_extraction_accepts_only_an_immutable_source_reference(client: TestClient) -> None:
+    from app.metrics import metrics
+
     token = mint_for_tests(CID, "abcdefabcdefabdd", TEST_SECRET)
     source_id = "document:0123456789abcdef0123456789abcdef"
+    before = metrics.extractions[("unavailable", "unknown")]
     r = client.post(f"/v1/conversations/{CID}/lab-extractions", json={"source_id": source_id}, headers={"X-Copilot-Token": token})
     assert r.status_code == 200
     assert r.json()["status"] == "unavailable" and r.json()["extraction"] is None
     assert main_module.app.state.intake_extractor.calls[0][0] == source_id
+    assert metrics.extractions[("unavailable", "unknown")] == before + 1
+    assert 'copilot_document_extractions_total{status="unavailable",confidence="unknown"}' in client.get("/metrics").text
     bad = client.post(f"/v1/conversations/{CID}/lab-extractions", json={"source_id": source_id, "pid": 7}, headers={"X-Copilot-Token": token})
     assert bad.status_code == 400 and bad.json()["code"] == "invalid_request"
 

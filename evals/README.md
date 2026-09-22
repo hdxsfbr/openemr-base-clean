@@ -44,6 +44,10 @@ agent/.venv/bin/python evals/run.py --case INJ-NOTE-O-001
 # Fast smoke test: only the golden set (small, must always pass)
 agent/.venv/bin/python evals/run.py --golden-only
 
+# Slice 1's deterministic lab-release starter (eight cases and Boolean rubrics).
+# The explicit output path avoids creating a versioned result during local work.
+agent/.venv/bin/python evals/run_slice1_starter.py --output /tmp/slice1-starter.json
+
 # Pre-submission check only: include the holdout set in a filtered run
 # (a full run with no filters always includes it, since that IS the release check)
 agent/.venv/bin/python evals/run.py --only conflict --include-holdout
