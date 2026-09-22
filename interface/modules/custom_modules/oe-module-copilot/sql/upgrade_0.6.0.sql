@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `copilot_fact_review` (
     `extraction_id` CHAR(36) NOT NULL, `extraction_version` INT UNSIGNED NOT NULL,
     `field_id` VARCHAR(128) NOT NULL, `decision` ENUM('approved','corrected','rejected') NOT NULL,
     `review_json` LONGTEXT NOT NULL, `supersedes_review_id` CHAR(36) NULL,
-    `reviewed_by` INT(11) NOT NULL, `reviewed_at` DATETIME NOT NULL,
+    `reviewed_by` VARCHAR(128) NOT NULL, `reviewed_at` DATETIME NOT NULL,
     PRIMARY KEY (`review_id`), UNIQUE KEY `uq_review_idempotency` (`review_idempotency_key`),
     KEY `idx_review_fact_current` (`extraction_id`,`field_id`,`supersedes_review_id`),
     CONSTRAINT `chk_review_json` CHECK (JSON_VALID(`review_json`))
@@ -50,10 +50,18 @@ CREATE TABLE IF NOT EXISTS `copilot_fact_review` (
 CREATE TABLE IF NOT EXISTS `copilot_promoted_record` (
     `record_id` CHAR(36) NOT NULL, `record_version` INT UNSIGNED NOT NULL,
     `target_type` ENUM('lab_report','intake_response') NOT NULL,
+    `status` ENUM('active','completed','amended','withdrawn','stopped') NOT NULL,
+    `action_id` CHAR(36) NOT NULL, `action_idempotency_key` CHAR(36) NOT NULL,
     `deterministic_promotion_key` CHAR(64) NOT NULL, `review_set_sha256` CHAR(64) NOT NULL,
-    `source_content_sha256` CHAR(64) NOT NULL, `record_json` LONGTEXT NOT NULL,
+    `source_content_sha256` CHAR(64) NOT NULL, `source_document_id` CHAR(36) NOT NULL,
+    `extraction_id` CHAR(36) NOT NULL, `extraction_version` INT UNSIGNED NOT NULL,
+    `site_id` VARCHAR(64) NOT NULL, `pid` BIGINT(20) NOT NULL, `record_json` LONGTEXT NOT NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`record_id`,`record_version`), UNIQUE KEY `uq_promotion_key` (`deterministic_promotion_key`),
+    PRIMARY KEY (`record_id`,`record_version`), UNIQUE KEY `uq_record_action` (`action_id`),
+    UNIQUE KEY `uq_record_action_idempotency` (`action_idempotency_key`),
+    UNIQUE KEY `uq_promotion_key` (`deterministic_promotion_key`),
+    KEY `idx_reviewed_record_current` (`site_id`,`pid`,`record_id`,`record_version`),
+    KEY `idx_reviewed_record_source` (`source_document_id`,`extraction_id`,`extraction_version`),
     CONSTRAINT `chk_promoted_record_json` CHECK (JSON_VALID(`record_json`))
 ) ENGINE=InnoDB COMMENT='Immutable reviewed document record versions';
 CREATE TABLE IF NOT EXISTS `copilot_action_outbox` (
@@ -64,3 +72,21 @@ CREATE TABLE IF NOT EXISTS `copilot_action_outbox` (
     PRIMARY KEY (`event_id`), KEY `idx_outbox_unpublished` (`published_at`,`created_at`),
     CONSTRAINT `chk_outbox_json` CHECK (JSON_VALID(`payload_json`))
 ) ENGINE=InnoDB COMMENT='Transactional document action audit/provenance outbox';
+
+-- Repair a partially applied earlier draft of this upgrade without replacing
+-- immutable rows. These clauses are idempotent on supported MariaDB releases.
+ALTER TABLE `copilot_fact_review`
+    MODIFY COLUMN `reviewed_by` VARCHAR(128) NOT NULL;
+ALTER TABLE `copilot_promoted_record`
+    ADD COLUMN IF NOT EXISTS `status` ENUM('active','completed','amended','withdrawn','stopped') NULL AFTER `target_type`,
+    ADD COLUMN IF NOT EXISTS `action_id` CHAR(36) NULL AFTER `status`,
+    ADD COLUMN IF NOT EXISTS `action_idempotency_key` CHAR(36) NULL AFTER `action_id`,
+    ADD COLUMN IF NOT EXISTS `source_document_id` CHAR(36) NULL AFTER `source_content_sha256`,
+    ADD COLUMN IF NOT EXISTS `extraction_id` CHAR(36) NULL AFTER `source_document_id`,
+    ADD COLUMN IF NOT EXISTS `extraction_version` INT UNSIGNED NULL AFTER `extraction_id`,
+    ADD COLUMN IF NOT EXISTS `site_id` VARCHAR(64) NULL AFTER `extraction_version`,
+    ADD COLUMN IF NOT EXISTS `pid` BIGINT(20) NULL AFTER `site_id`,
+    ADD UNIQUE INDEX IF NOT EXISTS `uq_record_action` (`action_id`),
+    ADD UNIQUE INDEX IF NOT EXISTS `uq_record_action_idempotency` (`action_idempotency_key`),
+    ADD INDEX IF NOT EXISTS `idx_reviewed_record_current` (`site_id`,`pid`,`record_id`,`record_version`),
+    ADD INDEX IF NOT EXISTS `idx_reviewed_record_source` (`source_document_id`,`extraction_id`,`extraction_version`);
