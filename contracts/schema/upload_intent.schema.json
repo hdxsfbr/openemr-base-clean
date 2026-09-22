@@ -1,0 +1,43 @@
+{
+  "$defs": {
+    "DocumentType": {
+      "description": "Closed for Slice 1A. Intake is introduced by the later contract change.",
+      "enum": [
+        "lab_pdf"
+      ],
+      "title": "DocumentType",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "document_type": {
+      "$ref": "#/$defs/DocumentType"
+    },
+    "intent_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Intent Id",
+      "type": "string"
+    },
+    "status": {
+      "const": "pending",
+      "default": "pending",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "intent_id",
+    "document_type"
+  ],
+  "title": "UploadIntent",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

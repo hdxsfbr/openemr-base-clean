@@ -37,6 +37,22 @@ from .turns import (
     TurnResponse,
     Verification,
 )
+from .documents import (
+    DOCUMENT_CONTRACT_VERSION,
+    DocumentLimitation,
+    DocumentSourceId,
+    DocumentType,
+    ExtractionConfidence,
+    ExtractionState,
+    LabExtraction,
+    LabFieldEvidence,
+    NormalizedBox,
+    SourceCitation,
+    SourceDocument,
+    UploadIntent,
+    UploadResult,
+    UploadStatus,
+)
 
 __all__ = [
     "CONTRACT_VERSION",
@@ -72,4 +88,18 @@ __all__ = [
     "TurnRequest",
     "TurnResponse",
     "Verification",
+    "DocumentLimitation",
+    "DOCUMENT_CONTRACT_VERSION",
+    "DocumentSourceId",
+    "DocumentType",
+    "ExtractionConfidence",
+    "ExtractionState",
+    "LabExtraction",
+    "LabFieldEvidence",
+    "NormalizedBox",
+    "SourceCitation",
+    "SourceDocument",
+    "UploadIntent",
+    "UploadResult",
+    "UploadStatus",
 ]

@@ -25,6 +25,7 @@ accepted records immutable except for status and links to superseding decisions.
 | [0013](0013-deterministic-supervisor-and-worker-handoffs.md) | Deterministic supervisor and bounded worker handoffs | Accepted 2026-09-21 |
 | [0014](0014-week2-operational-budgets-and-deployment.md) | Week 2 operational budgets and single-Droplet deployment | Accepted 2026-09-21 |
 | [0015](0015-week2-eval-corpus-and-regression-gate.md) | Additive Week 2 golden set and regression-blocking gate | Accepted 2026-09-21 |
+| [0016](0016-week2-prd-slice-reconciliation.md) | Reconcile Week 2 implementation slices with the accepted PRD | Accepted 2026-09-22; retires conflicting Week 2-only design scope |
 
 The early decisions this index was expected to cover, and where each landed:
 
@@ -42,6 +43,9 @@ ADR-0014 fixes the operational, privacy, latency, cost, retention, readiness,
 and deployment budgets for the Week 2 design.
 ADR-0015 makes 50 a minimum golden-tier count, retains the full Week 1 suite,
 and fixes the Boolean-rubric, baseline, CI, and injected-regression policy.
+ADR-0016 supersedes the conflicting Week 2-only portions of ADR-0014 and
+ADR-0015 for the #26 implementation plan: exactly 50 curated cases and no
+non-PRD operational framework or discarded-branch implementation base.
 Dated status notes inside an accepted record mark follow-ups as done or still
 open without rewriting the decision, and a
 dated amendment records a shipped change to one. ADR-0001 through ADR-0007

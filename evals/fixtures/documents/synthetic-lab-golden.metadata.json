@@ -1,0 +1,8 @@
+{
+  "fixture_id": "w2-lab-golden-001",
+  "document_type": "lab_pdf",
+  "synthetic_only": true,
+  "expected_pages": 1,
+  "scenarios": ["happy_path", "missing_field", "prompt_injection", "altered_source"],
+  "note": "The PDF contains no patient identifier or clinical value; later extraction fixtures supply only synthetic proposals."
+}

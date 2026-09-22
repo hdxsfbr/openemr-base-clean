@@ -31,6 +31,8 @@ final readonly class AuthorizedPatientContext
         public string $conversationId,
         public string $turnId,
         public string $correlationId,
+        /** Site binding from the server-created conversation, never a request value. */
+        public string $siteId = 'default',
     ) {
     }
 

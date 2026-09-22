@@ -23,6 +23,8 @@ return [
     ],
     'tables' => [
         'copilot_conversation',
+        'copilot_source_upload_intent',
+        'copilot_source_document',
     ],
     'install' => [
         'sql' => 'sql/install.sql',

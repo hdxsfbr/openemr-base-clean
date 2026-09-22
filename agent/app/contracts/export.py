@@ -14,6 +14,7 @@ from pathlib import Path
 from . import (
     CONTRACT_VERSION,
     ErrorEnvelope,
+    LabExtraction,
     LabsParams,
     NotesParams,
     ToolRequest,
@@ -22,6 +23,8 @@ from . import (
     TurnRequest,
     TurnResponse,
     WindowParams,
+    UploadIntent,
+    UploadResult,
 )
 
 EXPORTS = {
@@ -34,6 +37,9 @@ EXPORTS = {
     "turn_claims.schema.json": TurnClaims,
     "turn_response.schema.json": TurnResponse,
     "error_envelope.schema.json": ErrorEnvelope,
+    "lab_extraction.schema.json": LabExtraction,
+    "upload_intent.schema.json": UploadIntent,
+    "upload_result.schema.json": UploadResult,
 }
 
 

@@ -85,6 +85,7 @@ final class ContextBuilder
             conversationId: (string) $conversation['id'],
             turnId: $token['jti'],
             correlationId: $correlationId,
+            siteId: (string) $conversation['site_id'],
         );
     }
 
