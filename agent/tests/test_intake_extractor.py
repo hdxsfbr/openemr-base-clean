@@ -81,6 +81,17 @@ def test_resolver_withholds_an_altered_citation() -> None:
         verify_lab_preview(SOURCE_ID, hashlib.sha3_512(pdf).hexdigest(), pdf, tampered)
 
 
+def test_resolver_withholds_a_missing_citation() -> None:
+    pdf = FIXTURE.read_bytes()
+    extraction = resolve_lab_preview(SOURCE_ID, hashlib.sha3_512(pdf).hexdigest(), pdf)
+    evidence = extraction.fields["value"]
+    missing = extraction.model_copy(update={
+        "fields": {**extraction.fields, "value": evidence.model_copy(update={"source_citation": None})}
+    })
+    with pytest.raises(ValueError, match="citation_integrity"):
+        verify_lab_preview(SOURCE_ID, hashlib.sha3_512(pdf).hexdigest(), pdf, missing)
+
+
 @pytest.mark.anyio
 async def test_fault_or_source_integrity_failure_returns_no_unverified_output() -> None:
     worker = IntakeExtractor(Reader(source()))

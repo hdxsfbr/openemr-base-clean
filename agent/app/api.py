@@ -22,7 +22,7 @@ from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
 from .settings import settings
 from .state_store import drop_token, put_token
-from .telemetry import finish_turn_trace, trace_config, turn_trace
+from .telemetry import finish_turn_trace, tool_observation, trace_config, turn_trace
 from .turn_outcome import verification_outcome
 
 router = APIRouter(prefix="/v1")
@@ -76,6 +76,18 @@ def _fault(request: Request) -> str | None:
         return None
     value = request.headers.get("X-Copilot-Fault", "").strip().lower()
     return value or None
+
+
+def _preview_confidence(result: Any) -> str:
+    """Return a bounded summary, never an extracted value or source id."""
+    extraction = getattr(result, "extraction", None)
+    if extraction is None:
+        return "unknown"
+    buckets = {field.confidence.value for field in extraction.fields.values()}
+    for candidate in ("unknown", "low", "medium", "high"):
+        if candidate in buckets:
+            return candidate
+    return "unknown"
 
 
 def _turn_input(delegation: Delegation, req: TurnRequest, correlation_id: str, fault: str | None) -> dict[str, Any]:
@@ -149,11 +161,40 @@ async def post_lab_extraction(
         body = LabExtractionRequest.model_validate(await request.json())
     except (ValueError, ValidationError):
         return _error(400, "invalid_request", "Invalid document extraction request.", correlation_id)
+    started = time.perf_counter()
     try:
-        result = await asyncio.wait_for(
-            request.app.state.intake_extractor.extract(body.source_id, auth.raw, correlation_id, _fault(request)),
-            timeout=settings.model_timeout_seconds,
-        )
+        # A document preview has its own trace root because it is deliberately
+        # outside the chat graph.  The only exported attributes are bounded
+        # status/count/version metadata; source bytes and extraction values
+        # never enter ordinary telemetry.
+        # The conversation is an authorization/session identifier, not an
+        # operational trace attribute for a document job. Correlation and the
+        # worker's opaque handoff ID are sufficient to reconstruct this path.
+        with turn_trace(correlation_id, "document_preview") as span:
+            with tool_observation("intake_extractor", correlation_id) as observation:
+                result = await asyncio.wait_for(
+                    request.app.state.intake_extractor.extract(body.source_id, auth.raw, correlation_id, _fault(request)),
+                    timeout=settings.model_timeout_seconds,
+                )
+                confidence = _preview_confidence(result)
+                elapsed = round((time.perf_counter() - started) * 1000, 1)
+                observation.update(
+                    level="ERROR" if result.status.value in {"unavailable", "failed"} else "DEFAULT",
+                    status_message=result.status.value if result.status.value in {"unavailable", "failed"} else None,
+                    metadata={
+                        "status": result.status.value,
+                        "handoff_id": result.handoff_id,
+                        "contract_version": result.contract_version,
+                        "model_version": "deterministic_parser_v1",
+                        "timings_ms": {"extract": elapsed},
+                        "usage": {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "cost_microusd": 0},
+                        "record_count": len(result.extraction.fields) if result.extraction else 0,
+                        "extraction_confidence": confidence,
+                        "retrieval_hit_count": 0,
+                        "verification": "passed" if result.extraction else "not_run",
+                        "eval_outcome": "not_run",
+                    },
+                )
     except PermissionError:
         metrics.denial("source_document")
         return _error(403, "unauthorized", "Request denied.", correlation_id)
@@ -162,6 +203,7 @@ async def post_lab_extraction(
         from .intake_extractor import IntakeExtractor
 
         result = IntakeExtractor._unavailable(body.source_id, secrets.token_hex(16))
+    metrics.extraction(result.status.value, (time.perf_counter() - started) * 1000, _preview_confidence(result))
     return JSONResponse(status_code=200, content=result.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id})
 
 

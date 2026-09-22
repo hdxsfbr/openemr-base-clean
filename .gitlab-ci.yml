@@ -70,6 +70,23 @@ test:evals-offline:
       - evals/results/
     expire_in: 30 days
 
+# Slice 1's release starter is deliberately separate from the Week 1 offline
+# subset: these are the eight PRD-shaped lab boundaries that must be green for
+# every merge request touching the candidate. The report lists only case IDs,
+# Boolean rubrics, stable test node IDs, and verdicts; no fixture or preview
+# content is preserved as a CI artifact.
+test:evals-slice1-starter:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - cd agent && pip install --quiet -r requirements.lock && pip install --quiet --no-deps . && pip install --quiet -c requirements.lock '.[dev]' && cd ..
+    - python evals/run_slice1_starter.py --output evals/artifacts/slice1-starter.json
+  artifacts:
+    when: always
+    paths:
+      - evals/artifacts/slice1-starter.json
+    expire_in: 90 days
+
 # Deploys HEAD of main to the single Droplet (137.184.4.22) every push, automatically:
 # the owner decided (2026-09-17) that the early submission is already graded and the
 # priority now is deploying continuously rather than saving one push for M5. This

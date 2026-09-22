@@ -300,6 +300,19 @@ def test_mask_keeps_allowlisted_metadata_readable_and_digests_everything_else() 
     assert mask({"effort": "n/a", "stop_reason": "end_turn", "attempt": 0, "prompt_version": "0a1b2c3d4e5f"})["effort"] == "n/a"
 
 
+def test_mask_keeps_bounded_document_preview_telemetry_and_rejects_source_content() -> None:
+    metadata = {
+        "status": "complete", "handoff_id": "a" * 32, "contract_version": "2.0.0",
+        "model_version": "deterministic_parser_v1", "timings_ms": {"extract": 12.5},
+        "usage": {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "cost_microusd": 0},
+        "record_count": 6, "extraction_confidence": "high", "retrieval_hit_count": 0,
+        "verification": "passed", "eval_outcome": "not_run",
+    }
+    assert mask(metadata) == metadata
+    assert mask({**metadata, "source_id": "document:0123456789abcdef0123456789abcdef"})["digest"] is True
+    assert mask({**metadata, "status": "Sample analyte 7.2"})["digest"] is True
+
+
 def test_finish_turn_trace_reports_why_the_summary_was_replaced_without_chart_content() -> None:
     span = FakeSpan()
     finish_turn_trace(span, {"status": "complete", "raw_claims": [{}], "rejected": [], "summary_basis": "deterministic", "summary_reason": "ungrounded_number:40"})
