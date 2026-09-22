@@ -10,9 +10,9 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Literal, Sequence
+from typing import Annotated, Literal, Sequence
 
-from pydantic import Field, ValidationError
+from pydantic import Field, RootModel, ValidationError
 
 from .contracts.common import StrictModel
 from .contracts.turns import ClaimFacts
@@ -82,6 +82,16 @@ class GuidelineClaimCandidate(StrictModel):
     facts: GuidelineExcerptFacts
     source_ids: list[GuidelineSourceId] = Field(min_length=1, max_length=1)
     section: Literal["guideline_evidence"]
+
+
+ClaimCandidateValue = Annotated[
+    PatientClaimCandidate | GuidelineClaimCandidate,
+    Field(discriminator="claim_class"),
+]
+
+
+class ClaimCandidate(RootModel[ClaimCandidateValue]):
+    pass
 
 
 class ClaimRejection(StrictModel):
