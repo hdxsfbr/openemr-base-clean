@@ -72,6 +72,7 @@ docs/audit/evidence/dependencies/semgrep-raw.json
 
 # Agent service local environment
 agent/.venv/
+agent/.guideline_models/
 __pycache__/
 .pytest_cache/
 *.egg-info/
