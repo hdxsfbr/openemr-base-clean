@@ -44,6 +44,7 @@ final class ExtractionWorkerGatewayTest extends TestCase
         self::assertSame('lab_report', $response['source']['document_type']);
         self::assertTrue($source->auditObservedBeforeRead);
         self::assertSame('claim', $audit->events[0]['operation']);
+        self::assertSame('lease_acquired', $audit->events[0]['outcome']);
         self::assertStringNotContainsString($bytes, json_encode($audit->events, JSON_THROW_ON_ERROR));
     }
 

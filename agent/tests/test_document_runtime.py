@@ -22,6 +22,7 @@ from app.document_runtime import (
     HttpDocumentBridge,
     LocalTesseractOcr,
     PopplerDocumentRenderer,
+    ProposalInputLimit,
     ProductionAdapterError,
 )
 from app.intake_extractor import (
@@ -263,6 +264,8 @@ def test_renderer_uses_200_dpi_and_returns_normalized_deterministic_rgb_pages(tm
 
     def run(command: list[str], **kwargs):
         commands.append(command)
+        if command[0] == "pdfinfo":
+            return SimpleNamespace(returncode=0, stdout=b"Page size: 612 x 792 pts (letter)\n", stderr=b"")
         output_prefix = Path(command[-1])
         output_prefix.with_name(output_prefix.name + "-1.png").write_bytes(rendered_png)
         return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
@@ -275,7 +278,8 @@ def test_renderer_uses_200_dpi_and_returns_normalized_deterministic_rgb_pages(tm
     assert len(pages) == 1
     assert pages[0].orientation_degrees == 0
     assert pages[0].renderer_version == "poppler-25.03.0-200dpi"
-    assert "-r" in commands[0] and commands[0][commands[0].index("-r") + 1] == "200"
+    render_command = next(command for command in commands if command[0] == "pdftoppm")
+    assert "-r" in render_command and render_command[render_command.index("-r") + 1] == "200"
     with Image.open(io.BytesIO(pages[0].pixels)) as normalized:
         assert normalized.mode == "RGB"
         assert normalized.size == (100, 50)
@@ -314,12 +318,32 @@ def test_renderer_sanitizes_subprocess_failure_without_document_content(tmp_path
     source = SourceDocumentRef.model_validate(_source(content))
 
     def fail(command: list[str], **kwargs):
+        if command[0] == "pdfinfo":
+            return SimpleNamespace(returncode=0, stdout=b"Page size: 612 x 792 pts (letter)\n", stderr=b"")
         return SimpleNamespace(returncode=1, stdout=b"", stderr=content)
 
     renderer = PopplerDocumentRenderer(run_command=fail, temporary_root=tmp_path)
     with pytest.raises(MalformedDocument) as raised:
         renderer.render(AuthorizedSourceVersion(source=source, version="1", content=content))
     assert "PRIVATE-SYNTHETIC-MARKER" not in str(raised.value)
+
+
+def test_renderer_rejects_oversized_pdf_before_rasterizing(tmp_path: Path) -> None:
+    content = b"%PDF-1.7 synthetic document"
+    source = SourceDocumentRef.model_validate(_source(content))
+    commands: list[list[str]] = []
+
+    def run(command: list[str], **kwargs):
+        commands.append(command)
+        if command[0] == "pdfinfo":
+            return SimpleNamespace(returncode=0, stdout=b"Page size: 10000 x 10000 pts\n", stderr=b"")
+        pytest.fail("oversized PDF must be rejected before pdftoppm runs")
+
+    with pytest.raises(MalformedDocument):
+        PopplerDocumentRenderer(run_command=run, temporary_root=tmp_path).render(
+            AuthorizedSourceVersion(source=source, version="1", content=content)
+        )
+    assert commands and commands[0][0] == "pdfinfo"
 
 
 def test_local_ocr_preserves_exact_spans_and_normalized_word_boxes() -> None:
@@ -397,6 +421,36 @@ def test_anthropic_extractor_rejects_non_json_with_sanitized_error() -> None:
 
     assert str(raised.value) == "proposal_invalid"
     assert "PRIVATE-SYNTHETIC-MARKER" not in str(raised.value)
+
+
+def test_anthropic_extractor_rejects_oversized_ocr_request_before_model_call() -> None:
+    client = _FakeAnthropicClient({})
+    extractor = AnthropicProposalExtractor(client=client, model_id="claude-test")
+    pages = [
+        OcrPage.model_validate({
+            "page_number": page_number,
+            "text": "x" * 100_000,
+            "text_sha256": hashlib.sha256(("x" * 100_000).encode()).hexdigest(),
+            "rendered_page_sha256": "a" * 64,
+            "renderer_version": "synthetic-renderer",
+            "preprocessing_version": "orientation-only-v1",
+            "tokens": [],
+        })
+        for page_number in range(1, 10)
+    ]
+
+    with pytest.raises(ProposalInputLimit, match="proposal_input_limit"):
+        extractor.extract("intake_form", pages, timeout_seconds=3.0)
+    assert client.messages.calls == []
+
+
+def test_anthropic_extractor_counts_base64_region_images_toward_request_budget() -> None:
+    client = _FakeAnthropicClient({})
+    extractor = AnthropicProposalExtractor(client=client, model_id="claude-test")
+
+    with pytest.raises(ProposalInputLimit, match="proposal_input_limit"):
+        extractor._call({"document_type": "intake_form"}, {}, 3.0, images=(b"x" * 700_000,))
+    assert client.messages.calls == []
 
 
 def test_anthropic_region_retry_sends_only_bounded_png_as_an_image_block() -> None:

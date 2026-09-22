@@ -237,16 +237,16 @@ services:
       - app.document_worker
     environment:
       COPILOT_DOCUMENT_WORKER_URL: http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/extraction.php
-      COPILOT_STATE_DIR: /var/lib/copilot
-      COPILOT_TRANSIENT_DIR: /var/lib/copilot/transient
+      COPILOT_STATE_DIR: /var/lib/extractor
+      COPILOT_TRANSIENT_DIR: /var/lib/extractor/transient
       COPILOT_MODEL_ID: ${COPILOT_MODEL_ID:-claude-sonnet-5}
       COPILOT_TRACE_CONTENT: ${COPILOT_TRACE_CONTENT:-0}
     secrets:
       - anthropic_api_key
       - anthropic_workspace_id
       - copilot_delegation_secret
-    volumes:
-      - agent_state:/var/lib/copilot
+    tmpfs:
+      - /var/lib/extractor:rw,size=256m,mode=0700
     networks:
       - frontend
     depends_on:

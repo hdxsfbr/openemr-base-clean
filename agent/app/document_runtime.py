@@ -14,6 +14,8 @@ import hashlib
 import hmac
 import io
 import json
+import logging
+import re
 import secrets
 import shutil
 import subprocess
@@ -49,6 +51,7 @@ from .intake_extractor import (
     ExtractionDependencyUnavailable,
     ExtractionDraft,
     ExtractionIdentity,
+    ExtractionTelemetryEvent,
     ExtractionUsage,
     IntakeExtractorWorker,
     MalformedDocument,
@@ -65,10 +68,20 @@ EXTRACTION_CANONICAL_VERSION = "copilot-extraction-v1"
 EXTRACTION_SIGNING_PATH = "/gateway/extraction.php"
 RENDERER_VERSION = "poppler-25.03.0-200dpi"
 PREPROCESSING_VERSION = "orientation-only-v1"
+MAX_RENDERED_PAGE_PIXELS = 16_000_000
+MAX_RENDERED_DOCUMENT_PIXELS = 40_000_000
+MAX_RENDERED_PAGE_BYTES = 25 * 1024 * 1024
+MAX_RENDERED_DOCUMENT_BYTES = 80 * 1024 * 1024
+MAX_PROPOSAL_REQUEST_BYTES = 800_000
+log = logging.getLogger("copilot.document_worker")
 
 
 class ProductionAdapterError(ExtractionDependencyUnavailable):
     """A sanitized production-boundary failure safe to map to a limitation."""
+
+
+class ProposalInputLimit(ExtractionDependencyUnavailable):
+    """The bounded OCR-to-model request would exceed the extraction budget."""
 
 
 class _ClaimResponse(StrictModel):
@@ -355,7 +368,7 @@ class PopplerDocumentRenderer:
             if source.source.mime_type == "application/pdf":
                 if not source.content.startswith(b"%PDF-"):
                     raise MalformedDocument
-                images = self._render_pdf(source.content)
+                images = self._render_pdf(source.content, source.source.page_count)
             else:
                 if source.source.mime_type == "image/png" and not source.content.startswith(b"\x89PNG\r\n\x1a\n"):
                     raise MalformedDocument
@@ -393,12 +406,13 @@ class PopplerDocumentRenderer:
             content_sha256=hashlib.sha256(pixels).hexdigest(),
         )
 
-    def _render_pdf(self, content: bytes) -> list[bytes]:
+    def _render_pdf(self, content: bytes, expected_page_count: int) -> list[bytes]:
         with tempfile.TemporaryDirectory(dir=self._temporary_root) as directory:
             work = Path(directory)
             source_path = work / "source.pdf"
             source_path.write_bytes(content)
             prefix = work / "page"
+            self._assert_pdf_pixel_budget(source_path, expected_page_count)
             try:
                 completed = self._run(
                     ["pdftoppm", "-r", "200", "-png", str(source_path), str(prefix)],
@@ -416,7 +430,36 @@ class PopplerDocumentRenderer:
             paths = [single] if single.exists() else numbered
             if not paths:
                 raise ProductionAdapterError("document_render_failed")
+            rendered_bytes = sum(path.stat().st_size for path in paths)
+            if (
+                any(path.stat().st_size > MAX_RENDERED_PAGE_BYTES for path in paths)
+                or rendered_bytes > MAX_RENDERED_DOCUMENT_BYTES
+            ):
+                raise MalformedDocument
             return [path.read_bytes() for path in paths]
+
+    def _assert_pdf_pixel_budget(self, source_path: Path, expected_page_count: int) -> None:
+        total = 0
+        for page_number in range(1, expected_page_count + 1):
+            try:
+                completed = self._run(
+                    ["pdfinfo", "-f", str(page_number), "-l", str(page_number), str(source_path)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                    check=False,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise ProductionAdapterError("document_render_failed") from exc
+            if completed.returncode != 0:
+                raise MalformedDocument
+            match = re.search(r"^Page size:\s+([0-9.]+)\s+x\s+([0-9.]+)\s+pts", completed.stdout.decode("utf-8", errors="ignore"), re.MULTILINE)
+            if match is None:
+                raise MalformedDocument
+            pixels = round(float(match.group(1)) * 200 / 72) * round(float(match.group(2)) * 200 / 72)
+            if pixels > MAX_RENDERED_PAGE_PIXELS or total + pixels > MAX_RENDERED_DOCUMENT_PIXELS:
+                raise MalformedDocument
+            total += pixels
 
     @staticmethod
     def _normalize(page_number: int, raw: bytes) -> RenderedPage:
@@ -622,9 +665,13 @@ class AnthropicProposalExtractor:
             },
         }
         try:
+            request_json = json.dumps(request, default=str, separators=(",", ":"))
+            encoded_image_bytes = sum(4 * ((len(image) + 2) // 3) for image in images)
+            if len(request_json.encode()) + encoded_image_bytes > MAX_PROPOSAL_REQUEST_BYTES:
+                raise ProposalInputLimit("proposal_input_limit")
             content: list[dict[str, object]] = [{
                 "type": "text",
-                "text": json.dumps(request, default=str, separators=(",", ":")),
+                "text": request_json,
             }]
             content.extend({
                 "type": "image",
@@ -655,7 +702,7 @@ class AnthropicProposalExtractor:
                 output_tokens=int(getattr(response.usage, "output_tokens", 0) or 0),
             )
             return parsed, usage
-        except ProductionAdapterError:
+        except (ProductionAdapterError, ProposalInputLimit):
             raise
         except Exception as exc:
             raise ProductionAdapterError("proposal_invalid") from exc
@@ -679,6 +726,7 @@ class DocumentQueueRunner:
         job = self._bridge.claim()
         if job is None:
             return False
+        log.info("document job claimed", extra={"component": "extractor", "correlation_id": job.correlation_id})
         try:
             worker = self._worker_factory(self._bridge)
             observed_now = self._now()
@@ -714,7 +762,12 @@ class DocumentQueueRunner:
                 "deadline_at": job.deadline_at,
             })
             result = worker.run(handoff, now=observed_now)
-        except Exception:
+        except Exception as exc:
+            log.warning(
+                "document job failed: %s",
+                exc.__class__.__name__,
+                extra={"component": "extractor", "correlation_id": job.correlation_id},
+            )
             self._bridge.terminal(
                 handoff_id=job.handoff_id,
                 status="unavailable",
@@ -729,6 +782,10 @@ class DocumentQueueRunner:
                 limitation_codes=result.limitation_codes,
                 retryable=result.retryable,
             )
+        log.info(
+            "document job terminal",
+            extra={"component": "extractor", "correlation_id": job.correlation_id, "status": result.status},
+        )
         return True
 
     def run_forever(self, stop: Event, *, idle_seconds: float = 1.0) -> None:
@@ -778,9 +835,26 @@ def build_document_queue_runner(runtime_settings: Settings = settings) -> Docume
                 "ocr": ocr,
                 "region_extractor": extractor,
             },
+            telemetry=LoggingExtractionTelemetry(),
         )
 
     return DocumentQueueRunner(bridge=bridge, worker_factory=worker_factory)
+
+
+class LoggingExtractionTelemetry:
+    """Emit identifiers, bounds, and outcomes only; never OCR or field content."""
+
+    def record(self, event: ExtractionTelemetryEvent) -> None:
+        log.info(
+            "document extraction terminal",
+            extra={
+                "component": "extractor",
+                "correlation_id": event.correlation_id,
+                "status": event.status,
+                "duration_ms": event.duration_ms,
+                "record_count": event.page_count,
+            },
+        )
 
 
 def _png(image: Image.Image) -> bytes:

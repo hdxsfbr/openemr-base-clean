@@ -56,6 +56,11 @@ supervisor, support authorized upload/review/promotion and source-review UI,
 and enforce baseline comparison over 90 retained cases. The document path now
 also has a durable module job, signed internal worker gateway, separate
 extractor process, deterministic render/OCR adapters, and strict persistence.
+Before decrypting a queued source, the module reconstructs the uploader's live
+active-user, patient, ACL, squad, break-glass, site, and patient binding; the
+queue row is scope data, never a durable authorization grant. PDF page and
+document raster budgets plus aggregate model-request bounds fail closed before
+unbounded processing or provider calls.
 The Week 2 chat/source resolver is still not constructed by the live FastAPI
 turn path: `document_ready` remains false and citation source reads safely
 return 503. Deployed and protected-branch evidence also remain release work.
@@ -131,9 +136,14 @@ supervisor, and workers cannot promote, amend, or withdraw records.
 2. The module content-sniffs and bounds the file, stores original bytes as an
    OpenEMR document, and records an idempotent immutable mapping. Same-intent
    replay returns the mapping; a new intent with identical bytes warns.
-3. A typed event gives the supervisor only an opaque source reference. The
-   intake-extractor reads one authorized source, performs deterministic render
-   and OCR, and may use one bounded region-level vision retry.
+3. A typed event gives the supervisor only an opaque source reference. Before
+   decrypting it, the internal worker gateway rebuilds the uploader's live
+   authorization and audits the authorized read. The intake-extractor then
+   performs deterministic 200-DPI render/OCR within page, document, and model
+   request budgets, and may use one bounded region-level vision retry.
+The extractor runs each lease in a disposable subprocess and terminates it at
+the module's 95-second lease boundary, preventing a hung thread or native
+child from continuing after the job has timed out.
 4. The worker persists one immutable extraction version with proposed facts,
    exact field evidence, and typed limitations. Extraction ends at review.
 5. The physician approves, corrects, or rejects every promotable field. Review

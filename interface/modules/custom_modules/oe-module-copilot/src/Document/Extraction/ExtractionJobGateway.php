@@ -113,7 +113,7 @@ final class ExtractionJobGateway
         $identifiers = $this->identifiers($job);
         try {
             // Audit must commit before Document::get_data() decrypts the source.
-            $this->audit->record('claim', 'authorized', $identifiers);
+            $this->audit->record('claim', 'lease_acquired', $identifiers);
         } catch (\Throwable $exception) {
             throw new ExtractionGatewayException('unavailable', true, 'Source access could not be audited.', 503);
         }
