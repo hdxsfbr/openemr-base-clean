@@ -57,6 +57,28 @@
     padding: 0;
 }
 
+#copilot-panel .copilot-upload {
+    flex: 0 0 auto;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background: #f8f9fa;
+}
+
+#copilot-panel .copilot-upload > summary {
+    color: #2457a6;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+#copilot-panel .copilot-upload-controls {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+}
+
+#copilot-panel .copilot-upload-controls .btn { justify-self: start; }
+
 #copilot-panel .copilot-transcript {
     display: flex;
     min-height: 0;

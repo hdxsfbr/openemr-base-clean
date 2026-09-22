@@ -70,4 +70,12 @@ foreach ($statements as $statement) {
     QueryUtils::sqlStatementThrowException($statement);
 }
 
-echo json_encode(['module' => MODULE_DIRECTORY, 'action' => $action, 'tables' => ['copilot_conversation']]) . "\n";
+echo json_encode(['module' => MODULE_DIRECTORY, 'action' => $action, 'tables' => [
+    'copilot_conversation',
+    'copilot_document_upload',
+    'copilot_document_extraction',
+    'copilot_proposed_fact',
+    'copilot_fact_review',
+    'copilot_promoted_record',
+    'copilot_action_outbox',
+]]) . "\n";

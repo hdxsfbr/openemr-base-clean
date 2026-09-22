@@ -30,7 +30,7 @@ final class Bootstrap
 {
     public const MODULE_DIRECTORY = 'oe-module-copilot';
     public const MODULE_PATH = '/interface/modules/custom_modules/' . self::MODULE_DIRECTORY;
-    public const VERSION = '0.5.0';
+    public const VERSION = '0.6.0';
 
     /** Path prefix, relative to the site root, where the agent API is published by the edge. */
     public const API_BASE = '/copilot-api';
@@ -126,6 +126,20 @@ final class Bootstrap
             . '<span aria-hidden="true">&times;</span></button>'
             . '</div>'
             . '<div class="copilot-drawer-body">'
+            . '<details class="copilot-upload" id="copilot-upload">'
+            . '<summary>' . xlt('Add a document to this chart') . '</summary>'
+            . '<div class="copilot-upload-controls">'
+            . '<label for="copilot-upload-type" class="small">' . xlt('Document type') . '</label>'
+            . '<select id="copilot-upload-type" class="form-control form-control-sm">'
+            . '<option value="lab_report">' . xlt('Laboratory report (PDF)') . '</option>'
+            . '<option value="intake_form">' . xlt('Intake form (PDF, PNG, or JPEG)') . '</option>'
+            . '</select>'
+            . '<label for="copilot-upload-file" class="small">' . xlt('Source file') . '</label>'
+            . '<input id="copilot-upload-file" class="form-control-file" type="file" accept="application/pdf">'
+            . '<button id="copilot-upload-submit" type="button" class="btn btn-sm btn-outline-primary">'
+            . xlt('Upload source') . '</button>'
+            . '<div id="copilot-upload-status" class="small text-muted" role="status" aria-live="polite"></div>'
+            . '</div></details>'
             . '<div id="copilot-transcript" class="copilot-transcript" role="log" aria-live="polite"'
             . ' aria-label="' . attr(xl('Co-Pilot conversation')) . '"></div>'
             . '<div id="copilot-composer" class="copilot-composer"></div>'

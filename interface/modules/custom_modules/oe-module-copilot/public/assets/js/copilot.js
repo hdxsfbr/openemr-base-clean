@@ -35,6 +35,10 @@
     var transcript = document.getElementById('copilot-transcript');
     var composer = document.getElementById('copilot-composer');
     var closeButton = document.getElementById('copilot-close');
+    var uploadType = document.getElementById('copilot-upload-type');
+    var uploadFile = document.getElementById('copilot-upload-file');
+    var uploadSubmit = document.getElementById('copilot-upload-submit');
+    var uploadStatus = document.getElementById('copilot-upload-status');
     var menuItem = document.getElementById('copilot_menu');
     var menuTrigger = menuItem ? menuItem.querySelector('a') : null;
     var state = {
@@ -175,6 +179,9 @@
     }
     function postJson(url, payload, headers, timeoutMs) {
         return fetchJson(url, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}), body: JSON.stringify(payload) }, timeoutMs);
+    }
+    function postForm(url, form, timeoutMs) {
+        return fetchJson(url, { method: 'POST', body: form }, timeoutMs);
     }
     /**
      * POST a turn and read it as server-sent events. Resolves with the final
@@ -465,6 +472,83 @@
             state.csrf = r.data.csrf_token;
             state.briefOnOpen = r.data.brief_on_open === true;
         });
+    }
+
+    // ---- patient-bound source upload ----
+    function uploadUuid() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') { return window.crypto.randomUUID(); }
+        var bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 15) | 64;
+        bytes[8] = (bytes[8] & 63) | 128;
+        var hex = Array.prototype.map.call(bytes, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+        return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+    }
+    function declaredPageCount(file) {
+        if (file.type !== 'application/pdf') { return Promise.resolve(1); }
+        return file.arrayBuffer().then(function (buffer) {
+            var text = new TextDecoder('latin1').decode(buffer);
+            var pages = text.match(/\/Type\s*\/Page\b/g);
+            return pages ? pages.length : 0;
+        });
+    }
+    function setUploadState(busy, message, tone) {
+        uploadSubmit.disabled = busy;
+        uploadType.disabled = busy;
+        uploadFile.disabled = busy;
+        uploadStatus.textContent = message || '';
+        uploadStatus.className = 'small ' + (tone || 'text-muted');
+    }
+    function uploadSelectedSource() {
+        var file = uploadFile.files && uploadFile.files[0];
+        if (!file) { setUploadState(false, 'Choose a source file first.', 'text-warning'); return; }
+        setUploadState(true, 'Checking the source…', 'text-muted');
+        var category = uploadType.value;
+        var intent = null;
+        refreshSession().then(function () {
+            return declaredPageCount(file);
+        }).then(function (pageCount) {
+            return postJson(modulePath + '/public/api/documents.php/upload-intents', {
+                csrf_token: state.csrf,
+                idempotency_key: uploadUuid(),
+                category: category,
+                original_filename: file.name,
+                mime_type: file.type,
+                byte_count: file.size,
+                page_count: pageCount
+            }, { 'X-Correlation-Id': state.correlationId || panel.getAttribute('data-correlation-id') }, 15000);
+        }).then(function (response) {
+            if (!response.ok || !response.data || !response.data.upload_intent_id) {
+                var intentError = new Error(response.data && response.data.code ? response.data.code : 'unavailable');
+                intentError.data = response.data;
+                throw intentError;
+            }
+            intent = response.data;
+            var form = new FormData();
+            form.append('csrf_token', state.csrf);
+            form.append('upload_token', intent.upload_token);
+            form.append('content', file, file.name);
+            setUploadState(true, 'Saving the immutable source…', 'text-muted');
+            return postForm(modulePath + '/public/api/documents.php/upload-intents/' + encodeURIComponent(intent.upload_intent_id) + '/content', form, 30000);
+        }).then(function (response) {
+            if (!response.ok || !response.data || !response.data.source) {
+                var contentError = new Error(response.data && response.data.code ? response.data.code : 'unavailable');
+                contentError.data = response.data;
+                throw contentError;
+            }
+            var duplicate = response.data.warnings && response.data.warnings[0];
+            setUploadState(false, duplicate ? duplicate.message : 'Source saved to the open chart.', duplicate ? 'text-warning' : 'text-success');
+            uploadFile.value = '';
+        }).catch(function (error) {
+            var limitation = error && error.data && error.data.limitation;
+            setUploadState(false, limitation || 'The source could not be uploaded. The chart is unchanged.', 'text-danger');
+        });
+    }
+    if (uploadType && uploadFile && uploadSubmit && uploadStatus) {
+        uploadType.addEventListener('change', function () {
+            uploadFile.accept = uploadType.value === 'lab_report' ? 'application/pdf' : 'application/pdf,image/png,image/jpeg';
+        });
+        uploadSubmit.addEventListener('click', uploadSelectedSource);
     }
     function resumeConversation() {
         return postJson(modulePath + '/public/api/conversation.php', {

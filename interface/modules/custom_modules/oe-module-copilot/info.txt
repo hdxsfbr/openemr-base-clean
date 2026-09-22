@@ -1,1 +1,1 @@
-AgentForge Clinical Co-Pilot v0.1.0
+AgentForge Clinical Co-Pilot v0.6.0
