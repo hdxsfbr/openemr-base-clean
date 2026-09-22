@@ -30,7 +30,7 @@ final class Bootstrap
 {
     public const MODULE_DIRECTORY = 'oe-module-copilot';
     public const MODULE_PATH = '/interface/modules/custom_modules/' . self::MODULE_DIRECTORY;
-    public const VERSION = '0.5.0';
+    public const VERSION = '0.6.0';
 
     /** Path prefix, relative to the site root, where the agent API is published by the edge. */
     public const API_BASE = '/copilot-api';

@@ -451,6 +451,48 @@
         scrollToEnd();
     }
 
+    // ---- review-only document preview ----
+    function sourcePreviewUrl(sourceId) {
+        return modulePath + '/public/api/document_source.php?source_id=' + encodeURIComponent(sourceId);
+    }
+    function renderExtractionPreview(result, container) {
+        container.textContent = '';
+        var head = el('div', 'copilot-turn-head');
+        head.appendChild(el('span', 'badge badge-' + (result.status === 'complete' ? 'success' : result.status === 'partial' ? 'warning' : 'danger') + ' mr-2',
+            result.status === 'complete' ? 'Preview verified' : result.status === 'partial' ? 'Preview partial' : 'Preview unavailable'));
+        container.appendChild(head);
+        container.appendChild(el('p', 'copilot-preview-notice', 'Extraction preview only — not saved to the chart and not used for later chart answers.'));
+        var extraction = result.extraction;
+        if (extraction) {
+            var list = el('dl', 'copilot-extraction-fields');
+            Object.keys(extraction.fields || {}).forEach(function (name) {
+                var evidence = extraction.fields[name] || {};
+                var dt = el('dt', null, name.replace(/_/g, ' '));
+                var dd = el('dd');
+                if (evidence.state === 'extracted') {
+                    dd.appendChild(el('span', null, extraction[name]));
+                    var cite = evidence.source_citation;
+                    if (cite) {
+                        var link = el('a', 'copilot-cite ml-2', 'Open source');
+                        link.href = sourcePreviewUrl(result.source_id);
+                        link.target = '_blank'; link.rel = 'noopener';
+                        link.title = 'Open source page ' + cite.page_or_section;
+                        dd.appendChild(link);
+                    }
+                } else {
+                    dd.appendChild(el('span', 'text-warning', evidence.state || 'unavailable'));
+                }
+                list.appendChild(dt); list.appendChild(dd);
+            });
+            container.appendChild(list);
+        }
+        (result.limitations || []).forEach(function (limitation) {
+            container.appendChild(el('p', 'small text-muted mb-1', limitation.detail));
+        });
+        appendMessageTime(container, new Date().toISOString(), 'assistant');
+        scrollToEnd();
+    }
+
     // ---- conversation flow ----
     function refreshSession(retrying) {
         return fetchJson(modulePath + '/public/api/session.php').then(function (r) {
@@ -567,6 +609,8 @@
         state.busy = busy;
         input.disabled = busy;
         send.disabled = busy;
+        if (documentFile) { documentFile.disabled = busy; }
+        if (extractButton) { extractButton.disabled = busy || !documentFile || !documentFile.files || documentFile.files.length !== 1; }
         Array.prototype.forEach.call(suggestions.querySelectorAll('button'), function (b) { b.disabled = busy; });
     }
     /** Offer follow-up questions as chips: the turn's own, topped up with starters not yet asked. */
@@ -626,6 +670,45 @@
         }).finally(function () { setBusy(false); scrollToEnd(); input.focus(); });
     }
 
+    function uploadAndExtract() {
+        if (state.busy || !documentFile || !documentFile.files || documentFile.files.length !== 1) { return; }
+        setBusy(true);
+        var pending = null;
+        setStatus('Storing the lab document for this open chart…', 'text-muted');
+        prepareTurn().then(function () {
+            return postJson(modulePath + '/public/api/document_intent.php', { document_type: 'lab_pdf', csrf_token: state.csrf });
+        }).then(function (intent) {
+            if (!intent.ok || !intent.data || !intent.data.intent_id) { throw new Error(intent.data && intent.data.code ? intent.data.code : 'document_intent'); }
+            var formData = new FormData();
+            formData.append('csrf_token', state.csrf);
+            formData.append('intent_id', intent.data.intent_id);
+            formData.append('document', documentFile.files[0]);
+            return fetchJson(modulePath + '/public/api/document_upload.php', { method: 'POST', body: formData }, TURN_TIMEOUT_MS);
+        }).then(function (upload) {
+            if (!upload.ok || !upload.data || !upload.data.source || !upload.data.source.source_id) { throw new Error(upload.data && upload.data.code ? upload.data.code : 'document_upload'); }
+            clearPlaceholder();
+            appendNote('Lab document stored. Extracting a review-only preview…', 'text-muted');
+            pending = appendPending();
+            setProgress(pending, 'Reading the authorized document…');
+            return ensureConversation().then(ticket).then(function (t) {
+                return postJson(apiBase + '/v1/conversations/' + state.conversationId + '/lab-extractions',
+                    { source_id: upload.data.source.source_id },
+                    { 'X-Copilot-Token': t.token, 'X-Correlation-Id': t.correlation_id }, TURN_TIMEOUT_MS);
+            });
+        }).then(function (preview) {
+            if (!preview.ok || !preview.data) { throw new Error(preview.data && preview.data.code ? preview.data.code : 'extraction'); }
+            renderExtractionPreview(preview.data, pending);
+            documentFile.value = '';
+            setStatus('', 'text-muted');
+        }).catch(function (error) {
+            var code = error && error.name === 'AbortError' ? 'AbortError' : (error && error.message ? error.message : 'error');
+            var message = ERROR_MESSAGES[code] || ('Lab preview unavailable (' + code + '). No extracted facts were shown.');
+            if (pending) { pending.textContent = ''; pending.className = 'copilot-msg copilot-msg-assistant text-danger'; pending.appendChild(el('div', 'copilot-message-text', message)); }
+            else { appendNote(message, 'text-danger'); }
+            setStatus('', 'text-muted');
+        }).finally(function () { setBusy(false); scrollToEnd(); });
+    }
+
     function briefStartedRecently() {
         try {
             var at = Number(sessionStorage.getItem(BRIEF_GUARD_KEY) || 0);
@@ -682,6 +765,16 @@
 
     // ---- composer (fixed below the transcript) ----
     var suggestions = el('div', 'copilot-suggestions');
+    var documentForm = el('div', 'copilot-document-form');
+    var documentLabel = el('label', 'small mb-1', 'Upload a synthetic lab PDF for a review-only preview');
+    documentLabel.htmlFor = 'copilot-lab-pdf';
+    var documentFile = el('input', 'form-control-file form-control-sm');
+    documentFile.id = 'copilot-lab-pdf'; documentFile.type = 'file'; documentFile.accept = 'application/pdf';
+    var extractButton = el('button', 'btn btn-sm btn-outline-primary mt-1', 'Extract lab preview');
+    extractButton.type = 'button'; extractButton.disabled = true;
+    documentFile.addEventListener('change', function () { extractButton.disabled = state.busy || documentFile.files.length !== 1; });
+    extractButton.addEventListener('click', uploadAndExtract);
+    documentForm.appendChild(documentLabel); documentForm.appendChild(documentFile); documentForm.appendChild(extractButton);
     var form = el('form', 'copilot-form');
     var input = el('input', 'form-control form-control-sm');
     input.type = 'text';
@@ -698,6 +791,7 @@
         if (q) { ask(q); input.value = ''; }
     });
     composer.appendChild(suggestions);
+    composer.appendChild(documentForm);
     composer.appendChild(form);
     resetTranscript();
 

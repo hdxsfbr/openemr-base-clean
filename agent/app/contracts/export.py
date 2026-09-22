@@ -15,6 +15,7 @@ from . import (
     CONTRACT_VERSION,
     ErrorEnvelope,
     LabExtraction,
+    LabExtractionResult,
     LabsParams,
     NotesParams,
     ToolRequest,
@@ -38,6 +39,7 @@ EXPORTS = {
     "turn_response.schema.json": TurnResponse,
     "error_envelope.schema.json": ErrorEnvelope,
     "lab_extraction.schema.json": LabExtraction,
+    "lab_extraction_result.schema.json": LabExtractionResult,
     "upload_intent.schema.json": UploadIntent,
     "upload_result.schema.json": UploadResult,
 }

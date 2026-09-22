@@ -45,6 +45,8 @@ class LimitationCode(StrEnum):
     duplicate_or_replay = "duplicate_or_replay"
     malformed_source = "malformed_source"
     storage_unavailable = "storage_unavailable"
+    extraction_unavailable = "extraction_unavailable"
+    verification_failed = "verification_failed"
 
 
 class DocumentLimitation(StrictModel):
@@ -123,9 +125,54 @@ class LabExtraction(StrictModel):
 
     @model_validator(mode="after")
     def missing_values_are_visible(self) -> "LabExtraction":
+        required = {"test_name", "value", "unit", "reference_range", "collection_date", "abnormal_flag"}
+        if set(self.fields) != required:
+            raise ValueError("every required lab field needs an explicit extraction state")
         for name, evidence in self.fields.items():
             if evidence.state is ExtractionState.extracted and getattr(self, name) in (None, ""):
                 raise ValueError(f"{name} is extracted but has no value")
+            if name == "abnormal_flag" and evidence.state is not ExtractionState.extracted and self.abnormal_flag == "unknown":
+                continue
+            if evidence.state is not ExtractionState.extracted and getattr(self, name) not in (None, ""):
+                raise ValueError(f"{name} has a value without extracted evidence")
+        return self
+
+
+class ExtractionStatus(StrEnum):
+    """Terminal status of the bounded, review-only intake-extractor job."""
+
+    complete = "complete"
+    partial = "partial"
+    unavailable = "unavailable"
+    failed = "failed"
+
+
+class LabExtractionRequest(StrictModel):
+    """The browser may name only the immutable source it just stored.
+
+    A server-generated delegation token supplies patient, user, site, turn,
+    correlation, and handoff identity; none is accepted from this request.
+    """
+
+    source_id: DocumentSourceId
+
+
+class LabExtractionResult(StrictModel):
+    """Verified preview data, never a persisted clinical record."""
+
+    contract_version: Literal["2.0.0"] = DOCUMENT_CONTRACT_VERSION
+    source_id: DocumentSourceId
+    handoff_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    status: ExtractionStatus
+    extraction: LabExtraction | None = None
+    limitations: list[DocumentLimitation] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def only_verified_preview_data_is_renderable(self) -> "LabExtractionResult":
+        if self.status in (ExtractionStatus.complete, ExtractionStatus.partial) and self.extraction is None:
+            raise ValueError("a completed extraction needs verified extraction data")
+        if self.status in (ExtractionStatus.unavailable, ExtractionStatus.failed) and self.extraction is not None:
+            raise ValueError("a failed extraction cannot expose unverified data")
         return self
 
 

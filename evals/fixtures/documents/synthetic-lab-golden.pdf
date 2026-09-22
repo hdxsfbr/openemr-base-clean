@@ -9,9 +9,9 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 52 >>
+<< /Length 181 >>
 stream
-BT /F1 12 Tf 72 720 Td (Synthetic lab fixture only) Tj ET
+BT /F1 12 Tf 72 720 Td (Synthetic lab fixture only | Test: Sample analyte | Value: 7.2 synthetic-unit | Reference range: 4.0-8.0 | Collection date: 2026-09-22 | Flag: normal) Tj ET
 endstream
 endobj
 xref
@@ -24,5 +24,5 @@ xref
 trailer
 << /Size 5 /Root 1 0 R >>
 startxref
-303
+433
 %%EOF

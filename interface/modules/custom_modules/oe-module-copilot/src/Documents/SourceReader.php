@@ -34,9 +34,10 @@ final class SourceReader
         ) {
             throw new GatewayDenied('source_integrity', 409);
         }
-        $document = new \C_Document();
-        $document->onReturnRetrieveKey();
-        $bytes = $document->retrieve_action($ctx->pid, (int) $source['native_document_id'], true, true, true);
+        // `Document::get_data()` is the supported storage/decryption seam and
+        // does not depend on a browser CSRF key. Authorization and patient
+        // binding were already rechecked above, before this storage read.
+        $bytes = (new \Document((int) $source['native_document_id']))->get_data();
         if (!is_string($bytes) || hash('sha3-512', $bytes) !== $source['content_hash']) {
             throw new GatewayDenied('source_integrity', 409);
         }

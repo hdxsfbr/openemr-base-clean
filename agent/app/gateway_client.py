@@ -11,6 +11,7 @@ import httpx
 from pydantic import ValidationError
 
 from .contracts import ToolResponse
+from .intake_extractor import SourceBytes
 from .settings import settings
 
 
@@ -45,6 +46,26 @@ class HttpGateway:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def read_source(self, source_id: str, token: str, correlation_id: str) -> SourceBytes:
+        """Read exactly one delegated PDF from the module's internal boundary.
+
+        This method deliberately returns no exception text and does not log the
+        document. The intake worker maps every transport, timeout, integrity,
+        and parser failure to a typed preview limitation.
+        """
+        headers = {"X-Copilot-Token": token, "X-Correlation-Id": correlation_id, "Accept": "application/pdf"}
+        try:
+            response = await self._client.get(f"{self.base_url}/source.php", params={"source_id": source_id}, headers=headers)
+        except httpx.HTTPError:
+            return SourceBytes(status=503, source_id=None, source_hash=None, content_type=None, bytes=None)
+        return SourceBytes(
+            status=response.status_code,
+            source_id=response.headers.get("X-Copilot-Source-Id"),
+            source_hash=response.headers.get("X-Copilot-Source-Hash"),
+            content_type=(response.headers.get("Content-Type") or "").split(";", 1)[0],
+            bytes=response.content if response.status_code == 200 else None,
+        )
 
     async def call(self, tool: str, params: dict, token: str, correlation_id: str) -> ToolResponse:
         started = time.perf_counter()
