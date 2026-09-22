@@ -1,0 +1,691 @@
+{
+  "$defs": {
+    "EvidenceWorkerResult": {
+      "additionalProperties": false,
+      "description": "A terminal worker envelope, never a final clinical claim or citation.\n\nThe later authenticated supervisor/resolver owns dispatch, source resolution,\nverification, and rendering.  This envelope contains only exact corpus\nexcerpts or one typed limitation.",
+      "properties": {
+        "artifact_manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Artifact Manifest Sha256",
+          "type": "string"
+        },
+        "candidate_count": {
+          "maximum": 40,
+          "minimum": 0,
+          "title": "Candidate Count",
+          "type": "integer"
+        },
+        "contract_version": {
+          "const": "3.0.0",
+          "default": "3.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "corpus_version": {
+          "const": "uspstf-recommendations-2026-09-21-v2",
+          "default": "uspstf-recommendations-2026-09-21-v2",
+          "title": "Corpus Version",
+          "type": "string"
+        },
+        "correlation_id": {
+          "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "embedding_model_revision": {
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Embedding Model Revision",
+          "type": "string"
+        },
+        "excerpts": {
+          "items": {
+            "$ref": "#/$defs/GuidelineExcerpt"
+          },
+          "maxItems": 5,
+          "title": "Excerpts",
+          "type": "array"
+        },
+        "handoff_id": {
+          "pattern": "^[a-f0-9]{32}$",
+          "title": "Handoff Id",
+          "type": "string"
+        },
+        "hit_count": {
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Hit Count",
+          "type": "integer"
+        },
+        "limitation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuidelineRetrievalLimitation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reranker_model_revision": {
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Reranker Model Revision",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/EvidenceWorkerStatus"
+        },
+        "timings": {
+          "$ref": "#/$defs/EvidenceWorkerTimings"
+        },
+        "worker_revision": {
+          "const": "evidence-retriever-local-v1",
+          "default": "evidence-retriever-local-v1",
+          "title": "Worker Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "correlation_id",
+        "handoff_id",
+        "status",
+        "artifact_manifest_sha256",
+        "embedding_model_revision",
+        "reranker_model_revision",
+        "candidate_count",
+        "hit_count",
+        "timings"
+      ],
+      "title": "EvidenceWorkerResult",
+      "type": "object"
+    },
+    "EvidenceWorkerStatus": {
+      "description": "The one terminal outcome emitted by the bounded local worker.",
+      "enum": [
+        "completed",
+        "limited",
+        "canceled"
+      ],
+      "title": "EvidenceWorkerStatus",
+      "type": "string"
+    },
+    "EvidenceWorkerTimings": {
+      "additionalProperties": false,
+      "properties": {
+        "dense_ms": {
+          "maximum": 2000,
+          "minimum": 0,
+          "title": "Dense Ms",
+          "type": "number"
+        },
+        "fusion_ms": {
+          "maximum": 2000,
+          "minimum": 0,
+          "title": "Fusion Ms",
+          "type": "number"
+        },
+        "rerank_ms": {
+          "maximum": 2000,
+          "minimum": 0,
+          "title": "Rerank Ms",
+          "type": "number"
+        },
+        "sparse_ms": {
+          "maximum": 2000,
+          "minimum": 0,
+          "title": "Sparse Ms",
+          "type": "number"
+        },
+        "total_ms": {
+          "maximum": 2000,
+          "minimum": 0,
+          "title": "Total Ms",
+          "type": "number"
+        }
+      },
+      "required": [
+        "sparse_ms",
+        "dense_ms",
+        "fusion_ms",
+        "rerank_ms",
+        "total_ms"
+      ],
+      "title": "EvidenceWorkerTimings",
+      "type": "object"
+    },
+    "ExactQuote": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "exact_quote",
+          "default": "exact_quote",
+          "title": "Kind",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "quote"
+      ],
+      "title": "ExactQuote",
+      "type": "object"
+    },
+    "GuidelineCitation": {
+      "additionalProperties": false,
+      "description": "Resolver-authored PRD citation for a single exact guideline quote.",
+      "properties": {
+        "canonical_url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Canonical Url",
+          "type": "string"
+        },
+        "chunk_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Chunk Sha256",
+          "type": "string"
+        },
+        "citation_id": {
+          "pattern": "^ct[0-9]{1,3}$",
+          "title": "Citation Id",
+          "type": "string"
+        },
+        "claim_id": {
+          "pattern": "^c[0-9]{1,3}$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "corpus_version": {
+          "const": "uspstf-recommendations-2026-09-21-v2",
+          "default": "uspstf-recommendations-2026-09-21-v2",
+          "title": "Corpus Version",
+          "type": "string"
+        },
+        "field_or_chunk_id": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Field Or Chunk Id",
+          "type": "string"
+        },
+        "href": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Href",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "page_or_section": {
+          "$ref": "#/$defs/GuidelineSection"
+        },
+        "publication_date": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publication Date"
+        },
+        "publisher": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Publisher",
+          "type": "string"
+        },
+        "quote_or_value": {
+          "$ref": "#/$defs/ExactQuote"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^guideline:uspstf-recommendations-2026-09-21-v2:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "source_type": {
+          "const": "guideline",
+          "default": "guideline",
+          "title": "Source Type",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 470,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "topic": {
+          "$ref": "#/$defs/GuidelineTopic"
+        }
+      },
+      "required": [
+        "citation_id",
+        "claim_id",
+        "source_id",
+        "title",
+        "page_or_section",
+        "field_or_chunk_id",
+        "quote_or_value",
+        "publisher",
+        "jurisdiction",
+        "canonical_url",
+        "topic",
+        "source_sha256",
+        "chunk_sha256",
+        "href",
+        "retrieved_at"
+      ],
+      "title": "GuidelineCitation",
+      "type": "object"
+    },
+    "GuidelineEvidenceClaim": {
+      "additionalProperties": false,
+      "description": "A final claim shape whose prose is deterministic, exact attribution.",
+      "properties": {
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/GuidelineCitation"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        },
+        "claim_class": {
+          "const": "guideline_evidence",
+          "default": "guideline_evidence",
+          "title": "Claim Class",
+          "type": "string"
+        },
+        "facts": {
+          "$ref": "#/$defs/GuidelineExcerptFacts"
+        },
+        "id": {
+          "pattern": "^c[0-9]{1,3}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "section": {
+          "const": "guideline_evidence",
+          "default": "guideline_evidence",
+          "title": "Section",
+          "type": "string"
+        },
+        "source_ids": {
+          "items": {
+            "maxLength": 240,
+            "pattern": "^guideline:uspstf-recommendations-2026-09-21-v2:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 700,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "guideline_excerpt",
+          "default": "guideline_excerpt",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "facts",
+        "source_ids",
+        "citations"
+      ],
+      "title": "GuidelineEvidenceClaim",
+      "type": "object"
+    },
+    "GuidelineExcerpt": {
+      "additionalProperties": false,
+      "description": "Exact publisher text and metadata returned only inside a trusted lane.",
+      "properties": {
+        "approved_at": {
+          "format": "date-time",
+          "title": "Approved At",
+          "type": "string"
+        },
+        "canonical_url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Canonical Url",
+          "type": "string"
+        },
+        "chunk_id": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "chunk_ordinal": {
+          "minimum": 0,
+          "title": "Chunk Ordinal",
+          "type": "integer"
+        },
+        "chunk_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Chunk Sha256",
+          "type": "string"
+        },
+        "contract_version": {
+          "const": "3.0.0",
+          "default": "3.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "corpus_retrieved_at": {
+          "format": "date-time",
+          "title": "Corpus Retrieved At",
+          "type": "string"
+        },
+        "corpus_version": {
+          "const": "uspstf-recommendations-2026-09-21-v2",
+          "default": "uspstf-recommendations-2026-09-21-v2",
+          "title": "Corpus Version",
+          "type": "string"
+        },
+        "document_id": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "exact_text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Exact Text",
+          "type": "string"
+        },
+        "jurisdiction": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Jurisdiction",
+          "type": "string"
+        },
+        "publication_date": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publication Date"
+        },
+        "publisher": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Publisher",
+          "type": "string"
+        },
+        "section_path": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Section Path",
+          "type": "array"
+        },
+        "source_id": {
+          "maxLength": 240,
+          "pattern": "^guideline:uspstf-recommendations-2026-09-21-v2:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "topic": {
+          "$ref": "#/$defs/GuidelineTopic"
+        }
+      },
+      "required": [
+        "source_id",
+        "document_id",
+        "chunk_id",
+        "chunk_ordinal",
+        "publisher",
+        "title",
+        "jurisdiction",
+        "canonical_url",
+        "topic",
+        "section_path",
+        "exact_text",
+        "source_sha256",
+        "chunk_sha256",
+        "corpus_retrieved_at",
+        "approved_at"
+      ],
+      "title": "GuidelineExcerpt",
+      "type": "object"
+    },
+    "GuidelineExcerptFacts": {
+      "additionalProperties": false,
+      "properties": {
+        "publisher": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Publisher",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "section_path": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Section Path",
+          "type": "array"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "topic": {
+          "$ref": "#/$defs/GuidelineTopic"
+        }
+      },
+      "required": [
+        "quote",
+        "publisher",
+        "title",
+        "topic",
+        "section_path"
+      ],
+      "title": "GuidelineExcerptFacts",
+      "type": "object"
+    },
+    "GuidelineRetrievalLimitation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/GuidelineRetrievalLimitationCode"
+        },
+        "detail": {
+          "maxLength": 160,
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "GuidelineRetrievalLimitation",
+      "type": "object"
+    },
+    "GuidelineRetrievalLimitationCode": {
+      "enum": [
+        "guideline_retrieval_unavailable",
+        "guideline_corpus_stale",
+        "guideline_no_evidence",
+        "guideline_query_rejected",
+        "guideline_retrieval_timeout",
+        "guideline_retrieval_canceled",
+        "guideline_duplicate_handoff",
+        "guideline_stale_handoff",
+        "guideline_malformed_output"
+      ],
+      "title": "GuidelineRetrievalLimitationCode",
+      "type": "string"
+    },
+    "GuidelineSection": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_ordinal": {
+          "minimum": 0,
+          "title": "Chunk Ordinal",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "guideline_section",
+          "default": "guideline_section",
+          "title": "Kind",
+          "type": "string"
+        },
+        "section_path": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Section Path",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_path",
+        "chunk_ordinal"
+      ],
+      "title": "GuidelineSection",
+      "type": "object"
+    },
+    "GuidelineTopic": {
+      "enum": [
+        "aaa",
+        "breast",
+        "cervical",
+        "colorectal",
+        "lung",
+        "child_obesity",
+        "hypertension",
+        "tobacco"
+      ],
+      "title": "GuidelineTopic",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Only verifier-authorized publisher excerpts may enter this response.",
+  "properties": {
+    "applicability_notice": {
+      "const": "Patient applicability was not determined. Physician judgment is required.",
+      "default": "Patient applicability was not determined. Physician judgment is required.",
+      "title": "Applicability Notice",
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/GuidelineEvidenceClaim"
+      },
+      "maxItems": 5,
+      "title": "Claims",
+      "type": "array"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "$ref": "#/$defs/GuidelineRetrievalLimitation"
+      },
+      "maxItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial",
+        "limited"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "turn_id": {
+      "pattern": "^[a-f0-9]{16}$",
+      "title": "Turn Id",
+      "type": "string"
+    },
+    "worker": {
+      "$ref": "#/$defs/EvidenceWorkerResult"
+    }
+  },
+  "required": [
+    "turn_id",
+    "correlation_id",
+    "status",
+    "worker"
+  ],
+  "title": "GuidelineEvidenceResponse",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

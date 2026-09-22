@@ -20,6 +20,8 @@ COPY requirements.lock ./
 RUN pip install -r requirements.lock
 COPY pyproject.toml README.md ./
 COPY app ./app
+COPY scripts ./scripts
+COPY BUILD_COMMIT ./BUILD_COMMIT
 RUN pip install --no-deps .
 
 USER copilot

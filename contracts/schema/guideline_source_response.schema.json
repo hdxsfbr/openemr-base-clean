@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "canonical_url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Canonical Url",
+      "type": "string"
+    },
+    "chunk_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Chunk Sha256",
+      "type": "string"
+    },
+    "corpus_version": {
+      "const": "uspstf-recommendations-2026-09-21-v2",
+      "default": "uspstf-recommendations-2026-09-21-v2",
+      "title": "Corpus Version",
+      "type": "string"
+    },
+    "exact_text": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Exact Text",
+      "type": "string"
+    },
+    "publisher": {
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Publisher",
+      "type": "string"
+    },
+    "section_path": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Section Path",
+      "type": "array"
+    },
+    "source_id": {
+      "maxLength": 240,
+      "pattern": "^guideline:uspstf-recommendations-2026-09-21-v2:[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "source_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "title",
+    "publisher",
+    "section_path",
+    "exact_text",
+    "canonical_url",
+    "source_sha256",
+    "chunk_sha256"
+  ],
+  "title": "GuidelineSourceResponse",
+  "type": "object",
+  "x-contract-version": "1.2.0"
+}

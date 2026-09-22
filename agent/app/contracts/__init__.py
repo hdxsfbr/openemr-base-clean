@@ -80,12 +80,16 @@ from .guidelines import (
     GuidelineCandidate,
     GuidelineCitation,
     GuidelineEvidenceClaim,
+    GuidelineEvidenceRequest,
+    GuidelineEvidenceResponse,
     GuidelineExcerpt,
     GuidelineExcerptFacts,
     GuidelineRetrievalLimitation,
     GuidelineRetrievalLimitationCode,
     GuidelineSection,
     GuidelineTopic,
+    GuidelineSourceRequest,
+    GuidelineSourceResponse,
 )
 
 __all__ = [
@@ -162,10 +166,14 @@ __all__ = [
     "GuidelineCandidate",
     "GuidelineCitation",
     "GuidelineEvidenceClaim",
+    "GuidelineEvidenceRequest",
+    "GuidelineEvidenceResponse",
     "GuidelineExcerpt",
     "GuidelineExcerptFacts",
     "GuidelineRetrievalLimitation",
     "GuidelineRetrievalLimitationCode",
     "GuidelineSection",
     "GuidelineTopic",
+    "GuidelineSourceRequest",
+    "GuidelineSourceResponse",
 ]
