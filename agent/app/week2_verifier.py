@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Literal, Sequence
 
 from pydantic import Field, ValidationError
@@ -28,9 +29,12 @@ from .contracts.week2 import (
     PatientClaimType,
     PatientRecordClaim,
     PatientSourceId,
+    QuantityValue,
+    ReferenceRange,
     ReviewedDocumentCitation,
     ReviewedDocumentFieldSource,
     ResolvedSourceValue,
+    TextValue,
     TurnBinding,
     Week2Limitation,
 )
@@ -307,6 +311,293 @@ def _verify_document_candidate(
     return PatientRecordClaim(**candidate.model_dump(), citations=citations)
 
 
+def _decimal_text(value: Decimal) -> str:
+    rendered = format(value, "f")
+    return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
+
+
+def _document_value_text(value: object) -> str:
+    if isinstance(value, QuantityValue):
+        return _decimal_text(value.value)
+    if isinstance(value, TextValue):
+        return value.value
+    return str(value)
+
+
+def _reference_range_text(value: ReferenceRange) -> str:
+    if value.text is not None:
+        rendered = value.text
+    elif value.low is not None and value.high is not None:
+        rendered = f"{_decimal_text(value.low)}–{_decimal_text(value.high)}"
+    elif value.low is not None:
+        rendered = f">={_decimal_text(value.low)}"
+    else:
+        rendered = f"<={_decimal_text(value.high)}"
+    return f"{rendered} {value.unit}" if value.unit else rendered
+
+
+def _reviewed_document_citations(
+    candidate: PatientClaimCandidate,
+    sources: Sequence[ReviewedDocumentFieldSource],
+    citation_start: int,
+    title: str,
+) -> list[ReviewedDocumentCitation]:
+    citations: list[ReviewedDocumentCitation] = []
+    for source in sources:
+        for evidence in source.evidence:
+            citations.append(
+                ReviewedDocumentCitation(
+                    citation_id=f"ct{citation_start + len(citations)}",
+                    claim_id=candidate.id,
+                    source_id=source.source_id,
+                    source_type="reviewed_document",
+                    title=title,
+                    page_or_section={
+                        "kind": "document_region",
+                        "page_number": evidence.page_number,
+                        "box": evidence.box,
+                    },
+                    field_or_chunk_id=source.field_id,
+                    quote_or_value={
+                        "kind": "reviewed_document_value",
+                        "reviewed_value": source.reviewed_value,
+                        "printed_quote": evidence.printed_quote,
+                        "review_decision": source.review_decision,
+                    },
+                    source_content_sha256=source.source_content_sha256,
+                    rendered_page_sha256=evidence.rendered_page_sha256,
+                    ocr_text_sha256=evidence.ocr_text_sha256,
+                    record_id=source.record_id,
+                    record_version=source.record_version,
+                    review_id=source.review_id,
+                    evidence_id=evidence.evidence_id,
+                    href=source.href,
+                    retrieved_at=source.retrieved_at,
+                )
+            )
+    return citations
+
+
+def _verify_document_lab_result(
+    candidate: PatientClaimCandidate,
+    sources: Sequence[ReviewedDocumentFieldSource],
+    citation_start: int,
+) -> PatientRecordClaim | ClaimRejection:
+    def reject(code: str, detail: str) -> ClaimRejection:
+        return ClaimRejection(
+            claim_id=candidate.id,
+            lane="patient_record",
+            code=code,
+            detail=detail,
+            source_ids=candidate.source_ids,
+        )
+
+    if candidate.type != "lab_result" or not isinstance(candidate.facts, ClaimFacts):
+        return reject("unsupported_claim_type", "Reviewed lab fields cannot support this claim type.")
+    if candidate.section != "labs" or not sources:
+        return reject("wrong_section", "Reviewed lab claims belong to the labs section.")
+    identity = {
+        (
+            source.source_document_id,
+            source.record_id,
+            source.record_version,
+            source.source_content_sha256,
+            source.schema_version,
+        )
+        for source in sources
+    }
+    if len(identity) != 1 or any(source.record_type != "lab_report" for source in sources):
+        return reject("mixed_document_record", "Reviewed lab fields must come from one immutable record version.")
+    by_field = {source.field_id: source for source in sources}
+    if len(by_field) != len(sources):
+        return reject("duplicate_field", "Reviewed lab fields must be unique.")
+    analyte_prefixes = {
+        field_id.rsplit(".", 1)[0]
+        for field_id in by_field
+        if field_id.endswith((".test_name", ".value", ".unit", ".reference_range", ".abnormal_flag"))
+    }
+    if len(analyte_prefixes) != 1:
+        return reject("mixed_analyte", "Reviewed lab fields must describe exactly one analyte.")
+    prefix = analyte_prefixes.pop()
+    required = {
+        "collection_date",
+        f"{prefix}.test_name",
+        f"{prefix}.value",
+    }
+    if candidate.facts.unit is not None:
+        required.add(f"{prefix}.unit")
+    if candidate.facts.flag is not None:
+        required.add(f"{prefix}.abnormal_flag")
+    range_asserted = "reference range" in candidate.text.lower()
+    if range_asserted:
+        required.add(f"{prefix}.reference_range")
+    if set(by_field) != required:
+        return reject("source_set_mismatch", "Reviewed lab sources do not exactly cover the asserted fields.")
+    expected_values = {
+        "collection_date": candidate.facts.date,
+        f"{prefix}.test_name": candidate.facts.analyte,
+        f"{prefix}.value": candidate.facts.value_text,
+        f"{prefix}.unit": candidate.facts.unit,
+        f"{prefix}.abnormal_flag": candidate.facts.flag,
+    }
+    for field_id, expected in expected_values.items():
+        if field_id not in by_field:
+            continue
+        if _document_value_text(by_field[field_id].reviewed_value) != expected:
+            return reject("value_mismatch", "Claim facts do not exactly match the reviewed lab fields.")
+    if range_asserted:
+        range_value = by_field[f"{prefix}.reference_range"].reviewed_value
+        if not isinstance(range_value, ReferenceRange) or _reference_range_text(range_value) not in candidate.text:
+            return reject("value_mismatch", "The asserted reference range does not match its reviewed field.")
+    record_version = sources[0].record_version
+    citations = _reviewed_document_citations(candidate, sources, citation_start, f"Lab report v{record_version}")
+    return PatientRecordClaim(**candidate.model_dump(), citations=citations)
+
+
+def _reviewed_lab_observation(
+    sources: Sequence[ReviewedDocumentFieldSource],
+) -> tuple[str, datetime, Decimal, str, str] | None:
+    if not sources or any(source.record_type != "lab_report" for source in sources):
+        return None
+    identity = {
+        (
+            source.source_document_id,
+            source.record_id,
+            source.record_version,
+            source.source_content_sha256,
+            source.schema_version,
+        )
+        for source in sources
+    }
+    by_field = {source.field_id: source for source in sources}
+    prefixes = {
+        field_id.rsplit(".", 1)[0]
+        for field_id in by_field
+        if field_id.endswith((".test_name", ".value", ".unit"))
+    }
+    if len(identity) != 1 or len(by_field) != len(sources) or len(prefixes) != 1:
+        return None
+    prefix = prefixes.pop()
+    if set(by_field) != {
+        "collection_date",
+        f"{prefix}.test_name",
+        f"{prefix}.value",
+        f"{prefix}.unit",
+    }:
+        return None
+    analyte = by_field[f"{prefix}.test_name"].reviewed_value
+    measured = by_field[f"{prefix}.value"].reviewed_value
+    unit = by_field[f"{prefix}.unit"].reviewed_value
+    recorded_date = by_field["collection_date"].reviewed_value
+    if not isinstance(analyte, str) or not isinstance(measured, QuantityValue) or not isinstance(unit, str):
+        return None
+    try:
+        day = datetime.strptime(str(recorded_date), "%Y-%m-%d")
+    except ValueError:
+        return None
+    if not unit:
+        return None
+    return analyte, day, measured.value, unit, by_field[f"{prefix}.value"].source_id
+
+
+def _native_lab_observation(source: OpenEmrRecordSource) -> tuple[str, datetime, Decimal, str, str] | None:
+    fields = source.fields
+    analyte = fields.get("analyte")
+    value = fields.get("value_text")
+    unit = fields.get("unit")
+    recorded_date = fields.get("date")
+    if not isinstance(analyte, str) or not isinstance(unit, str) or not unit or value is None:
+        return None
+    try:
+        numeric = Decimal(str(value))
+        day = datetime.strptime(str(recorded_date), "%Y-%m-%d")
+    except (InvalidOperation, ValueError):
+        return None
+    if not numeric.is_finite():
+        return None
+    return analyte, day, numeric, unit, source.source_id
+
+
+def _native_lab_comparison_citations(
+    candidate: PatientClaimCandidate,
+    source: OpenEmrRecordSource,
+    citation_start: int,
+) -> list[OpenEmrRecordCitation]:
+    citations: list[OpenEmrRecordCitation] = []
+    for field_name in ("analyte", "value_text", "unit", "date"):
+        citations.append(
+            OpenEmrRecordCitation(
+                citation_id=f"ct{citation_start + len(citations)}",
+                claim_id=candidate.id,
+                source_id=source.source_id,
+                source_type="openemr_record",
+                title=source.record_label,
+                page_or_section={"kind": "chart_section", "section": source.chart_section},
+                field_or_chunk_id=field_name,
+                quote_or_value={"kind": "record_value", "value": str(source.fields[field_name])},
+                source_version=source.source_version,
+                href=source.href,
+                retrieved_at=source.retrieved_at,
+            )
+        )
+    return citations
+
+
+def _verify_lab_comparison(
+    candidate: PatientClaimCandidate,
+    sources: Sequence[ResolvedSourceValue],
+    citation_start: int,
+) -> PatientRecordClaim | ClaimRejection:
+    def reject(code: str, detail: str) -> ClaimRejection:
+        return ClaimRejection(
+            claim_id=candidate.id,
+            lane="patient_record",
+            code=code,
+            detail=detail,
+            source_ids=candidate.source_ids,
+        )
+
+    if candidate.type != "lab_comparison" or not isinstance(candidate.facts, ClaimFacts):
+        return reject("unsupported_claim_type", "The source set cannot support this comparison type.")
+    native_sources = [source for source in sources if isinstance(source, OpenEmrRecordSource)]
+    document_sources = [source for source in sources if isinstance(source, ReviewedDocumentFieldSource)]
+    if len(native_sources) != 1 or len(native_sources) + len(document_sources) != len(sources):
+        return reject("source_class_mismatch", "Comparison requires one native and one reviewed lab result.")
+    native = _native_lab_observation(native_sources[0])
+    reviewed = _reviewed_lab_observation(document_sources)
+    if native is None or reviewed is None:
+        return reject("lab_rules", "Comparison sources require exact numeric values, dates, analytes, and units.")
+    observations = {native[4]: native, reviewed[4]: reviewed}
+    earlier_id = candidate.facts.earlier_source_id
+    later_id = candidate.facts.later_source_id
+    if earlier_id not in observations or later_id not in observations or earlier_id == later_id:
+        return reject("source_identity_mismatch", "Comparison identities must name the native and reviewed values.")
+    earlier = observations[earlier_id]
+    later = observations[later_id]
+    if earlier[0] != later[0] or candidate.facts.analyte != earlier[0]:
+        return reject("analyte_mismatch", "Comparison analytes must match exactly.")
+    if earlier[3] != later[3]:
+        return reject("unit_mismatch", "Comparison units must be present and exactly equal.")
+    if earlier[1] == later[1]:
+        return reject("same_day_superseded", "Same-day results cannot form a comparison.")
+    if earlier[1] > later[1]:
+        return reject("date_order_mismatch", "Earlier and later source identities do not match their dates.")
+    direction = "up" if later[2] > earlier[2] else "down" if later[2] < earlier[2] else "same"
+    if candidate.facts.direction != direction:
+        return reject("direction_mismatch", "Comparison direction does not match the exact numeric values.")
+    native_citations = _native_lab_comparison_citations(candidate, native_sources[0], citation_start)
+    document_citations = _reviewed_document_citations(
+        candidate,
+        document_sources,
+        citation_start + len(native_citations),
+        f"Lab report v{document_sources[0].record_version}",
+    )
+    return PatientRecordClaim(
+        **candidate.model_dump(),
+        citations=[*native_citations, *document_citations],
+    )
+
+
 def _verify_guideline_candidate(
     candidate: GuidelineClaimCandidate,
     source: GuidelineChunkSource,
@@ -529,9 +820,37 @@ def verify_week2_claims(
                 break
             resolved.append(source)
         else:
-            if len(resolved) == 1 and isinstance(resolved[0], OpenEmrRecordSource):
+            if candidate.type == "lab_comparison":
+                try:
+                    verified = _verify_lab_comparison(candidate, resolved, next_citation_id)
+                except Exception:  # noqa: BLE001 - strict final-contract failure must not escape
+                    verified = ClaimRejection(
+                        claim_id=candidate.id,
+                        lane="patient_record",
+                        code="verification_failed_closed",
+                        detail="Patient evidence failed deterministic final-contract validation.",
+                        source_ids=candidate.source_ids,
+                    )
+            elif len(resolved) == 1 and isinstance(resolved[0], OpenEmrRecordSource):
                 try:
                     verified = _verify_openemr_candidate(candidate, resolved[0], next_citation_id)
+                except Exception:  # noqa: BLE001 - strict final-contract failure must not escape
+                    verified = ClaimRejection(
+                        claim_id=candidate.id,
+                        lane="patient_record",
+                        code="verification_failed_closed",
+                        detail="Patient evidence failed deterministic final-contract validation.",
+                        source_ids=candidate.source_ids,
+                    )
+            elif candidate.type == "lab_result" and all(
+                isinstance(source, ReviewedDocumentFieldSource) for source in resolved
+            ):
+                try:
+                    verified = _verify_document_lab_result(
+                        candidate,
+                        [source for source in resolved if isinstance(source, ReviewedDocumentFieldSource)],
+                        next_citation_id,
+                    )
                 except Exception:  # noqa: BLE001 - strict final-contract failure must not escape
                     verified = ClaimRejection(
                         claim_id=candidate.id,

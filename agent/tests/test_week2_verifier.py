@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from decimal import Decimal
+
 import pytest
 
 from app.contracts.week2 import (
@@ -45,7 +47,12 @@ def _openemr_source() -> OpenEmrRecordSource:
     )
 
 
-def _openemr_lab_source() -> OpenEmrRecordSource:
+def _openemr_lab_source(
+    *,
+    value: str = "4.2",
+    date: str = "2026-09-20",
+    unit: str | None = "mmol/L",
+) -> OpenEmrRecordSource:
     source_id = "openemr:procedure_result:84"
     return OpenEmrRecordSource.model_validate(
         {
@@ -58,10 +65,10 @@ def _openemr_lab_source() -> OpenEmrRecordSource:
             "retrieved_at": "2026-09-21T12:00:01Z",
             "fields": {
                 "analyte": "Potassium",
-                "value_text": "4.2",
-                "unit": "mmol/L",
+                "value_text": value,
+                "unit": unit,
                 "flag": "normal",
-                "date": "2026-09-20",
+                "date": date,
             },
             "href": "/interface/patient_file/summary/labs.php",
         }
@@ -109,6 +116,76 @@ def _document_source(
             "href": "/interface/modules/custom_modules/oe-module-copilot/public/document.php?id=demo",
         }
     )
+
+
+def _reviewed_lab_sources(
+    *,
+    value: str = "4.6",
+    date: str = "2026-09-20",
+    decision: str = "corrected",
+    record_id: str = "22222222-2222-4222-8222-222222222222",
+) -> list[ReviewedDocumentFieldSource]:
+    source_document_id = "11111111-1111-4111-8111-111111111111"
+    specs: list[tuple[str, object, str, int]] = [
+        ("collection_date", date, date, 1),
+        ("analyte.potassium.test_name", "Potassium", "Potassium", 1),
+        ("analyte.potassium.value", {"kind": "quantity", "value": value}, "Potassium 9.6", 2),
+        ("analyte.potassium.unit", "mmol/L", "mmol/L", 1),
+        (
+            "analyte.potassium.reference_range",
+            {"low": "3.5", "high": "5.1", "unit": "mmol/L"},
+            "3.5–5.1 mmol/L",
+            1,
+        ),
+        ("analyte.potassium.abnormal_flag", "normal", "normal", 1),
+    ]
+    sources: list[ReviewedDocumentFieldSource] = []
+    for field_index, (field_id, reviewed_value, printed_quote, evidence_count) in enumerate(specs, start=1):
+        source_id = f"document:{source_document_id}:record:{record_id}:v:1:field:{field_id}"
+        evidence = []
+        for evidence_index in range(1, evidence_count + 1):
+            evidence.append(
+                {
+                    "evidence_id": f"{field_index:08d}-0000-4000-8000-{evidence_index:012d}",
+                    "page_number": 1,
+                    "box": {
+                        "x": 0.1,
+                        "y": 0.1 * field_index,
+                        "width": 0.4,
+                        "height": 0.05,
+                    },
+                    "printed_quote": printed_quote,
+                    "ocr_span_start": field_index * 10,
+                    "ocr_span_end": field_index * 10 + len(printed_quote),
+                    "ocr_text_sha256": chr(96 + field_index) * 64,
+                    "rendered_page_sha256": "f" * 64,
+                    "confidence": 0.98,
+                    "validation": ["valid"],
+                }
+            )
+        sources.append(
+            ReviewedDocumentFieldSource.model_validate(
+                {
+                    "source_type": "reviewed_document",
+                    "source_id": source_id,
+                    "source_document_id": source_document_id,
+                    "source_content_sha256": "e" * 64,
+                    "record_id": record_id,
+                    "record_version": 1,
+                    "record_status": "active",
+                    "record_type": "lab_report",
+                    "field_id": field_id,
+                    "review_id": f"{field_index + 10:08d}-0000-4000-8000-000000000001",
+                    "review_decision": decision if field_id.endswith(".value") else "approved",
+                    "reviewed_value": reviewed_value,
+                    "evidence": evidence,
+                    "schema_version": "1.0.0",
+                    "retrieved_at": "2026-09-21T12:00:01Z",
+                    "href": "/interface/modules/custom_modules/oe-module-copilot/public/document.php?id=lab-demo",
+                }
+            )
+        )
+    return sources
 
 
 def _guideline_source() -> GuidelineChunkSource:
@@ -293,6 +370,267 @@ def test_reviewed_intake_answer_preserves_value_evidence_hashes_and_review_decis
     assert citation.ocr_text_sha256 == "b" * 64
     assert citation.rendered_page_sha256 == "c" * 64
     assert citation.page_or_section.page_number == 1
+
+
+def test_reviewed_lab_result_requires_exact_fields_and_cites_every_evidence_region() -> None:
+    binding = _binding()
+    sources = _reviewed_lab_sources()
+    registry = CurrentTurnSourceRegistry(
+        binding=binding,
+        sources=[RegisteredSource(source=source, binding=binding) for source in sources],
+        verified_at="2026-09-21T12:00:02Z",
+    )
+
+    result = verify_week2_claims(
+        [
+            {
+                "id": "c1",
+                "claim_class": "patient_record",
+                "type": "lab_result",
+                "text": (
+                    "Potassium was 4.6 mmol/L on 2026-09-20, flagged normal "
+                    "with reference range 3.5–5.1 mmol/L."
+                ),
+                "facts": {
+                    "analyte": "Potassium",
+                    "value_text": "4.6",
+                    "unit": "mmol/L",
+                    "flag": "normal",
+                    "date": "2026-09-20",
+                },
+                "source_ids": [source.source_id for source in sources],
+                "section": "labs",
+            }
+        ],
+        registry,
+    )
+
+    assert result.patient_record.rejected == []
+    claim = result.patient_record.accepted[0]
+    assert [citation.field_or_chunk_id for citation in claim.citations] == [
+        "collection_date",
+        "analyte.potassium.test_name",
+        "analyte.potassium.value",
+        "analyte.potassium.value",
+        "analyte.potassium.unit",
+        "analyte.potassium.reference_range",
+        "analyte.potassium.abnormal_flag",
+    ]
+    corrected = [citation for citation in claim.citations if citation.field_or_chunk_id.endswith(".value")]
+    assert len(corrected) == 2
+    assert all(citation.quote_or_value.review_decision == "corrected" for citation in corrected)
+    assert all(citation.quote_or_value.reviewed_value.value == Decimal("4.6") for citation in corrected)
+    assert all(citation.quote_or_value.printed_quote == "Potassium 9.6" for citation in corrected)
+
+
+def test_lab_comparison_accepts_current_numeric_native_and_reviewed_results() -> None:
+    binding = _binding()
+    native = _openemr_lab_source(value="4.2", date="2026-09-10")
+    reviewed = [
+        source
+        for source in _reviewed_lab_sources(value="4.6", date="2026-09-20")
+        if source.field_id.endswith(("collection_date", ".test_name", ".value", ".unit"))
+    ]
+    reviewed_value = next(source for source in reviewed if source.field_id.endswith(".value"))
+    registry = CurrentTurnSourceRegistry(
+        binding=binding,
+        sources=[
+            RegisteredSource(source=native, binding=binding),
+            *[RegisteredSource(source=source, binding=binding) for source in reviewed],
+        ],
+        verified_at="2026-09-21T12:00:02Z",
+    )
+
+    result = verify_week2_claims(
+        [
+            {
+                "id": "c1",
+                "claim_class": "patient_record",
+                "type": "lab_comparison",
+                "text": "Potassium changed from 4.2 to 4.6 mmol/L between 2026-09-10 and 2026-09-20.",
+                "facts": {
+                    "analyte": "Potassium",
+                    "earlier_source_id": native.source_id,
+                    "later_source_id": reviewed_value.source_id,
+                    "direction": "up",
+                },
+                "source_ids": [native.source_id, *[source.source_id for source in reviewed]],
+                "section": "labs",
+            }
+        ],
+        registry,
+    )
+
+    assert result.patient_record.rejected == []
+    claim = result.patient_record.accepted[0]
+    assert {citation.source_type for citation in claim.citations} == {
+        "openemr_record",
+        "reviewed_document",
+    }
+    assert {citation.source_id for citation in claim.citations} == set(claim.source_ids)
+
+
+@pytest.mark.parametrize(
+    "missing_suffix",
+    ["collection_date", ".test_name", ".value", ".unit", ".reference_range", ".abnormal_flag"],
+)
+def test_reviewed_lab_result_rejects_every_missing_required_or_asserted_field(missing_suffix: str) -> None:
+    binding = _binding()
+    sources = [source for source in _reviewed_lab_sources() if not source.field_id.endswith(missing_suffix)]
+    registry = CurrentTurnSourceRegistry(
+        binding=binding,
+        sources=[RegisteredSource(source=source, binding=binding) for source in sources],
+        verified_at="2026-09-21T12:00:02Z",
+    )
+
+    result = verify_week2_claims(
+        [
+            {
+                "id": "c1",
+                "claim_class": "patient_record",
+                "type": "lab_result",
+                "text": (
+                    "Potassium was 4.6 mmol/L on 2026-09-20, flagged normal "
+                    "with reference range 3.5–5.1 mmol/L."
+                ),
+                "facts": {
+                    "analyte": "Potassium",
+                    "value_text": "4.6",
+                    "unit": "mmol/L",
+                    "flag": "normal",
+                    "date": "2026-09-20",
+                },
+                "source_ids": [source.source_id for source in sources],
+                "section": "labs",
+            }
+        ],
+        registry,
+    )
+
+    assert result.patient_record.accepted == []
+    assert result.patient_record.rejected[0].code == "source_set_mismatch"
+    assert result.patient_record.limitations[0].kind == "withheld"
+
+
+@pytest.mark.parametrize(
+    ("case", "expected_code"),
+    [
+        ("analyte_mismatch", "analyte_mismatch"),
+        ("date_order", "date_order_mismatch"),
+        ("direction", "direction_mismatch"),
+        ("nonnumeric", "lab_rules"),
+        ("unit_missing", "lab_rules"),
+        ("unit_mismatch", "unit_mismatch"),
+        ("same_day", "same_day_superseded"),
+        ("stale", "stale"),
+    ],
+)
+def test_lab_comparison_fails_closed_on_analyte_date_numeric_unit_currentness_and_same_day(
+    case: str,
+    expected_code: str,
+) -> None:
+    binding = _binding()
+    native = _openemr_lab_source(
+        value="not-numeric" if case == "nonnumeric" else "4.2",
+        date="2026-09-10",
+        unit=None if case == "unit_missing" else "mmol/L",
+    )
+    reviewed_date = "2026-09-10" if case == "same_day" else "2026-09-01" if case == "date_order" else "2026-09-20"
+    reviewed = [
+        source
+        for source in _reviewed_lab_sources(value="4.6", date=reviewed_date)
+        if source.field_id.endswith(("collection_date", ".test_name", ".value", ".unit"))
+    ]
+    if case in ("analyte_mismatch", "unit_mismatch"):
+        suffix = ".test_name" if case == "analyte_mismatch" else ".unit"
+        replacement = "Sodium" if case == "analyte_mismatch" else "mg/dL"
+        index = next(index for index, source in enumerate(reviewed) if source.field_id.endswith(suffix))
+        payload = reviewed[index].model_dump(mode="json")
+        payload["reviewed_value"] = replacement
+        reviewed[index] = ReviewedDocumentFieldSource.model_validate(payload)
+    reviewed_value = next(source for source in reviewed if source.field_id.endswith(".value"))
+    entries = [RegisteredSource(source=native, binding=binding)]
+    entries.extend(
+        RegisteredSource(
+            source=source,
+            binding=binding,
+            state="stale" if case == "stale" and source.field_id.endswith(".value") else "resolved",
+        )
+        for source in reviewed
+    )
+    registry = CurrentTurnSourceRegistry(
+        binding=binding,
+        sources=entries,
+        verified_at="2026-09-21T12:00:02Z",
+    )
+
+    result = verify_week2_claims(
+        [
+            {
+                "id": "c1",
+                "claim_class": "patient_record",
+                "type": "lab_comparison",
+                "text": "Potassium changed between the native and reviewed results.",
+                "facts": {
+                    "analyte": "Potassium",
+                    "earlier_source_id": native.source_id,
+                    "later_source_id": reviewed_value.source_id,
+                    "direction": "down" if case == "direction" else "up",
+                },
+                "source_ids": [native.source_id, *[source.source_id for source in reviewed]],
+                "section": "labs",
+            }
+        ],
+        registry,
+    )
+
+    assert result.patient_record.accepted == []
+    assert result.patient_record.rejected[0].code == expected_code
+    assert result.patient_record.limitations[0].kind == "withheld"
+
+
+def test_proposed_lab_fact_cannot_enter_final_claims_or_erase_a_reviewed_lab_result() -> None:
+    binding = _binding()
+    sources = _reviewed_lab_sources()
+    registry = CurrentTurnSourceRegistry(
+        binding=binding,
+        sources=[RegisteredSource(source=source, binding=binding) for source in sources],
+        verified_at="2026-09-21T12:00:02Z",
+    )
+    reviewed_claim = {
+        "id": "c2",
+        "claim_class": "patient_record",
+        "type": "lab_result",
+        "text": (
+            "Potassium was 4.6 mmol/L on 2026-09-20, flagged normal "
+            "with reference range 3.5–5.1 mmol/L."
+        ),
+        "facts": {
+            "analyte": "Potassium",
+            "value_text": "4.6",
+            "unit": "mmol/L",
+            "flag": "normal",
+            "date": "2026-09-20",
+        },
+        "source_ids": [source.source_id for source in sources],
+        "section": "labs",
+    }
+
+    result = verify_week2_claims(
+        [
+            {
+                **reviewed_claim,
+                "id": "c1",
+                "source_ids": ["proposal:extraction-1:field:analyte.potassium.value"],
+            },
+            reviewed_claim,
+        ],
+        registry,
+    )
+
+    assert result.outcome == "partial"
+    assert result.patient_record.rejected[0].code == "schema_invalid"
+    assert [claim.id for claim in result.patient_record.accepted] == ["c2"]
 
 
 def test_model_authored_citation_metadata_is_rejected_without_erasing_an_independent_claim() -> None:
