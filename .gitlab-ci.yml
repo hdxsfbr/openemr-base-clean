@@ -55,15 +55,14 @@ test:agent:
     - pytest -q
     - python -m app.contracts.export --check
 
-# Deterministic eval subset (evals/README.md): the offline cases delegate to
-# pytest node ids and need no stack. Live cases run against a deployment with
-# `python evals/run.py` and their results are versioned under evals/results/.
-test:evals-offline:
+# Required on every push and merge request. This is the same deterministic
+# corpus/Boolean-rubric gate installed by scripts/install-git-hooks.sh.
+test:evals-corpus:
   stage: test
   image: python:3.12-slim
   script:
     - cd agent && pip install --quiet -r requirements.lock && pip install --quiet --no-deps . && pip install --quiet -c requirements.lock '.[dev]' && cd ..
-    - python evals/run.py --offline-only
+    - bash scripts/eval-local-gate.sh
   artifacts:
     when: always
     paths:
@@ -143,4 +142,33 @@ test:evals-live:
     when: always
     paths:
       - evals/results/
+    expire_in: 90 days
+
+# Required for every candidate-affecting change. The selected environment must
+# report this pipeline's exact commit and immutable image digest before a case
+# runs; a shared deployment with a stale or absent identity fails closed. The
+# environment and owner-approved full baseline are supplied by protected CI
+# configuration. This repository intentionally contains no deployment secret
+# or fabricated approval artifact.
+test:evals-candidate:
+  stage: verify
+  image: python:3.12-slim
+  rules:
+    - changes:
+        - agent/**/*
+        - interface/modules/custom_modules/oe-module-copilot/**/*
+        - contracts/**/*
+        - evals/**/*
+        - infra/**/*
+        - scripts/run-candidate-release-gate.sh
+        - .gitlab-ci.yml
+      when: on_success
+    - when: never
+  script:
+    - cd agent && pip install --quiet -r requirements.lock && pip install --quiet --no-deps . && pip install --quiet -c requirements.lock '.[dev]' && cd ..
+    - bash scripts/run-candidate-release-gate.sh
+  artifacts:
+    when: always
+    paths:
+      - evals/results/candidate/
     expire_in: 90 days

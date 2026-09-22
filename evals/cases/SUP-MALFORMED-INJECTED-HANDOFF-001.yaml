@@ -1,0 +1,14 @@
+id: SUP-MALFORMED-INJECTED-HANDOFF-001
+name: "Malformed or injected handoff rejects raw content"
+category: supervisor_handoff
+primary_area: supervisor_handoff
+tier: golden
+variant: adversarial
+use_case: UC-01
+risk: "Malformed or injected handoff rejects raw content"
+capability_tags: [CAP-12]
+rubrics: [schema_valid, safe_refusal, no_phi_in_logs]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_week2_contracts.py::test_worker_handoff_is_reference_only_and_rejects_raw_content

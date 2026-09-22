@@ -1,0 +1,14 @@
+id: DOC-LAB-SOURCE-REGION-INTEGRITY-001
+name: "Lab source region rejects out-of-bounds coordinates"
+category: lab_pdf
+primary_area: lab_pdf
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "Lab source region rejects out-of-bounds coordinates"
+capability_tags: [CAP-09, CAP-13]
+rubrics: [citation_present, factually_consistent, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_week2_contracts.py::test_field_evidence_accepts_a_source_region_and_rejects_out_of_bounds_boxes

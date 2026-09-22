@@ -1,0 +1,15 @@
+id: DOC-INTAKE-DUPLICATE-RETRY-001
+name: "Duplicate intake upload and retry are idempotent"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: boundary
+use_case: UC-05
+risk: "Duplicate intake upload and retry are idempotent"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, factually_consistent]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_duplicate_terminal_handoff_replays_the_immutable_extraction_reference
+  - tests/test_intake_extractor.py::test_duplicate_terminal_still_reauthorizes_the_exact_source_version_before_replay

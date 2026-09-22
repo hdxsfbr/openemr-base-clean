@@ -1,0 +1,14 @@
+id: RET-STALE-WRONG-CORPUS-001
+name: "Stale or wrong guideline corpus is rejected"
+category: guideline_retrieval
+primary_area: guideline_retrieval
+tier: golden
+variant: adversarial
+use_case: UC-06
+risk: "Stale or wrong guideline corpus is rejected"
+capability_tags: [CAP-11, CAP-13]
+rubrics: [citation_present, factually_consistent, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_guideline_retriever.py::test_wrong_or_stale_corpus_returns_no_chunks

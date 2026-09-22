@@ -1,0 +1,14 @@
+id: DOC-INTAKE-SOURCE-REGION-INTEGRITY-001
+name: "Intake source region integrity is enforced"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "Intake source region integrity is enforced"
+capability_tags: [CAP-09, CAP-13]
+rubrics: [citation_present, factually_consistent, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_quote_mismatch_fails_schema_validation_and_is_never_persisted

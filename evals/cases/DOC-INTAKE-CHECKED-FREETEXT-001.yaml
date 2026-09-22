@@ -1,0 +1,13 @@
+id: DOC-INTAKE-CHECKED-FREETEXT-001
+name: "Checked and free-text intake fields retain typed evidence"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: positive
+use_case: UC-05
+risk: "Checked and free-text intake fields retain typed evidence"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, factually_consistent]
+zero_tolerance: true
+mode: pending
+pending_seam: "intake extraction worker is not implemented"

@@ -1,0 +1,14 @@
+id: DOC-INTAKE-VALID-001
+name: "Valid intake form remains proposed data"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: positive
+use_case: UC-05
+risk: "Valid intake form remains proposed data"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, factually_consistent]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_intake_handoff_persists_proposed_answers_without_chart_promotion

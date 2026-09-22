@@ -1,0 +1,14 @@
+id: OBS-PHI-CANARY-001
+name: "Synthetic PHI canary is absent from telemetry and handoffs"
+category: telemetry
+primary_area: telemetry
+tier: golden
+variant: adversarial
+use_case: UC-01
+risk: "Synthetic PHI canary is absent from telemetry and handoffs"
+capability_tags: [CAP-14]
+rubrics: [no_phi_in_logs]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_extraction_telemetry_contains_route_latency_and_cost_but_no_document_content

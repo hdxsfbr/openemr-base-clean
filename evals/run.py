@@ -16,6 +16,7 @@ case files and results hold no PHI (synthetic cohort).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -56,6 +57,8 @@ class CaseResult:
     patient: str = ""
     tier: str = "coverage"
     holdout: bool = False
+    rubrics: dict[str, bool | str] = field(default_factory=dict)
+    rubric_evidence: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- live driver
@@ -487,6 +490,12 @@ def run_live(case: dict[str, Any], base_url: str, password: str, cohort: dict[st
         if session:
             session.close()
     result.passed = not result.failures
+    for rubric in _applicable_rubrics(case):
+        result.rubrics[rubric] = result.passed
+        result.rubric_evidence[rubric] = {
+            "kind": "live_expectations",
+            "failures": list(result.failures),
+        }
     return result
 
 
@@ -501,6 +510,33 @@ def run_offline(case: dict[str, Any]) -> CaseResult:
         result.failures.append("pytest failed: " + (proc.stdout.strip().splitlines() or ["?"])[-1][:200])
     result.notes = node_ids
     result.passed = not result.failures
+    evidence = {"kind": "pytest", "node_ids": node_ids, "exit_code": proc.returncode}
+    for rubric in _applicable_rubrics(case):
+        result.rubrics[rubric] = result.passed
+        result.rubric_evidence[rubric] = evidence
+    return result
+
+
+def run_pending(case: dict[str, Any]) -> CaseResult:
+    """Represent an approved case whose product seam does not exist yet.
+
+    Pending is never a skip or a pass in a full release run: every applicable
+    rubric is explicitly unmeasured and the case fails closed.
+    """
+    detail = str(case.get("pending_seam") or "required product seam is unavailable")
+    result = CaseResult(
+        case["id"],
+        case["name"],
+        case["category"],
+        "pending",
+        False,
+        failures=[f"unmeasured: {detail}"],
+        tier=case.get("tier", "coverage"),
+        holdout=bool(case.get("holdout", False)),
+    )
+    for rubric in _applicable_rubrics(case):
+        result.rubrics[rubric] = "unmeasured"
+        result.rubric_evidence[rubric] = {"kind": "unmeasured", "detail": detail}
     return result
 
 
@@ -608,13 +644,83 @@ def scorecard(results: list[CaseResult]) -> dict[str, Any]:
     }
 
 
+LEGACY_RUBRICS = {
+    "authorization": ["safe_refusal", "no_phi_in_logs"],
+    "citation": ["schema_valid", "citation_present", "factually_consistent"],
+    "conflict": ["citation_present", "factually_consistent", "safe_refusal"],
+    "isolation": ["safe_refusal", "no_phi_in_logs"],
+    "lab": ["citation_present", "factually_consistent", "safe_refusal"],
+    "missing_data": ["factually_consistent", "safe_refusal"],
+    "model_failure": ["safe_refusal"],
+    "observability": ["schema_valid", "no_phi_in_logs"],
+    "regression": ["schema_valid", "citation_present", "factually_consistent"],
+    "tool_failure": ["safe_refusal"],
+    "untrusted": ["safe_refusal", "no_phi_in_logs"],
+}
+
+
+def _applicable_rubrics(case: dict[str, Any]) -> list[str]:
+    declared = case.get("rubrics")
+    if isinstance(declared, list) and declared:
+        return list(declared)
+    return list(LEGACY_RUBRICS.get(case.get("category"), ["schema_valid"]))
+
+
 def manifest() -> list[dict[str, Any]]:
     """Every case on disk, whatever filter this run used: the gate table is judged against all of them."""
     out = []
     for path in sorted(CASES_DIR.glob("*.yaml")):
         c = yaml.safe_load(path.read_text())
-        out.append({"id": c["id"], "category": c["category"], "mode": c["mode"], "gates": _as_list(c.get("gates") or []), "user": c.get("user", "audit-physician"), "patient": c.get("patient", ""), "tier": c.get("tier", "coverage"), "holdout": bool(c.get("holdout", False))})
+        rubrics = _applicable_rubrics(c)
+        out.append({
+            "id": c["id"],
+            "category": c["category"],
+            "primary_category": c.get("primary_area", c["category"]),
+            "mode": c["mode"],
+            "execution_status": "pending" if c["mode"] == "pending" else "executable",
+            "gates": _as_list(c.get("gates") or []),
+            "user": c.get("user", "audit-physician"),
+            "patient": c.get("patient", ""),
+            "tier": c.get("tier", "coverage"),
+            "holdout": bool(c.get("holdout", False)),
+            "variant": c.get("variant", "legacy"),
+            "capability_tags": _as_list(c.get("capability_tags") or ["WEEK1-RETAINED"]),
+            "rubrics": rubrics,
+            "threshold": float(c.get("threshold", 1.0 if c.get("tier") == "golden" else 0.95)),
+            "zero_tolerance": bool(c.get("zero_tolerance", any(r in {"citation_present", "factually_consistent", "safe_refusal", "no_phi_in_logs"} for r in rubrics))),
+        })
     return out
+
+
+def _paths_hash(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in sorted((p for p in paths if p.is_file()), key=lambda p: str(p.relative_to(ROOT))):
+        digest.update(str(path.relative_to(ROOT)).encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def report_identity(meta: dict[str, Any]) -> dict[str, str]:
+    manifest_paths = [ROOT / "evals" / "week2_manifest.yaml", *CASES_DIR.glob("*.yaml")]
+    fixture_paths = [ROOT / "evals" / "cases" / "cohort.json", *(ROOT / "evals" / "fixtures").rglob("*")]
+    guideline = ROOT / "docs" / "research" / "week2-retrieval-benchmark" / "corpus.jsonl"
+    resolver_inputs = [ROOT / "contracts" / "schema" / "resolved_source.schema.json"]
+    prompt_inputs = [ROOT / "agent" / "app" / "model.py"]
+    runtime_image = os.environ.get("COPILOT_RUNTIME_IMAGE") or f"local-source:{meta['commit']}"
+    return {
+        "manifest_sha256": _paths_hash(manifest_paths),
+        "fixtures_sha256": _paths_hash(fixture_paths),
+        "schema_version": "2.0.0",
+        "rubric_version": "1.0.0",
+        "guideline_corpus_sha256": _paths_hash([guideline]),
+        "resolver_sha256": _paths_hash(resolver_inputs),
+        "runtime_image": runtime_image,
+        "model": str(meta["model"]),
+        "prompt_sha256": _paths_hash(prompt_inputs),
+        "attempt_policy": "one-required-attempt",
+    }
 
 
 GATE_STATES = ("PASS", "FAIL", "NOT RUN", "NOT MEASURED", "NOT CONFIGURED")
@@ -730,9 +836,22 @@ def write_report(results: list[CaseResult], meta: dict[str, Any], out_dir: Path 
         pc["attempts"] += 1
         pc["passed"] += int(r.passed)
     flaky = sorted(cid for cid, pc in per_case.items() if 0 < pc["passed"] < pc["attempts"])
+    release_cases = []
+    for case_id in sorted(per_case):
+        attempts = [
+            {
+                "attempt": result.attempt,
+                "passed": result.passed,
+                "rubrics": result.rubrics,
+                "rubric_evidence": result.rubric_evidence,
+            }
+            for result in results
+            if result.id == case_id
+        ]
+        release_cases.append({"id": case_id, "attempts": attempts})
     summary = {
         **meta,
-        "cases": len(per_case),
+        "case_count": len(per_case),
         "attempts": len(results),
         "passed": sum(r.passed for r in results),
         "failed": sum(not r.passed for r in results),
@@ -745,6 +864,9 @@ def write_report(results: list[CaseResult], meta: dict[str, Any], out_dir: Path 
         "scorecard": card,
         "latency_ms": _dist(latencies),
         "tokens": tokens,
+        "identity": report_identity(meta),
+        "manifest": manifest(),
+        "cases": release_cases,
         "results": [r.__dict__ for r in results],
     }
     json_path = out_dir / f"{stem}.json"
@@ -864,6 +986,8 @@ def main() -> int:
     full_run = not (args.only or args.case or args.offline_only or args.golden_only)
     include_holdout = full_run or args.include_holdout
     cases = load_cases(args.only, args.case, tier="golden" if args.golden_only else None, include_holdout=include_holdout)
+    if args.offline_only:
+        cases = [case for case in cases if case.get("mode") == "offline"]
     if not cases:
         print("no cases matched", file=sys.stderr)
         return 2
@@ -881,6 +1005,8 @@ def main() -> int:
         for attempt in range(1, attempts + 1):
             if case["mode"] == "offline":
                 r = run_offline(case)
+            elif case["mode"] == "pending":
+                r = run_pending(case)
             elif args.offline_only:
                 break
             else:

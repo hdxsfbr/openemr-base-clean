@@ -1,0 +1,14 @@
+id: SRC-ALTERED-VALUE-001
+name: "Altered document value is withheld"
+category: source_verification
+primary_area: source_verification
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "Altered document value is withheld"
+capability_tags: [CAP-07, CAP-13]
+rubrics: [factually_consistent, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_quote_mismatch_fails_schema_validation_and_is_never_persisted

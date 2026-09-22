@@ -1,0 +1,13 @@
+id: SUP-COMBINED-ROUTE-001
+name: "Supervisor bounds the combined route"
+category: supervisor_handoff
+primary_area: supervisor_handoff
+tier: golden
+variant: boundary
+use_case: UC-01
+risk: "Supervisor bounds the combined route"
+capability_tags: [CAP-12]
+rubrics: [schema_valid, factually_consistent]
+zero_tolerance: true
+mode: pending
+pending_seam: "deterministic supervisor is not implemented"

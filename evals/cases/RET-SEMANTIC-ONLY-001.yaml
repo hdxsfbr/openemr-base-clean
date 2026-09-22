@@ -1,0 +1,14 @@
+id: RET-SEMANTIC-ONLY-001
+name: "Frozen semantic queries meet retrieval quality targets"
+category: guideline_retrieval
+primary_area: guideline_retrieval
+tier: golden
+variant: positive
+use_case: UC-06
+risk: "Frozen semantic queries meet retrieval quality targets"
+capability_tags: [CAP-11]
+rubrics: [schema_valid, citation_present, factually_consistent]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_guideline_retriever.py::test_frozen_positive_queries_meet_quality_and_local_latency_targets

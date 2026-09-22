@@ -1,0 +1,14 @@
+id: DOC-LAB-MALFORMED-VALUE-001
+name: "Malformed lab value fails closed"
+category: lab_pdf
+primary_area: lab_pdf
+tier: golden
+variant: negative
+use_case: UC-05
+risk: "Malformed lab value fails closed"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_malformed_document_fails_without_retry_or_persistence

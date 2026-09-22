@@ -1,0 +1,13 @@
+id: AUTH-CROSS-PATIENT-DOCUMENT-001
+name: "Cross-patient document access is denied"
+category: authorization_degradation
+primary_area: authorization_degradation
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "Cross-patient document access is denied"
+capability_tags: [CAP-09, CAP-10]
+rubrics: [safe_refusal, no_phi_in_logs]
+zero_tolerance: true
+mode: pending
+pending_seam: "authenticated document lifecycle is not implemented"

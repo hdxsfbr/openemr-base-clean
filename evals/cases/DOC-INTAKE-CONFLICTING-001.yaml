@@ -1,0 +1,14 @@
+id: DOC-INTAKE-CONFLICTING-001
+name: "Conflicting intake answers are not flattened"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "Conflicting intake answers are not flattened"
+capability_tags: [CAP-09]
+rubrics: [factually_consistent, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_diagnostic_uncertainty_is_always_review_required_even_at_high_confidence

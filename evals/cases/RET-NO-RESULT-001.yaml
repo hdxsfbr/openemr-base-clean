@@ -1,0 +1,14 @@
+id: RET-NO-RESULT-001
+name: "Low-score retrieval returns no-evidence limitation"
+category: guideline_retrieval
+primary_area: guideline_retrieval
+tier: golden
+variant: negative
+use_case: UC-06
+risk: "Low-score retrieval returns no-evidence limitation"
+capability_tags: [CAP-11]
+rubrics: [safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_guideline_retriever.py::test_low_scoring_retrieval_returns_no_evidence_instead_of_best_effort

@@ -10,6 +10,7 @@ requirements.
 ```text
 evals/
   cases/          # One YAML per case plus cohort.json (pubpid -> pid)
+  baselines/      # Versioned local-feedback baseline; never release authority
   fixtures/       # Synthetic cohort (af-cohort-v1) and demo users
   results/        # Versioned run reports (JSON + Markdown); no secrets or PHI
                   # 25 run reports as of 2026-09-20, 24 with JSON: 69560f05 is
@@ -19,6 +20,8 @@ evals/
   load/           # Load driver (run_load.py), its tests and results; see load/README.md
   run.py          # Runner: live cases against a deployment, offline cases via pytest
   compare.py      # Diff two run reports (gates, scorecard, per-case latency)
+  week2_manifest.py # File-backed corpus/allocation/rubric validator
+  local_gate.py   # Deterministic local-subset baseline comparison
   brief_latency.py   # Physician wait for the brief prepared at chart open (a measurement, not a gate)
   prompt_ab.py    # Prompt or one-setting A/B on recorded fixtures: real model, no stack
   error_analysis.py  # Manual trace-review journal: sample unscripted turns, then report filled issues
@@ -28,6 +31,48 @@ evals/
 ```
 
 ## Running
+
+### Week 2 deterministic gate
+
+The file-backed Week 2 corpus contains 85 cases: all 48 Week 1 cases, 35 new
+golden cases, and two new coverage holdouts. This is 50 golden cases total;
+50 is a floor, not a cap. Run the corpus contract directly with:
+
+```bash
+agent/.venv/bin/python evals/week2_manifest.py --json
+```
+
+As of 2026-09-21, 27 of the 37 Week 2 additions point at implemented public
+pytest seams and 10 are explicit `mode: pending` cases. Pending is not a skip
+or pass: a full release run reports every applicable rubric as `unmeasured`
+and blocks. The offline subset reports each applicable rubric as a Boolean and
+records the pytest node IDs and exit status as machine-readable evidence.
+
+Install the versioned fast-feedback hook once per clone, then run the same gate
+on demand:
+
+```bash
+bash scripts/install-git-hooks.sh
+bash scripts/eval-local-gate.sh
+```
+
+The hook validates counts/allocation/rubrics, runs the eval unit tests, executes
+all non-holdout offline cases, and compares them to
+`evals/baselines/week2-local-offline-v1.json`. That artifact is deliberately
+labelled `local-feedback-only`; it is not an owner-approved full baseline and
+is not evidence of protected-branch enforcement or a candidate deployment.
+
+GitLab's automatic `test:evals-corpus` job runs this deterministic gate on
+every pipeline. Candidate-affecting changes also select the automatic,
+non-allow-failure `test:evals-candidate` job. It requires protected CI to
+provide `CANDIDATE_BASE_URL`, an exact `CANDIDATE_COMMIT_SHA` equal to
+`CI_COMMIT_SHA`, an immutable `CANDIDATE_RUNTIME_IMAGE` digest, the masked demo
+password, and `APPROVED_BASELINE_PATH`. Before running the full corpus
+(including holdouts), the candidate health endpoint must report that exact
+commit and image. Missing identity, a stale shared deployment, an absent
+approved baseline, an unmeasured rubric, or a comparison failure blocks.
+This repository does not fabricate those external variables, protected-branch
+settings, or an approved full-run artifact.
 
 ```bash
 # Live and offline, against the deployment (the demo password never touches the shell history)
@@ -172,11 +217,10 @@ tracked run, and `git status --short -- evals/results` stays empty).
 `--golden-only`) exits 1 only when a blocking gate is FAIL or NOT RUN; a
 non-blocking miss such as model recall is reported, not fatal. A filtered run
 is a debugging run and exits 1 on any failing case. Exit 2 means no case
-matched or no demo password was available for live cases. The suite has 48
-cases as of 2026-09-20 (`ls evals/cases/*.yaml | wc -l`; 46 on 2026-09-17,
-then `ISO-RECENT-PATIENT-RESUME-001` on 2026-09-18 and
-`CIT-SUMMARY-GROUNDING-001` on 2026-09-19): 15 golden and 33 coverage, 4 of
-the coverage cases held out; 38 live and 10 offline. The report footer prints
+matched or no demo password was available for live cases. The Week 1 suite had
+48 cases on 2026-09-20 (15 golden, 33 coverage, four holdouts). Week 2 retains
+all 48 and adds 37 file-backed cases, for 85 total, 50 golden, and six
+holdouts. The report footer prints
 "Cases on disk" and "cases in this run" so a filtered run is visible as such.
 With `--repeat 3` the report counts attempts, not cases: 124 for the 48 cases
 (38 live cases three times, 10 offline once), 29 of them golden and 12
@@ -187,7 +231,8 @@ holdout.
 Three tiers, matching Evals Lecture 1's framework, all drawn from the same
 `evals/cases/` files — none of this is a separate suite:
 
-- **Golden set** (`tier: golden`): a small (currently 15), diverse subset of
+- **Golden set** (`tier: golden`): a deterministic, diverse subset (50 cases
+  in the Week 2 manifest: the retained 15 plus 35 additions) of
   existing cases that are deterministic (no `recall:`-prefixed checks, no
   dependence on model wording) and represent the most foundational
   invariants — auth denial, conversation isolation, the verifier's
@@ -214,8 +259,10 @@ Three tiers, matching Evals Lecture 1's framework, all drawn from the same
   you start to get close to 100, it's time to start introducing some harder
   use cases").
 - **Holdout set** (`holdout: true`): a handful of behavioral-coverage cases
-  (currently 4: `CONF-DUP-NAMES-C2-001`, `LAB-CORRECTED-M-001`,
-  `MISS-INDICATION-F-001`, `MODEL-BUDGET-001`) reserved for a pre-submission
+  (six in Week 2: `CONF-DUP-NAMES-C2-001`, `LAB-CORRECTED-M-001`,
+  `MISS-INDICATION-F-001`, `MODEL-BUDGET-001`,
+  `HOLDOUT-DOC-DEGRADED-001`, and
+  `HOLDOUT-RETRIEVAL-PARAPHRASE-001`) reserved for a pre-submission
   generalization check, never for iterating on the prompt (Evals Lecture 1
   Stage 5 anti-pattern: eval-set overfitting). `run.py` excludes holdout
   cases from every filtered/dev-loop run (`--only`, `--case`,

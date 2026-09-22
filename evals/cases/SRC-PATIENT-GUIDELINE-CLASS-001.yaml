@@ -1,0 +1,14 @@
+id: SRC-PATIENT-GUIDELINE-CLASS-001
+name: "Guideline claim requires a matching guideline citation"
+category: source_verification
+primary_area: source_verification
+tier: golden
+variant: boundary
+use_case: UC-05
+risk: "Guideline claim requires a matching guideline citation"
+capability_tags: [CAP-07, CAP-13]
+rubrics: [schema_valid, citation_present]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_week2_contracts.py::test_guideline_claim_requires_one_matching_guideline_citation

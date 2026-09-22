@@ -1,0 +1,13 @@
+id: DOC-LAB-VALID-MULTIPAGE-001
+name: "Multi-page lab PDF produces bounded proposed facts"
+category: lab_pdf
+primary_area: lab_pdf
+tier: golden
+variant: positive
+use_case: UC-05
+risk: "Multi-page lab PDF produces bounded proposed facts"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, factually_consistent]
+zero_tolerance: true
+mode: pending
+pending_seam: "document extraction lifecycle is not implemented"

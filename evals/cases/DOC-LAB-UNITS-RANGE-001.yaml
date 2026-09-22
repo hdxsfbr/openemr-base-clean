@@ -1,0 +1,14 @@
+id: DOC-LAB-UNITS-RANGE-001
+name: "Lab units and reference range round-trip through the strict contract"
+category: lab_pdf
+primary_area: lab_pdf
+tier: golden
+variant: positive
+use_case: UC-05
+risk: "Lab units and reference range round-trip through the strict contract"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, factually_consistent]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_week2_contracts.py::test_lab_extraction_round_trips_strict_proposed_facts

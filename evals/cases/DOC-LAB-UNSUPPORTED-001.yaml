@@ -1,0 +1,14 @@
+id: DOC-LAB-UNSUPPORTED-001
+name: "Unsupported lab content returns an explicit limitation"
+category: lab_pdf
+primary_area: lab_pdf
+tier: golden
+variant: negative
+use_case: UC-05
+risk: "Unsupported lab content returns an explicit limitation"
+capability_tags: [CAP-09]
+rubrics: [safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_unreadable_document_returns_an_explicit_terminal_limitation

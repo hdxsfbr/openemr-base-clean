@@ -1,0 +1,15 @@
+id: DOC-LAB-ROTATED-LOWQUALITY-001
+name: "Rotated or low-quality lab page degrades safely"
+category: lab_pdf
+primary_area: lab_pdf
+tier: golden
+variant: degraded
+use_case: UC-05
+risk: "Rotated or low-quality lab page degrades safely"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_rotated_source_succeeds_only_after_deterministic_orientation_normalization
+  - tests/test_intake_extractor.py::test_one_bounded_region_retry_may_resolve_an_ambiguous_proposal

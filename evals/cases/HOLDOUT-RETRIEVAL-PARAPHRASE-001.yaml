@@ -1,0 +1,14 @@
+id: HOLDOUT-RETRIEVAL-PARAPHRASE-001
+name: "Holdout guideline paraphrase retrieves exact evidence"
+category: guideline_retrieval
+primary_area: guideline_retrieval
+tier: coverage
+holdout: true
+variant: boundary
+use_case: UC-06
+risk: "Holdout guideline paraphrase retrieves exact evidence"
+capability_tags: [CAP-11]
+rubrics: [citation_present, factually_consistent]
+zero_tolerance: true
+mode: pending
+pending_seam: "reserved until the full release run; not used for tuning"

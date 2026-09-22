@@ -1,0 +1,14 @@
+id: RET-RERANK-ORDER-001
+name: "Hybrid retrieval fuses and reranks bounded chunks"
+category: guideline_retrieval
+primary_area: guideline_retrieval
+tier: golden
+variant: boundary
+use_case: UC-06
+risk: "Hybrid retrieval fuses and reranks bounded chunks"
+capability_tags: [CAP-11]
+rubrics: [factually_consistent]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_guideline_retriever.py::test_hybrid_retrieval_fuses_then_reranks_to_exact_bounded_chunks

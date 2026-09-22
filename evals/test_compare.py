@@ -60,13 +60,21 @@ def test_release_comparison_blocks_only_when_regression_exceeds_five_points() ->
     assert comparison.failures[0].regression_pp == 0.06
 
 
-def test_release_cli_returns_nonzero_for_a_blocking_candidate(tmp_path: Path) -> None:
+def test_release_cli_names_failed_cases_and_unchanged_baseline(
+    tmp_path: Path, capsys
+) -> None:
     baseline_path = tmp_path / "baseline.json"
     candidate_path = tmp_path / "candidate.json"
     baseline_path.write_text(json.dumps(_report()))
     candidate_path.write_text(json.dumps(_report({f"CASE-{index:03d}" for index in range(6)})))
 
     assert main(["compare.py", "--release", str(baseline_path), str(candidate_path)]) == 1
+    output = capsys.readouterr().out
+    assert "CASE-000" in output
+    assert "rubric `route_correct`" in output
+    assert "category `retrieval_quality`" in output
+    assert "threshold 90.0%" in output
+    assert "unchanged baseline manifest " + "a" * 64 in output
 
 
 def test_release_comparison_rejects_missing_cases_and_identity_mismatch() -> None:
@@ -100,3 +108,16 @@ def test_required_safety_rubric_and_any_failed_attempt_have_zero_tolerance() -> 
     assert comparison.passed is False
     assert {failure.scope for failure in comparison.failures} == {"category", "rubric"}
     assert any("zero-tolerance failure" in failure.reason for failure in comparison.failures)
+
+
+def test_unmeasured_applicable_rubric_is_a_blocking_corpus_error() -> None:
+    baseline = _report()
+    candidate = _report()
+    candidate["cases"][0]["attempts"][0]["rubrics"]["route_correct"] = "unmeasured"
+
+    comparison = evaluate_release_gate(baseline, candidate)
+
+    assert comparison.passed is False
+    assert comparison.corpus_errors == [
+        "CASE-000: attempt 1 rubric route_correct is missing or unmeasured"
+    ]

@@ -1,0 +1,14 @@
+id: DOC-INTAKE-AMBIGUOUS-MARK-001
+name: "Ambiguous intake mark degrades safely"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: degraded
+use_case: UC-05
+risk: "Ambiguous intake mark degrades safely"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_one_bounded_region_retry_may_resolve_an_ambiguous_proposal

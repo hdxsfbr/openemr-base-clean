@@ -1,0 +1,13 @@
+id: SRC-CLICK-AUTH-INTEGRITY-001
+name: "Click-to-source rechecks authorization and integrity"
+category: source_verification
+primary_area: source_verification
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "Click-to-source rechecks authorization and integrity"
+capability_tags: [CAP-05, CAP-13]
+rubrics: [citation_present, safe_refusal]
+zero_tolerance: true
+mode: pending
+pending_seam: "source UI resolver is not implemented"

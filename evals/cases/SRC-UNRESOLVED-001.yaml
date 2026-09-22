@@ -1,0 +1,13 @@
+id: SRC-UNRESOLVED-001
+name: "Unresolved source fails closed"
+category: source_verification
+primary_area: source_verification
+tier: golden
+variant: negative
+use_case: UC-05
+risk: "Unresolved source fails closed"
+capability_tags: [CAP-07, CAP-13]
+rubrics: [citation_present, safe_refusal]
+zero_tolerance: true
+mode: pending
+pending_seam: "closed source resolver registry is not implemented"

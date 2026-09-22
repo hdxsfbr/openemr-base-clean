@@ -1,0 +1,14 @@
+id: SRC-WRONG-PAGE-REGION-001
+name: "Wrong page or region is rejected"
+category: source_verification
+primary_area: source_verification
+tier: golden
+variant: adversarial
+use_case: UC-05
+risk: "Wrong page or region is rejected"
+capability_tags: [CAP-07, CAP-13]
+rubrics: [citation_present, factually_consistent, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_week2_contracts.py::test_field_evidence_accepts_a_source_region_and_rejects_out_of_bounds_boxes

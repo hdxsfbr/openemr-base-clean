@@ -1,0 +1,14 @@
+id: RET-KEYWORD-ONLY-001
+name: "Keyword retrieval honors topic and candidate bounds"
+category: guideline_retrieval
+primary_area: guideline_retrieval
+tier: golden
+variant: positive
+use_case: UC-06
+risk: "Keyword retrieval honors topic and candidate bounds"
+capability_tags: [CAP-11]
+rubrics: [schema_valid, citation_present, factually_consistent]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_guideline_retriever.py::test_fts5_search_honors_topic_filter_and_twenty_candidate_bound

@@ -1,0 +1,14 @@
+id: SUP-RETRIEVAL-ROUTE-001
+name: "Supervisor routes guideline work to retrieval only"
+category: supervisor_handoff
+primary_area: supervisor_handoff
+tier: golden
+variant: positive
+use_case: UC-01
+risk: "Supervisor routes guideline work to retrieval only"
+capability_tags: [CAP-12]
+rubrics: [schema_valid, no_phi_in_logs]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_supervisor.py::test_supervisor_route_table_is_closed_and_model_free

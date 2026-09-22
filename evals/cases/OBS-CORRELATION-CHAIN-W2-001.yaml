@@ -1,0 +1,13 @@
+id: OBS-CORRELATION-CHAIN-W2-001
+name: "Week 2 correlation chain is complete without patient content"
+category: telemetry
+primary_area: telemetry
+tier: golden
+variant: boundary
+use_case: UC-01
+risk: "Week 2 correlation chain is complete without patient content"
+capability_tags: [CAP-14]
+rubrics: [schema_valid, no_phi_in_logs]
+zero_tolerance: true
+mode: pending
+pending_seam: "Week 2 end-to-end worker correlation path is not implemented"

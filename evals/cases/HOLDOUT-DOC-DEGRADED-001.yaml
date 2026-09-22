@@ -1,0 +1,14 @@
+id: HOLDOUT-DOC-DEGRADED-001
+name: "Holdout degraded document fails safely"
+category: lab_pdf
+primary_area: lab_pdf
+tier: coverage
+holdout: true
+variant: degraded
+use_case: UC-05
+risk: "Holdout degraded document fails safely"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, safe_refusal]
+zero_tolerance: true
+mode: pending
+pending_seam: "document extraction worker is not implemented"

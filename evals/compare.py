@@ -44,6 +44,7 @@ class ReleaseFailure:
     threshold: float
     regression_pp: float
     reason: str
+    failed_case_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -179,6 +180,15 @@ def evaluate_release_gate(baseline: dict[str, Any], candidate: dict[str, Any]) -
         if zero_tolerance and candidate_passes != denominator:
             reasons.append("zero-tolerance failure")
         if reasons:
+            failed_case_ids = tuple(
+                case_id
+                for case_id in members
+                if not (
+                    all(candidate_verdicts[case_id].values())
+                    if scope == "category"
+                    else candidate_verdicts[case_id][name]
+                )
+            )
             failures.append(
                 ReleaseFailure(
                     scope=scope,
@@ -187,6 +197,7 @@ def evaluate_release_gate(baseline: dict[str, Any], candidate: dict[str, Any]) -
                     threshold=float(threshold),
                     regression_pp=float(regression),
                     reason="; ".join(reasons),
+                    failed_case_ids=failed_case_ids,
                 )
             )
 
@@ -246,7 +257,13 @@ def main(argv: list[str]) -> int:
                 print(
                     f"- {failure.scope} `{failure.name}`: candidate {failure.candidate_rate:.1%}, "
                     f"threshold {failure.threshold:.1%}, regression {failure.regression_pp:.1%}; {failure.reason}"
+                    f"; failed cases: {', '.join(failure.failed_case_ids)}"
                 )
+        baseline_identity = baseline.get("identity") if isinstance(baseline.get("identity"), dict) else {}
+        print(
+            "unchanged baseline manifest "
+            + str(baseline_identity.get("manifest_sha256", "missing"))
+        )
         if comparison.passed:
             print("PASS: candidate is comparable and satisfies every release threshold.")
         else:

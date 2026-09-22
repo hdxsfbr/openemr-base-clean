@@ -1,0 +1,14 @@
+id: DOC-INTAKE-MISSING-FIELD-001
+name: "Missing intake field stays missing"
+category: intake_form
+primary_area: intake_form
+tier: golden
+variant: negative
+use_case: UC-05
+risk: "Missing intake field stays missing"
+capability_tags: [CAP-09]
+rubrics: [schema_valid, safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_missing_required_fact_is_preserved_as_review_required_without_imputation

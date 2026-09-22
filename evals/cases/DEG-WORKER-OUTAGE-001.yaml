@@ -1,0 +1,14 @@
+id: DEG-WORKER-OUTAGE-001
+name: "Worker outage returns an explicit limitation"
+category: authorization_degradation
+primary_area: authorization_degradation
+tier: golden
+variant: degraded
+use_case: UC-05
+risk: "Worker outage returns an explicit limitation"
+capability_tags: [CAP-06, CAP-12]
+rubrics: [safe_refusal]
+zero_tolerance: true
+mode: offline
+pytest:
+  - tests/test_intake_extractor.py::test_dependency_outage_is_retryable_and_never_returns_best_effort_content
