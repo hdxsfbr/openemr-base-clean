@@ -50,12 +50,14 @@ verifies claims deterministically, opens native chart sources, degrades on tool
 or model failure, and carries one correlation ID. The retained release corpus
 contains 48 cases: 15 golden and 33 coverage cases, including four holdouts.
 
-The implemented Week 2 system exports strict version-2 schemas, validates
-shared Python/PHP fixtures, runs the two bounded workers behind a deterministic
-supervisor, supports authorized upload/review/promotion and source review,
-verifies the closed claim/source unions, and performs enforceable baseline
-comparison over 90 retained cases. Deployment and protected-branch evidence
-remain external release work rather than local completion claims.
+The implemented Week 2 library seams export strict version-2 schemas, validate
+shared Python/PHP fixtures, compose the two bounded workers with a deterministic
+supervisor, support authorized upload/review/promotion and source-review UI,
+verify the closed claim/source unions, and enforce baseline comparison over 90
+retained cases. They are not yet wired into the FastAPI startup path:
+production extraction/OCR/storage and source-view resolvers are absent,
+`document_ready` remains false, and citation source reads safely return 503.
+Deployment and protected-branch evidence also remain release work.
 
 Unresolved risks remain explicit: OpenEMR parity authorization is not a new
 care-relationship policy; the ordinary binary download failure path must be
@@ -277,9 +279,9 @@ evidence-lane integration; C7 operations; and C8 release proof. The detailed
 acceptance boundaries are in
 [the integrated implementation plan](docs/specs/week2-integrated-implementation-plan.md).
 
-C0 through C8 have repository implementations and local positive,
-negative/adversarial, privacy, and documentation evidence. The remaining
-release evidence is operational: production extraction/source-view adapters,
+C0 through C6 have repository seams and local positive,
+negative/adversarial, privacy, and documentation evidence; C7 and C8 are
+partial. The remaining implementation and release evidence includes production extraction/source-view adapters,
 live browser and deployed flow checks, protected-branch configuration, an
 owner-approved full baseline, candidate mutation proof, and clean deploy,
 load, and rollback measurements. This sequencing trades feature speed for

@@ -289,10 +289,12 @@ were made so those weeks extend rather than replace:
 **Week 2 implementation status (2026-09-21).** The owner-approved Wayfinder map
 is complete. ADR-0008 through ADR-0015 and
 `docs/specs/week2-integrated-implementation-plan.md` supersede the speculative
-seams below where the Week 1 code did not match the prose. The mandatory core
-is implemented and locally verified on `codex/week2-implementation`; external
-deployment, protected-branch, live-browser, load, and rollback evidence remain
-release work. The corpus retains all 48 Week 1 cases and now contains 90 total
+seams below where the Week 1 code did not match the prose. The contracts,
+workers, supervisor, verifier, module lifecycle, UI, and eval seams are locally
+implemented on `codex/week2-implementation`, but production extraction and
+source-view adapters are not wired into FastAPI startup. External deployment,
+protected-branch, live-browser, load, and rollback evidence also remain release
+work. The corpus retains all 48 Week 1 cases and now contains 90 total
 cases and 55 golden cases, above the 50-case floor.
 
 - LangGraph turn graph from the start (ADR-0004), so the supervisor and
