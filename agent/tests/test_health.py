@@ -62,6 +62,29 @@ def test_health_mints_correlation_id_when_absent_or_invalid(client: TestClient) 
     assert len(minted) == 16
 
 
+@pytest.mark.anyio
+async def test_runtime_transient_sweeper_executes_the_one_hour_cleanup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    called = asyncio.Event()
+
+    def fake_sweep(path: Path, *, now):
+        assert path == tmp_path
+        assert now.tzinfo is not None
+        called.set()
+        return ["expired-job"]
+
+    monkeypatch.setattr(main_module, "sweep_transient_directories", fake_sweep)
+    task = asyncio.create_task(main_module._transient_sweeper(tmp_path))
+    await asyncio.wait_for(called.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
 def test_ready_is_503_when_a_dependency_fails(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     test_settings = Settings(
         gateway_ping_url="http://127.0.0.1:9/nope",

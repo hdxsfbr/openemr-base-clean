@@ -19,4 +19,5 @@ class SourceReviewResolver(Protocol):
         conversation_id: str,
         turn_id: str,
         citation: dict[str, object],
+        correlation_id: str,
     ) -> SourceReviewEnvelope | None: ...

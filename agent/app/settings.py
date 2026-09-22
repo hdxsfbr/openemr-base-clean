@@ -73,6 +73,7 @@ class Settings(BaseSettings):
 
     # Writable directory for the checkpointer (ADR-0005).
     state_dir: Path = Path("/var/lib/copilot")
+    transient_dir: Path = Path("/var/lib/copilot/transient")
     spend_ledger_path: Path = Path("/var/lib/copilot/week2-spend.sqlite3")
     model_call_reservation_usd: Decimal = Decimal("0.15")
     guideline_enabled: bool = False

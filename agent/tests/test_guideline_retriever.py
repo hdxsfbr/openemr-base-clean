@@ -45,8 +45,10 @@ class Scores:
 class SlowSearch:
     def __init__(self, seconds: float):
         self.seconds = seconds
+        self.calls = 0
 
     def search(self, query: str, topics: tuple[str, ...], limit: int) -> list[str]:
+        self.calls += 1
         time.sleep(self.seconds)
         return []
 
@@ -264,12 +266,13 @@ def test_query_contract_rejects_patient_data_unsafe_authority_and_injection(payl
 
 def test_retrieval_returns_timeout_at_the_two_second_hard_deadline() -> None:
     chunk = _chunk("hypertension-001", "Screen adults for high blood pressure.")
+    slow = SlowSearch(2.5)
     retriever = BoundedGuidelineRetriever(
         chunks=[chunk],
         active_corpus_version="uspstf-2026q3",
         corpus_retrieved_at="2026-09-21T00:00:00Z",
         approved_at="2026-09-21T00:00:00Z",
-        sparse=SlowSearch(2.5),
+        sparse=slow,
         dense=RankedIds([chunk.chunk_id]),
         reranker=Scores({chunk.chunk_id: 1.0}),
     )
@@ -287,6 +290,13 @@ def test_retrieval_returns_timeout_at_the_two_second_hard_deadline() -> None:
     assert elapsed < 2.25
     assert result.status == "unavailable"
     assert result.limitation.code == "guideline_timeout"
+
+    retry_started = time.monotonic()
+    retry = retriever.retrieve(query, now="2026-09-22T00:00:00Z")
+    assert time.monotonic() - retry_started < 0.25
+    assert retry.status == "unavailable"
+    assert retry.limitation.code == "guideline_retrieval_unavailable"
+    assert slow.calls == 1
 
 
 def test_unknown_index_identity_fails_closed_without_using_the_other_leg() -> None:

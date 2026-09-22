@@ -40,9 +40,17 @@ class Graph:
 class Resolver:
     def __init__(self) -> None:
         self.calls = 0
+        self.correlation_ids: list[str] = []
 
-    async def resolve(self, conversation_id: str, turn_id: str, citation: dict[str, object]):
+    async def resolve(
+        self,
+        conversation_id: str,
+        turn_id: str,
+        citation: dict[str, object],
+        correlation_id: str,
+    ):
         self.calls += 1
+        self.correlation_ids.append(correlation_id)
         return SourceReviewEnvelope.model_validate({
             "citation": citation,
             "source": {
@@ -67,12 +75,13 @@ def test_source_route_requires_exact_turn_token_and_resolves_only_a_displayed_ci
 
     response = client.get(
         f"/v1/conversations/{CID}/turns/{TURN}/sources/ct1",
-        headers={"X-Copilot-Token": token},
+        headers={"X-Copilot-Token": token, "X-Correlation-Id": "corr-source-review-1"},
     )
 
     assert response.status_code == 200
     assert response.json()["citation"]["citation_id"] == "ct1"
     assert resolver.calls == 1
+    assert resolver.correlation_ids == ["corr-source-review-1"]
 
     wrong_turn = "c" * 16
     denied = client.get(

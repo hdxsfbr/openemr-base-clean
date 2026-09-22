@@ -277,7 +277,7 @@ async def get_turn_source(
     if resolver is None:
         return _error(503, "dependency_unavailable", "The cited source is unavailable.", correlation_id)
     try:
-        resolved = await resolver.resolve(conversation_id, turn_id, trusted_citation)
+        resolved = await resolver.resolve(conversation_id, turn_id, trusted_citation, correlation_id)
         envelope = SourceReviewEnvelope.model_validate(resolved)
         if envelope.citation.model_dump(mode="json") != trusted_citation:
             raise ValueError("citation changed during source resolution")

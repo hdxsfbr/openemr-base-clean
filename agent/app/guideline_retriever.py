@@ -395,6 +395,8 @@ class BoundedGuidelineRetriever:
         self._abstention_threshold = abstention_threshold
         self._monotonic = monotonic
         self._executor = executor or ThreadPoolExecutor(max_workers=4, thread_name_prefix="guideline-retrieval")
+        self._timeout_lock = threading.Lock()
+        self._timed_out_futures: set[Future[object]] = set()
 
     def retrieve(self, query: EvidenceQuery, *, now: str) -> EvidenceResult:
         if query.active_corpus_version != self._active_corpus_version:
@@ -403,6 +405,12 @@ class BoundedGuidelineRetriever:
         freshness_anchor = max(self._corpus_retrieved_at, self._approved_at)
         if observed_now - freshness_anchor > MAX_CORPUS_AGE:
             return self._limited("guideline_stale", False, "The approved guideline corpus is stale.")
+        if self._timed_out_work_in_progress():
+            return self._limited(
+                "guideline_retrieval_unavailable",
+                True,
+                "Guideline retrieval is unavailable while timed-out local work is still stopping.",
+            )
 
         started = self._monotonic()
         try:
@@ -416,8 +424,7 @@ class BoundedGuidelineRetriever:
                 return_when=ALL_COMPLETED,
             )
             if pending:
-                for future in pending:
-                    future.cancel()
+                self._remember_timed_out(pending)
                 return self._limited("guideline_timeout", True, "Guideline retrieval exceeded its deadline.")
             sparse_ids, dense_ids = [future.result() for future in search_futures]
             if any(chunk_id not in self._chunks for chunk_id in [*sparse_ids, *dense_ids]):
@@ -446,7 +453,7 @@ class BoundedGuidelineRetriever:
             try:
                 scores = rerank_future.result(timeout=self._remaining(started))
             except FutureTimeout:
-                rerank_future.cancel()
+                self._remember_timed_out({rerank_future})
                 return self._limited("guideline_timeout", True, "Guideline retrieval exceeded its deadline.")
             if len(scores) != len(candidates) or any(not math.isfinite(score) for score in scores):
                 return self._limited("guideline_integrity_failure", False, "The local reranker returned an invalid result.")
@@ -480,6 +487,19 @@ class BoundedGuidelineRetriever:
 
     def _remaining(self, started: float) -> float:
         return max(0.0, DEADLINE_SECONDS - (self._monotonic() - started))
+
+    def _timed_out_work_in_progress(self) -> bool:
+        with self._timeout_lock:
+            self._timed_out_futures = {
+                future for future in self._timed_out_futures if not future.done()
+            }
+            return bool(self._timed_out_futures)
+
+    def _remember_timed_out(self, futures: set[Future[object]]) -> None:
+        for future in futures:
+            future.cancel()
+        with self._timeout_lock:
+            self._timed_out_futures.update(future for future in futures if not future.done())
 
     def _limited(self, code: str, retryable: bool, detail: str) -> EvidenceResult:
         return EvidenceResult(

@@ -8,6 +8,7 @@ import secrets
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -24,7 +25,7 @@ from .readiness import ReadinessReport, evaluate
 from .settings import settings
 from .state_store import checkpoint_path, sweep_closed_checkpoints
 from .telemetry import guard_environment
-from .week2_operations import BudgetedModel, DailySpendLedger
+from .week2_operations import BudgetedModel, DailySpendLedger, sweep_transient_directories
 
 configure_logging()
 log = logging.getLogger("copilot.api")
@@ -47,6 +48,7 @@ async def lifespan(app: FastAPI):
 
     gateway = HttpGateway()
     retention_task: asyncio.Task | None = None
+    transient_task: asyncio.Task | None = None
     path = checkpoint_path()
     try:
         async with AsyncSqliteSaver.from_conn_string(path) as saver:
@@ -70,6 +72,8 @@ async def lifespan(app: FastAPI):
             app.state.graph = build_graph(runtime, checkpointer=saver)
             app.state.checkpoint_path = path
             retention_task = asyncio.create_task(_retention_sweeper(path))
+            settings.transient_dir.mkdir(parents=True, exist_ok=True)
+            transient_task = asyncio.create_task(_transient_sweeper(settings.transient_dir))
             log.info("agent ready", extra={"component": "startup"})
             yield
     finally:
@@ -77,6 +81,12 @@ async def lifespan(app: FastAPI):
             retention_task.cancel()
             try:
                 await retention_task
+            except asyncio.CancelledError:
+                pass
+        if transient_task is not None:
+            transient_task.cancel()
+            try:
+                await transient_task
             except asyncio.CancelledError:
                 pass
         await gateway.aclose()
@@ -94,6 +104,24 @@ async def _retention_sweeper(path: str) -> None:
                 log.info("closed checkpoints swept", extra={"component": "retention", "record_count": removed})
         except Exception as exc:  # noqa: BLE001 - class only; the service remains available
             log.warning("checkpoint sweep failed: %s", exc.__class__.__name__, extra={"component": "retention"})
+        await asyncio.sleep(3600)
+
+
+async def _transient_sweeper(path: Path) -> None:
+    while True:
+        try:
+            removed = await asyncio.to_thread(
+                sweep_transient_directories,
+                path,
+                now=datetime.now(timezone.utc),
+            )
+            if removed:
+                log.info(
+                    "transient extraction artifacts swept",
+                    extra={"component": "retention", "record_count": len(removed)},
+                )
+        except Exception as exc:  # noqa: BLE001 - class only; the service remains available
+            log.warning("transient sweep failed: %s", exc.__class__.__name__, extra={"component": "retention"})
         await asyncio.sleep(3600)
 
 
