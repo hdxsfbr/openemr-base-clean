@@ -8,6 +8,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app import main as main_module
 from app.delegation import mint_for_tests
+from app.contracts import DocumentLimitation, ExtractionStatus, LabExtractionResult
 from app.graph.build import build_graph
 from app.graph.nodes import Runtime
 from conftest import TEST_SECRET, FakeGateway, FakeModel
@@ -20,7 +21,20 @@ def client(secret_file: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app = main_module.app
     # Bypass the lifespan: inject a graph with the fake runtime and an in-memory checkpointer.
     app.state.graph = build_graph(Runtime(gateway=FakeGateway(), model=FakeModel(claims=[]), today=lambda: __import__("datetime").date(2026, 9, 15)), checkpointer=InMemorySaver())
+    app.state.intake_extractor = _FakeExtractor()
     return TestClient(app)
+
+
+class _FakeExtractor:
+    def __init__(self) -> None:
+        self.calls = []
+
+    async def extract(self, source_id, token, correlation_id, fault=None):
+        self.calls.append((source_id, token, correlation_id, fault))
+        return LabExtractionResult(
+            source_id=source_id, handoff_id="a" * 32, status=ExtractionStatus.unavailable,
+            limitations=[DocumentLimitation(code="extraction_unavailable", detail="The document preview is temporarily unavailable. No extracted facts were shown.")],
+        )
 
 
 def test_turn_requires_token_and_matching_conversation(client: TestClient) -> None:
@@ -73,6 +87,17 @@ def test_invalid_body_is_400_and_metrics_exposed(client: TestClient) -> None:
     assert r.status_code == 400
     m = client.get("/metrics")
     assert m.status_code == 200 and "copilot_turns_total" in m.text
+
+
+def test_lab_extraction_accepts_only_an_immutable_source_reference(client: TestClient) -> None:
+    token = mint_for_tests(CID, "abcdefabcdefabdd", TEST_SECRET)
+    source_id = "document:0123456789abcdef0123456789abcdef"
+    r = client.post(f"/v1/conversations/{CID}/lab-extractions", json={"source_id": source_id}, headers={"X-Copilot-Token": token})
+    assert r.status_code == 200
+    assert r.json()["status"] == "unavailable" and r.json()["extraction"] is None
+    assert main_module.app.state.intake_extractor.calls[0][0] == source_id
+    bad = client.post(f"/v1/conversations/{CID}/lab-extractions", json={"source_id": source_id, "pid": 7}, headers={"X-Copilot-Token": token})
+    assert bad.status_code == 400 and bad.json()["code"] == "invalid_request"
 
 
 # Operational controls at the API: the queue-depth gauge (A2), the verification counter and the

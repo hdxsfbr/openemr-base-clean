@@ -27,8 +27,14 @@ try {
     header('Cache-Control: no-store');
     header('X-Correlation-Id: ' . $correlationId);
     header('X-Copilot-Source-Id: ' . $result['source']['source_id']);
+    // Integrity metadata only: the worker recomputes this hash over the
+    // returned bytes before a resolver may cite any proposed field.
+    header('X-Copilot-Source-Hash: ' . $result['source']['content_hash']);
     echo $result['bytes'];
 } catch (GatewayDenied $denied) {
     Audit::denied(null, null, null, $denied->reason, ['stage' => 'source_read', 'correlation_id' => $correlationId]);
     Json::error($denied->httpStatus, 'unauthorized', 'Request denied.', $correlationId);
+} catch (\Throwable) {
+    Audit::denied(null, null, null, 'source_unavailable', ['stage' => 'source_read', 'correlation_id' => $correlationId]);
+    Json::error(503, 'dependency_unavailable', 'Source temporarily unavailable.', $correlationId);
 }

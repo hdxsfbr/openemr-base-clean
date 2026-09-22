@@ -370,10 +370,13 @@ partial extraction, write-denial, and PHI-canary cases; visual page and
 bounding-box source resolution; one audit/provenance chain from upload through
 later read-back.
 
-*Status 2026-09-21:* owner-approved design only. ADR-0008, ADR-0009, ADR-0011,
-ADR-0013, and the Week 2 document/source-review specifications define the
-contract; no Week 2 upload, extraction, review, promotion, or document-source
-UI is implemented yet.
+*Status 2026-09-22:* Slice 1A/1B partially implements the synthetic lab-PDF
+path: patient-bound upload, one delegated deterministic extraction preview,
+resolver-authored citations, and a reauthorized source-page link. See
+`docs/week2/slice1a-upload-contract.md` and
+`docs/week2/slice1b-extraction-preview.md`. Intake forms, field review,
+promotion, overlays, chat read-back, supervisor routing, deployed evidence,
+and the release gate remain unimplemented.
 
 ## Use Case UC-06: Retrieve Guideline Evidence for a Chart Finding
 
@@ -551,11 +554,12 @@ opens, and the first turn's type, not citation clicks;
 `docs/operations/usage-funnel.md`), and no eval asserts the UC-03 pronoun
 form or the UC-02 "no follow-up found in the chart" wording.
 
-*Week 2 planning status 2026-09-21:* CAP-09 through CAP-14 are approved design
-only and are not implemented. Their normative decisions are ADR-0008 through
-ADR-0015 and the contracts under `docs/specs/`. They may be marked implemented
-only after the integrated checkpoint evidence in
-`docs/specs/week2-integrated-implementation-plan.md` is accessible.
+*Week 2 implementation status 2026-09-22:* CAP-09 is partially implemented
+for the synthetic `lab_pdf` upload and review-only preview only; it does not
+make a proposed value chart truth. CAP-10 through CAP-14 remain design-only.
+The normative decisions are ADR-0008 through ADR-0016 and the contracts under
+`docs/specs/`; #35 still requires an authenticated end-to-end smoke before its
+acceptance evidence is complete.
 
 Tools required, all read-only and patient-bound: patient context, encounters,
 clinical notes, problems, medications, allergies, laboratory observations. Each

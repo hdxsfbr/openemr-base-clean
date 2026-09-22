@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from . import __version__
 from .api import router as v1_router
 from .gateway_client import HttpGateway
+from .intake_extractor import IntakeExtractor
 from .graph.build import build_graph
 from .graph.nodes import Runtime
 from .logging_setup import configure_logging
@@ -54,6 +55,9 @@ async def lifespan(app: FastAPI):
             runtime = Runtime(gateway=gateway, model=live_model())
             app.state.runtime = runtime
             app.state.graph = build_graph(runtime, checkpointer=saver)
+            # Separate from the chat graph: uploaded documents terminate at a
+            # review-only preview and cannot become chat evidence or writes.
+            app.state.intake_extractor = IntakeExtractor(gateway)
             log.info("agent ready", extra={"component": "startup"})
             yield
     finally:

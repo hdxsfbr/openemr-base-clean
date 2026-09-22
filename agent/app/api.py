@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
 from . import __version__
-from .contracts import CONTRACT_VERSION, ErrorEnvelope, TurnRequest, TurnResponse, Verification
+from .contracts import CONTRACT_VERSION, ErrorEnvelope, LabExtractionRequest, TurnRequest, TurnResponse, Verification
 from .delegation import Delegation, DelegationError, verify
 from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
@@ -126,6 +126,43 @@ def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResp
         "correlation_id": correlation_id,
         "contract_version": CONTRACT_VERSION,
     })
+
+
+@router.post("/conversations/{conversation_id}/lab-extractions")
+async def post_lab_extraction(
+    conversation_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_copilot_token: str | None = Header(default=None),
+):
+    """Run the bounded intake-extractor, not the conversation graph.
+
+    The delegation token is verified before the worker can call the source
+    gateway. The worker can read one source and return a verified preview only;
+    it has no model, chat, or persistence capability.
+    """
+    correlation_id = request.state.correlation_id
+    auth = _authenticate(request, conversation_id, authorization, x_copilot_token)
+    if isinstance(auth, JSONResponse):
+        return auth
+    try:
+        body = LabExtractionRequest.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        return _error(400, "invalid_request", "Invalid document extraction request.", correlation_id)
+    try:
+        result = await asyncio.wait_for(
+            request.app.state.intake_extractor.extract(body.source_id, auth.raw, correlation_id, _fault(request)),
+            timeout=settings.model_timeout_seconds,
+        )
+    except PermissionError:
+        metrics.denial("source_document")
+        return _error(403, "unauthorized", "Request denied.", correlation_id)
+    except asyncio.TimeoutError:
+        # Keep the same typed no-content behavior as worker transport failure.
+        from .intake_extractor import IntakeExtractor
+
+        result = IntakeExtractor._unavailable(body.source_id, secrets.token_hex(16))
+    return JSONResponse(status_code=200, content=result.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id})
 
 
 @router.post("/conversations/{conversation_id}/turns")

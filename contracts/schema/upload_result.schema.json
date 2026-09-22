@@ -33,7 +33,9 @@
         "invalid_file",
         "duplicate_or_replay",
         "malformed_source",
-        "storage_unavailable"
+        "storage_unavailable",
+        "extraction_unavailable",
+        "verification_failed"
       ],
       "title": "LimitationCode",
       "type": "string"
