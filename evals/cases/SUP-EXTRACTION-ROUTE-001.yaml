@@ -10,5 +10,8 @@ capability_tags: [CAP-12]
 rubrics: [schema_valid, no_phi_in_logs]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_supervisor.py::test_supervisor_route_table_is_closed_and_model_free
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_supervisor.py::test_supervisor_route_table_is_closed_and_model_free
+  no_phi_in_logs:
+    - tests/test_supervisor.py::test_route_telemetry_is_once_per_decision_and_contains_no_input_references

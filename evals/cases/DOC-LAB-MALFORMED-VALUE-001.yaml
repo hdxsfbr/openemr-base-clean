@@ -10,5 +10,8 @@ capability_tags: [CAP-09]
 rubrics: [schema_valid, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_malformed_document_fails_without_retry_or_persistence
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_intake_extractor.py::test_malformed_document_fails_without_retry_or_persistence
+  safe_refusal:
+    - tests/test_intake_extractor.py::test_malformed_document_fails_without_retry_or_persistence

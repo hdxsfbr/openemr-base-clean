@@ -10,5 +10,10 @@ capability_tags: [CAP-09, CAP-10]
 rubrics: [schema_valid, factually_consistent, citation_present]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_verifier.py::test_reviewed_lab_result_requires_exact_fields_and_cites_every_evidence_region
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_week2_contracts.py::test_reviewed_lab_record_contains_only_human_reviewed_values_and_exact_provenance
+  factually_consistent:
+    - tests/test_week2_verifier.py::test_reviewed_lab_result_requires_exact_fields_and_cites_every_evidence_region
+  citation_present:
+    - tests/test_week2_verifier.py::test_reviewed_lab_result_requires_exact_fields_and_cites_every_evidence_region

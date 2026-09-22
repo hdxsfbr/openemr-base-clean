@@ -10,5 +10,9 @@ capability_tags: [CAP-07, CAP-13]
 rubrics: [factually_consistent, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_quote_mismatch_fails_schema_validation_and_is_never_persisted
+pytest_by_rubric:
+  factually_consistent:
+    - tests/test_intake_extractor.py::test_quote_mismatch_fails_schema_validation_and_is_never_persisted
+    - tests/test_week2_verifier.py::test_altered_openemr_value_is_withheld_with_a_patient_lane_limitation
+  safe_refusal:
+    - tests/test_week2_verifier.py::test_altered_openemr_value_is_withheld_with_a_patient_lane_limitation

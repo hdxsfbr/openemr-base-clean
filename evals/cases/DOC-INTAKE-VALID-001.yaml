@@ -10,5 +10,8 @@ capability_tags: [CAP-09]
 rubrics: [schema_valid, factually_consistent]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_intake_handoff_persists_proposed_answers_without_chart_promotion
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_intake_extractor.py::test_intake_handoff_persists_proposed_answers_without_chart_promotion
+  factually_consistent:
+    - tests/test_week2_contracts.py::test_intake_extraction_keeps_answers_as_proposals_not_chart_facts

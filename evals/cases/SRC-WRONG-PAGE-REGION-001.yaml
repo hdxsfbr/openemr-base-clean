@@ -10,5 +10,10 @@ capability_tags: [CAP-07, CAP-13]
 rubrics: [citation_present, factually_consistent, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_contracts.py::test_field_evidence_accepts_a_source_region_and_rejects_out_of_bounds_boxes
+pytest_by_rubric:
+  citation_present:
+    - tests/test_week2_contracts.py::test_field_evidence_accepts_a_source_region_and_rejects_out_of_bounds_boxes
+  factually_consistent:
+    - tests/test_intake_extractor.py::test_quote_mismatch_fails_schema_validation_and_is_never_persisted
+  safe_refusal:
+    - tests/test_week2_contracts.py::test_field_evidence_accepts_a_source_region_and_rejects_out_of_bounds_boxes

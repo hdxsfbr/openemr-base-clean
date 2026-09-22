@@ -10,5 +10,8 @@ capability_tags: [CAP-07, CAP-13]
 rubrics: [citation_present, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_verifier.py::test_registry_rejects_unknown_wrong_turn_and_stale_patient_sources
+pytest_by_rubric:
+  citation_present:
+    - tests/test_week2_verifier.py::test_registry_rejects_unknown_wrong_turn_and_stale_patient_sources
+  safe_refusal:
+    - tests/test_week2_verifier.py::test_registry_rejects_unknown_wrong_turn_and_stale_patient_sources

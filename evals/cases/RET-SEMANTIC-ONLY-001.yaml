@@ -10,5 +10,10 @@ capability_tags: [CAP-11]
 rubrics: [schema_valid, citation_present, factually_consistent]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_guideline_retriever.py::test_frozen_positive_queries_meet_quality_and_local_latency_targets
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_guideline_retriever.py::test_frozen_corpus_loader_checks_hashes_and_preserves_all_160_chunks
+  citation_present:
+    - tests/test_guideline_retriever.py::test_frozen_positive_queries_meet_quality_and_local_latency_targets
+  factually_consistent:
+    - tests/test_guideline_retriever.py::test_frozen_positive_queries_meet_quality_and_local_latency_targets

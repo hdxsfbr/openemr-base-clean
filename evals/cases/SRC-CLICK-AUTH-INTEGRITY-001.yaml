@@ -10,6 +10,8 @@ capability_tags: [CAP-05, CAP-13]
 rubrics: [citation_present, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_source_review_api.py::test_source_route_requires_exact_turn_token_and_resolves_only_a_displayed_citation
-  - tests/test_source_review_api.py::test_source_route_fails_closed_for_unknown_or_unconfigured_citation
+pytest_by_rubric:
+  citation_present:
+    - tests/test_source_review_api.py::test_source_route_requires_exact_turn_token_and_resolves_only_a_displayed_citation
+  safe_refusal:
+    - tests/test_source_review_api.py::test_source_route_fails_closed_for_unknown_or_unconfigured_citation

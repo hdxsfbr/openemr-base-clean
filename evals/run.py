@@ -504,16 +504,57 @@ def run_offline(case: dict[str, Any]) -> CaseResult:
     python = ROOT / "agent" / ".venv" / "bin" / "python"
     if not python.exists():
         python = Path(sys.executable)
-    node_ids = _as_list(case["pytest"])
-    proc = subprocess.run([str(python), "-m", "pytest", "-q", *node_ids], cwd=ROOT / "agent", capture_output=True, text=True)
-    if proc.returncode != 0:
-        result.failures.append("pytest failed: " + (proc.stdout.strip().splitlines() or ["?"])[-1][:200])
-    result.notes = node_ids
-    result.passed = not result.failures
-    evidence = {"kind": "pytest", "node_ids": node_ids, "exit_code": proc.returncode}
-    for rubric in _applicable_rubrics(case):
-        result.rubrics[rubric] = result.passed
-        result.rubric_evidence[rubric] = evidence
+    rubrics = _applicable_rubrics(case)
+    pytest_by_rubric = case.get("pytest_by_rubric")
+    if isinstance(pytest_by_rubric, dict):
+        for rubric in rubrics:
+            node_ids = pytest_by_rubric.get(rubric)
+            if not isinstance(node_ids, list) or not node_ids or not all(
+                isinstance(node_id, str) and node_id for node_id in node_ids
+            ):
+                detail = f"no pytest node IDs mapped to applicable rubric {rubric}"
+                result.rubrics[rubric] = "unmeasured"
+                result.rubric_evidence[rubric] = {
+                    "kind": "unmeasured",
+                    "detail": detail,
+                }
+                result.failures.append(detail)
+                continue
+            proc = subprocess.run(
+                [str(python), "-m", "pytest", "-q", *node_ids],
+                cwd=ROOT / "agent",
+                capture_output=True,
+                text=True,
+            )
+            passed = proc.returncode == 0
+            result.rubrics[rubric] = passed
+            result.rubric_evidence[rubric] = {
+                "kind": "pytest",
+                "node_ids": node_ids,
+                "exit_code": proc.returncode,
+            }
+            result.notes.extend(node_id for node_id in node_ids if node_id not in result.notes)
+            if not passed:
+                output = proc.stdout.strip().splitlines() or proc.stderr.strip().splitlines() or ["?"]
+                result.failures.append(f"pytest failed for rubric {rubric}: {output[-1][:200]}")
+    elif isinstance(case.get("rubrics"), list) and case["rubrics"]:
+        for rubric in rubrics:
+            detail = f"no pytest node IDs mapped to applicable rubric {rubric}"
+            result.rubrics[rubric] = "unmeasured"
+            result.rubric_evidence[rubric] = {"kind": "unmeasured", "detail": detail}
+            result.failures.append(detail)
+    else:
+        # Retained Week 1 cases predate explicit per-rubric evidence mappings.
+        node_ids = _as_list(case["pytest"])
+        proc = subprocess.run([str(python), "-m", "pytest", "-q", *node_ids], cwd=ROOT / "agent", capture_output=True, text=True)
+        if proc.returncode != 0:
+            result.failures.append("pytest failed: " + (proc.stdout.strip().splitlines() or ["?"])[-1][:200])
+        result.notes = node_ids
+        evidence = {"kind": "pytest", "node_ids": node_ids, "exit_code": proc.returncode}
+        for rubric in rubrics:
+            result.rubrics[rubric] = proc.returncode == 0
+            result.rubric_evidence[rubric] = evidence
+    result.passed = not result.failures and all(value is True for value in result.rubrics.values())
     return result
 
 
@@ -719,7 +760,7 @@ def report_identity(meta: dict[str, Any]) -> dict[str, str]:
         "manifest_sha256": _paths_hash(manifest_paths),
         "fixtures_sha256": _paths_hash(fixture_paths),
         "schema_version": "2.0.0",
-        "rubric_version": "1.0.0",
+        "rubric_version": "1.1.0",
         "guideline_corpus_sha256": _paths_hash([guideline]),
         "resolver_sha256": _paths_hash(resolver_inputs),
         "runtime_image": runtime_image,

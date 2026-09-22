@@ -10,5 +10,6 @@ capability_tags: [CAP-11]
 rubrics: [safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_guideline_retriever.py::test_low_scoring_retrieval_returns_no_evidence_instead_of_best_effort
+pytest_by_rubric:
+  safe_refusal:
+    - tests/test_guideline_retriever.py::test_low_scoring_retrieval_returns_no_evidence_instead_of_best_effort

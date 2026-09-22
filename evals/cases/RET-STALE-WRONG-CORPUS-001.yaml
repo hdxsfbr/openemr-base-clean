@@ -10,5 +10,10 @@ capability_tags: [CAP-11, CAP-13]
 rubrics: [citation_present, factually_consistent, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_guideline_retriever.py::test_wrong_or_stale_corpus_returns_no_chunks
+pytest_by_rubric:
+  citation_present:
+    - tests/test_guideline_retriever.py::test_wrong_or_stale_corpus_returns_no_chunks
+  factually_consistent:
+    - tests/test_guideline_retriever.py::test_wrong_or_stale_corpus_returns_no_chunks
+  safe_refusal:
+    - tests/test_guideline_retriever.py::test_unknown_index_identity_fails_closed_without_using_the_other_leg

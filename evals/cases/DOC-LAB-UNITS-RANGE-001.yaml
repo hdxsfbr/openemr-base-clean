@@ -10,5 +10,8 @@ capability_tags: [CAP-09]
 rubrics: [schema_valid, factually_consistent]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_contracts.py::test_lab_extraction_round_trips_strict_proposed_facts
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_week2_contracts.py::test_lab_extraction_round_trips_strict_proposed_facts
+  factually_consistent:
+    - tests/test_week2_verifier.py::test_reviewed_lab_result_requires_exact_fields_and_cites_every_evidence_region

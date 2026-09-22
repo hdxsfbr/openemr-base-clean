@@ -1,17 +1,17 @@
 {
   "identity": {
-    "manifest_sha256": "94874a1acc99bc2b9a3d914696ed9442e6836721f53feea44f81e88944c2c637",
+    "manifest_sha256": "7f3960f1e3fe48e53f1b2eb73d1bc56e1510f14fb107147a36d02c35aef8ae6d",
     "fixtures_sha256": "9fbf961fe74d57cb21642d84164aa64232af25785898bfbc078a32424793ed30",
     "schema_version": "2.0.0",
-    "rubric_version": "1.0.0",
+    "rubric_version": "1.1.0",
     "guideline_corpus_sha256": "49d28c59b201ebc6bf04758f9122b55a17f2912e425078c65da7bd5bed79e63e",
     "resolver_sha256": "cb2f511437e629cf09937a1969f89502cc5f194a0aed66d02408ce7924eff05b",
     "runtime_image": "local-offline",
     "model": "deterministic-offline",
     "prompt_sha256": "8adcbe3ef55bcd6937401506ed5019efbac71f19fef864781a219ee26dd767fc",
     "extraction_identity": "source-sha256:8e28a9e1976af3eabe95c61589a79e688607c269e2c4dd76edc590a0243eb925",
-    "embedding_identity": "source-sha256:6543f4d93ee924df13480e7407ff3b5317d63252317886d9fec0f2520ee94032",
-    "reranker_identity": "source-sha256:6543f4d93ee924df13480e7407ff3b5317d63252317886d9fec0f2520ee94032",
+    "embedding_identity": "source-sha256:c229c9475e841b89eb2c0c96f89df2dac73b6f32a8d0a2c86b788b22d4544251",
+    "reranker_identity": "source-sha256:c229c9475e841b89eb2c0c96f89df2dac73b6f32a8d0a2c86b788b22d4544251",
     "attempt_policy": "one-required-attempt"
   },
   "expected_rubrics": {

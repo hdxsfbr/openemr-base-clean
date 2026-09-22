@@ -11,5 +11,8 @@ capability_tags: [CAP-09]
 rubrics: [schema_valid, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_dependency_outage_is_retryable_and_never_returns_best_effort_content
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_intake_extractor.py::test_dependency_outage_is_retryable_and_never_returns_best_effort_content
+  safe_refusal:
+    - tests/test_intake_extractor.py::test_dependency_outage_is_retryable_and_never_returns_best_effort_content

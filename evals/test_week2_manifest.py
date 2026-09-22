@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
+
 from week2_manifest import validate_manifest_file
 
 
@@ -46,3 +48,28 @@ def test_week2_manifest_rejects_missing_applicable_rubrics(tmp_path: Path) -> No
     result = validate_manifest_file(manifest)
 
     assert "RET-NO-RESULT-001: applicable rubrics are missing" in result.errors
+
+
+def test_week2_manifest_rejects_an_applicable_rubric_without_independent_evidence(
+    tmp_path: Path,
+) -> None:
+    source = Path(__file__).with_name("week2_manifest.yaml")
+    manifest = tmp_path / "week2_manifest.yaml"
+    cases = tmp_path / "cases"
+    cases.mkdir()
+    for case_path in source.with_name("cases").glob("*.yaml"):
+        target = cases / case_path.name
+        text = case_path.read_text()
+        if case_path.name == "RET-NO-RESULT-001.yaml":
+            payload = yaml.safe_load(text)
+            payload["pytest_by_rubric"] = {}
+            text = yaml.safe_dump(payload, sort_keys=False)
+        target.write_text(text)
+    manifest.write_text(source.read_text())
+
+    result = validate_manifest_file(manifest)
+
+    assert (
+        "RET-NO-RESULT-001: pytest evidence is missing for rubric safe_refusal"
+        in result.errors
+    )

@@ -10,5 +10,8 @@ capability_tags: [CAP-10, CAP-12]
 rubrics: [safe_refusal, no_phi_in_logs]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_contracts.py::test_review_and_promotion_commands_require_explicit_complete_human_input
+pytest_by_rubric:
+  safe_refusal:
+    - tests/test_week2_contracts.py::test_review_and_promotion_commands_require_explicit_complete_human_input
+  no_phi_in_logs:
+    - tests/test_week2_contracts.py::test_review_and_promotion_commands_require_explicit_complete_human_input

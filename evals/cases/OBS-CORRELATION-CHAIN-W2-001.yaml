@@ -10,6 +10,8 @@ capability_tags: [CAP-14]
 rubrics: [schema_valid, no_phi_in_logs]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_extraction_telemetry_contains_route_latency_and_cost_but_no_document_content
-  - tests/test_supervisor.py::test_handoff_serialization_is_reference_only
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_supervisor.py::test_handoff_serialization_is_reference_only
+  no_phi_in_logs:
+    - tests/test_intake_extractor.py::test_extraction_telemetry_contains_route_latency_and_cost_but_no_document_content

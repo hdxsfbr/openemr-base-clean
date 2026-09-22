@@ -10,5 +10,8 @@ capability_tags: [CAP-09]
 rubrics: [schema_valid, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_one_bounded_region_retry_may_resolve_an_ambiguous_proposal
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_intake_extractor.py::test_one_bounded_region_retry_may_resolve_an_ambiguous_proposal
+  safe_refusal:
+    - tests/test_intake_extractor.py::test_region_retry_rejects_a_crop_not_bound_to_an_ambiguous_field

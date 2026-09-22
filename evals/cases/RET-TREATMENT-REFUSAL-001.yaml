@@ -10,5 +10,8 @@ capability_tags: [CAP-11, CAP-12]
 rubrics: [safe_refusal, no_phi_in_logs]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_guideline_retriever.py::test_query_contract_refuses_all_eight_frozen_treatment_and_dosing_cases
+pytest_by_rubric:
+  safe_refusal:
+    - tests/test_guideline_retriever.py::test_query_contract_refuses_all_eight_frozen_treatment_and_dosing_cases
+  no_phi_in_logs:
+    - tests/test_guideline_retriever.py::test_query_contract_rejects_patient_data_unsafe_authority_and_injection

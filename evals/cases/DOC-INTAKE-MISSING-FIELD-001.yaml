@@ -10,5 +10,8 @@ capability_tags: [CAP-09]
 rubrics: [schema_valid, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_missing_required_fact_is_preserved_as_review_required_without_imputation
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_week2_contracts.py::test_intake_extraction_keeps_answers_as_proposals_not_chart_facts
+  safe_refusal:
+    - tests/test_intake_extractor.py::test_missing_required_fact_is_preserved_as_review_required_without_imputation

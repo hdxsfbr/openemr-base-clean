@@ -10,5 +10,8 @@ capability_tags: [CAP-09]
 rubrics: [schema_valid, factually_consistent]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_intake_round_trip_preserves_every_typed_collection_as_proposed_facts
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_intake_extractor.py::test_intake_round_trip_preserves_every_typed_collection_as_proposed_facts
+  factually_consistent:
+    - tests/test_intake_extractor.py::test_intake_round_trip_preserves_every_typed_collection_as_proposed_facts

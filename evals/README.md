@@ -42,10 +42,12 @@ executable Week 2 additions. This is 55 golden cases total;
 agent/.venv/bin/python evals/week2_manifest.py --json
 ```
 
-As of 2026-09-21, all 42 Week 2 additions point at implemented public pytest
-seams and the manifest contains zero pending cases. The offline subset reports
-each applicable rubric as a Boolean and records the pytest node IDs and exit
-status as machine-readable evidence.
+As of 2026-09-21, all 42 Week 2 additions map every applicable rubric to one
+or more implemented public pytest node IDs under `pytest_by_rubric`, and the
+manifest contains zero pending cases. The runner invokes each rubric mapping
+independently and records that rubric's node IDs and exit status as
+machine-readable evidence. A missing, malformed, extra, or unmeasured mapping
+blocks instead of inheriting another rubric's result.
 
 Install the versioned fast-feedback hook once per clone, then run the same gate
 on demand:
@@ -414,8 +416,9 @@ It has not been re-measured at the deployed tree.
 
 One YAML file per case, id as filename. Live cases drive the deployed
 co-pilot through the same handshake as the panel and the Bruno collection;
-offline cases name pytest node ids under `agent/tests/` so verifier
-invariants share the same report.
+offline Week 2 cases map each applicable rubric to public pytest node IDs under
+`agent/tests/` so one aggregate pytest result cannot mask a failing or
+unmeasured rubric.
 
 ```yaml
 id: TOOL-OUTAGE-LABS-001
@@ -454,8 +457,13 @@ Other steps: `ticket` (mint a delegation and check the response), `history`
 `resume` (the panel's resume call; `same_as: <alias>` fails the case unless
 the resumed conversation is the remembered one). Turn options:
 `tamper: true` (corrupt the token), `body_extra` (add fields such as a
-forbidden `pid`), `ticket_age_seconds` (let the ticket expire). Offline
-cases carry `pytest: [node ids]` instead of `steps`. A case may carry
+forbidden `pid`), `ticket_age_seconds` (let the ticket expire). Week 2 offline
+cases carry a `rubrics` list and an exact `pytest_by_rubric` map instead of
+`steps`; every map key must be applicable and every applicable rubric must
+have at least one `tests/...::test_...` node. Each mapping is run in its own
+pytest command and its exit status becomes only that rubric's verdict. Retained
+Week 1 offline cases keep their legacy aggregate `pytest: [node ids]` contract.
+A case may carry
 `gates: [uncertainty_recall | task_success | degradation]` to feed the gate
 table.
 

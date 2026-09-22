@@ -10,5 +10,6 @@ capability_tags: [CAP-11]
 rubrics: [factually_consistent]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_guideline_retriever.py::test_hybrid_retrieval_fuses_then_reranks_to_exact_bounded_chunks
+pytest_by_rubric:
+  factually_consistent:
+    - tests/test_guideline_retriever.py::test_hybrid_retrieval_fuses_then_reranks_to_exact_bounded_chunks

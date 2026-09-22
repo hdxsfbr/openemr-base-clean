@@ -10,5 +10,6 @@ capability_tags: [CAP-09]
 rubrics: [safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_unreadable_document_returns_an_explicit_terminal_limitation
+pytest_by_rubric:
+  safe_refusal:
+    - tests/test_intake_extractor.py::test_unreadable_document_returns_an_explicit_terminal_limitation

@@ -10,5 +10,8 @@ capability_tags: [CAP-09, CAP-12]
 rubrics: [safe_refusal, no_phi_in_logs]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_cancellation_interrupts_a_running_system_boundary_before_its_deadline
+pytest_by_rubric:
+  safe_refusal:
+    - tests/test_intake_extractor.py::test_cancellation_interrupts_a_running_system_boundary_before_its_deadline
+  no_phi_in_logs:
+    - tests/test_intake_extractor.py::test_canceled_job_stops_without_loading_or_persisting_document_content

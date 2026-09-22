@@ -10,5 +10,10 @@ capability_tags: [CAP-12]
 rubrics: [schema_valid, safe_refusal, no_phi_in_logs]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_contracts.py::test_worker_handoff_is_reference_only_and_rejects_raw_content
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_week2_contracts.py::test_worker_handoff_is_reference_only_and_rejects_raw_content
+  safe_refusal:
+    - tests/test_supervisor.py::test_supervisor_rejects_untrusted_route_and_raw_content_fields
+  no_phi_in_logs:
+    - tests/test_supervisor.py::test_handoff_serialization_is_reference_only

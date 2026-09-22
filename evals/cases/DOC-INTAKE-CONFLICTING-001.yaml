@@ -10,5 +10,8 @@ capability_tags: [CAP-09]
 rubrics: [factually_consistent, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_intake_extractor.py::test_diagnostic_uncertainty_is_always_review_required_even_at_high_confidence
+pytest_by_rubric:
+  factually_consistent:
+    - tests/test_intake_extractor.py::test_diagnostic_uncertainty_is_always_review_required_even_at_high_confidence
+  safe_refusal:
+    - tests/test_intake_extractor.py::test_diagnostic_uncertainty_is_always_review_required_even_at_high_confidence

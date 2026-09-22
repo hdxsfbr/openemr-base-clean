@@ -10,5 +10,8 @@ capability_tags: [CAP-09, CAP-10]
 rubrics: [safe_refusal, no_phi_in_logs]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_verifier.py::test_document_source_requires_current_hash_version_and_patient_binding
+pytest_by_rubric:
+  safe_refusal:
+    - tests/test_week2_verifier.py::test_document_source_requires_current_hash_version_and_patient_binding
+  no_phi_in_logs:
+    - tests/test_week2_verifier.py::test_document_source_requires_current_hash_version_and_patient_binding

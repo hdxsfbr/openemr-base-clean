@@ -10,5 +10,8 @@ capability_tags: [CAP-10, CAP-11]
 rubrics: [citation_present, factually_consistent]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_verifier.py::test_exact_guideline_excerpt_uses_active_fresh_corpus_and_registry_metadata
+pytest_by_rubric:
+  citation_present:
+    - tests/test_week2_verifier.py::test_exact_guideline_excerpt_uses_active_fresh_corpus_and_registry_metadata
+  factually_consistent:
+    - tests/test_week2_verifier.py::test_exact_guideline_excerpt_uses_active_fresh_corpus_and_registry_metadata

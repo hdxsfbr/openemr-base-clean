@@ -10,5 +10,10 @@ capability_tags: [CAP-09, CAP-10]
 rubrics: [schema_valid, factually_consistent, safe_refusal]
 zero_tolerance: true
 mode: offline
-pytest:
-  - tests/test_week2_verifier.py::test_proposed_lab_fact_cannot_enter_final_claims_or_erase_a_reviewed_lab_result
+pytest_by_rubric:
+  schema_valid:
+    - tests/test_week2_verifier.py::test_proposed_lab_fact_cannot_enter_final_claims_or_erase_a_reviewed_lab_result
+  factually_consistent:
+    - tests/test_week2_verifier.py::test_proposed_lab_fact_cannot_enter_final_claims_or_erase_a_reviewed_lab_result
+  safe_refusal:
+    - tests/test_week2_verifier.py::test_proposed_lab_fact_cannot_enter_final_claims_or_erase_a_reviewed_lab_result
