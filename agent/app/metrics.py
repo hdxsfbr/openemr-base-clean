@@ -106,7 +106,7 @@ class Metrics:
             if verification is not None:
                 self.verification[verification if verification in VERIFICATION_OUTCOMES else REASON_OTHER] += 1
 
-    def extraction(self, status: str, latency_ms: float, confidence: str) -> None:
+    def extraction(self, document_type: str, status: str, latency_ms: float, confidence: str) -> None:
         """Record only the bounded outcome of a document-preview job.
 
         Field values, source identifiers, and handoff identifiers deliberately
@@ -114,9 +114,10 @@ class Metrics:
         bucket visible in the preview, or ``unknown`` for an unavailable job.
         """
         with self.lock:
+            bounded_document_type = document_type if document_type in {"lab_pdf", "intake_form"} else REASON_OTHER
             bounded_status = status if status in {"complete", "partial", "unavailable", "failed"} else REASON_OTHER
             bounded_confidence = confidence if confidence in {"high", "medium", "low", "unknown"} else REASON_OTHER
-            self.extractions[(bounded_status, bounded_confidence)] += 1
+            self.extractions[(bounded_document_type, bounded_status, bounded_confidence)] += 1
             self.latencies.append((time.time(), latency_ms))
 
     def window(self, seconds: float = 300.0) -> dict[str, float]:
@@ -149,8 +150,8 @@ class Metrics:
             for outcome, n in self.verification.items():
                 lines.append(f'copilot_verification_total{{outcome="{outcome}"}} {n}')
             lines.append("# TYPE copilot_document_extractions_total counter")
-            for (status, confidence), n in self.extractions.items():
-                lines.append(f'copilot_document_extractions_total{{status="{status}",confidence="{confidence}"}} {n}')
+            for (document_type, status, confidence), n in self.extractions.items():
+                lines.append(f'copilot_document_extractions_total{{document_type="{document_type}",status="{status}",confidence="{confidence}"}} {n}')
             lines.append("# TYPE copilot_panel_events_total counter")
             for event, n in self.panel_events.items():
                 lines.append(f'copilot_panel_events_total{{event="{event}"}} {n}')

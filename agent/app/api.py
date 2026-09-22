@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
 from . import __version__
-from .contracts import CONTRACT_VERSION, ErrorEnvelope, LabExtractionRequest, TurnRequest, TurnResponse, Verification
+from .contracts import CONTRACT_VERSION, ErrorEnvelope, IntakeExtractionResult, LabExtractionRequest, TurnRequest, TurnResponse, Verification
 from .delegation import Delegation, DelegationError, verify
 from .graph.state import PER_TURN_DEFAULTS
 from .metrics import metrics
@@ -110,6 +110,16 @@ def _preview_record_count(result: Any) -> int:
     if fields is not None:
         return len(fields)
     return len(getattr(extraction, "medications", [])) + len(getattr(extraction, "allergies", [])) + len(getattr(extraction, "family_history", []))
+
+
+def _preview_document_type(result: Any) -> str:
+    """Return the closed, worker-selected type without inspecting document text.
+
+    The gateway's persisted discriminator selects the worker branch.  Result
+    shape is only used here to emit its bounded operational label; it never
+    accepts a client-supplied document type.
+    """
+    return "intake_form" if isinstance(result, IntakeExtractionResult) else "lab_pdf"
 
 
 def _turn_input(delegation: Delegation, req: TurnRequest, correlation_id: str, fault: str | None) -> dict[str, Any]:
@@ -208,6 +218,7 @@ async def post_lab_extraction(
                         "handoff_id": result.handoff_id,
                         "contract_version": result.contract_version,
                         "model_version": "deterministic_parser_v1",
+                        "document_type": _preview_document_type(result),
                         "timings_ms": {"extract": elapsed},
                         "usage": {"input_tokens": 0, "output_tokens": 0, "model_calls": 0, "cost_microusd": 0},
                         "record_count": _preview_record_count(result),
@@ -225,7 +236,7 @@ async def post_lab_extraction(
         from .intake_extractor import IntakeExtractor
 
         result = IntakeExtractor._unavailable(body.source_id, secrets.token_hex(16))
-    metrics.extraction(result.status.value, (time.perf_counter() - started) * 1000, _preview_confidence(result))
+    metrics.extraction(_preview_document_type(result), result.status.value, (time.perf_counter() - started) * 1000, _preview_confidence(result))
     return JSONResponse(status_code=200, content=result.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id})
 
 
