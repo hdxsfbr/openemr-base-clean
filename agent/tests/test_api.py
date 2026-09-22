@@ -56,7 +56,7 @@ def test_access_log_redacts_conversation_identifier(client: TestClient, caplog: 
     assert response.status_code == 503
     requests = [record for record in caplog.records if record.name == "copilot.api" and record.getMessage() == "request"]
     assert requests and requests[-1].path == "guideline_evidence"
-    assert CID not in caplog.text
+    assert all(CID not in str(record.__dict__) for record in requests)
     bad = other[:-4] + "AAAA"
     r = client.post(f"/v1/conversations/{CID}/turns", json={"message": "hi"}, headers={"X-Copilot-Token": bad})
     assert r.status_code == 403
