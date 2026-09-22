@@ -50,14 +50,15 @@ verifies claims deterministically, opens native chart sources, degrades on tool
 or model failure, and carries one correlation ID. The retained release corpus
 contains 48 cases: 15 golden and 33 coverage cases, including four holdouts.
 
-The implemented Week 2 library seams export strict version-2 schemas, validate
-shared Python/PHP fixtures, compose the two bounded workers with a deterministic
+The implemented Week 2 seams export strict version-2 schemas, validate shared
+Python/PHP fixtures, compose the two bounded workers with a deterministic
 supervisor, support authorized upload/review/promotion and source-review UI,
-verify the closed claim/source unions, and enforce baseline comparison over 90
-retained cases. They are not yet wired into the FastAPI startup path:
-production extraction/OCR/storage and source-view resolvers are absent,
-`document_ready` remains false, and citation source reads safely return 503.
-Deployment and protected-branch evidence also remain release work.
+and enforce baseline comparison over 90 retained cases. The document path now
+also has a durable module job, signed internal worker gateway, separate
+extractor process, deterministic render/OCR adapters, and strict persistence.
+The Week 2 chat/source resolver is still not constructed by the live FastAPI
+turn path: `document_ready` remains false and citation source reads safely
+return 503. Deployed and protected-branch evidence also remain release work.
 
 Unresolved risks remain explicit: OpenEMR parity authorization is not a new
 care-relationship policy; the ordinary binary download failure path must be

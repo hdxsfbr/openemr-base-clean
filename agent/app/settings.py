@@ -17,6 +17,11 @@ class Settings(BaseSettings):
         "http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/ping.php"
     )
     gateway_timeout_seconds: float = 2.0
+    document_worker_url: str = (
+        "http://openemr:80/interface/modules/custom_modules/oe-module-copilot/public/gateway/extraction.php"
+    )
+    document_worker_timeout_seconds: float = 5.0
+    document_worker_id: str = "intake-extractor-01"
 
     # Secrets are mounted as files; the service reports "not_configured" when absent.
     anthropic_api_key_file: Path = Path("/run/secrets/anthropic_api_key")

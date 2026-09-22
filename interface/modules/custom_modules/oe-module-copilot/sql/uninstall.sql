@@ -3,5 +3,7 @@ DROP TABLE IF EXISTS `copilot_promoted_record`;
 DROP TABLE IF EXISTS `copilot_fact_review`;
 DROP TABLE IF EXISTS `copilot_proposed_fact`;
 DROP TABLE IF EXISTS `copilot_document_extraction`;
+DROP TABLE IF EXISTS `copilot_worker_nonce`;
+DROP TABLE IF EXISTS `copilot_extraction_job`;
 DROP TABLE IF EXISTS `copilot_document_upload`;
 DROP TABLE IF EXISTS `copilot_conversation`;

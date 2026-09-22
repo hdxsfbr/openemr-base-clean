@@ -2,9 +2,10 @@
 
 **Status:** Local implementation seams are substantially complete on branch
 `codex/week2-implementation` as of 2026-09-21, but the mandatory runtime is not
-complete. Production extraction/OCR/storage and source-view adapters are not
-wired into FastAPI startup; `document_ready` remains false and source review
-fails closed. Deployment, protected-branch configuration, an owner-approved
+complete. Production document extraction now has a durable module job, signed
+internal gateway, and separate worker, but source-view and Week 2 chat adapters
+are not wired into FastAPI startup; `document_ready` remains false and source
+review fails closed. Deployment, protected-branch configuration, an owner-approved
 full baseline, and live browser/load/rollback evidence also remain open.
 
 Start with

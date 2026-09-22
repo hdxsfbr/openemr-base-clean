@@ -1,7 +1,7 @@
 # AgentForge Clinical Co-Pilot agent service.
 # Holds the model key and delegation secret as file secrets; no database
 # credentials, no OpenEMR session (ADR-0003).
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -10,6 +10,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HF_HUB_DISABLE_TELEMETRY=1
 
 ARG CACHE_GUIDELINE_MODELS=0
+ARG POPPLER_VERSION=25.03.0-5+deb13u4
+ARG TESSERACT_VERSION=5.5.0-1+b1
+ARG TESSERACT_ENG_VERSION=1:4.1.0-2
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        poppler-utils=${POPPLER_VERSION} \
+        tesseract-ocr=${TESSERACT_VERSION} \
+        tesseract-ocr-eng=${TESSERACT_ENG_VERSION} \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin copilot \
     && mkdir -p /app /var/lib/copilot \

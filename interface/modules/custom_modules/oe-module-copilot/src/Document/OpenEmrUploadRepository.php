@@ -59,7 +59,16 @@ final class OpenEmrUploadRepository implements UploadRepositoryPort
                 $source['byte_count'], $source['mime_type'], $source['page_count'], $intentId,
             ]
         );
-        return QueryUtils::affectedRows() === 1;
+        $completed = QueryUtils::affectedRows() === 1;
+        if ($completed) {
+            QueryUtils::sqlStatementThrowException(
+                'INSERT INTO copilot_extraction_job (job_id, source_document_id, extraction_version, handoff_id, '
+                . 'correlation_id, status) VALUES (UUID(), ?, 1, UUID(), ?, \'queued\') '
+                . 'ON DUPLICATE KEY UPDATE job_id = job_id',
+                [$source['source_document_id'], $source['correlation_id']]
+            );
+        }
+        return $completed;
     }
 
     public function findSource(string $sourceDocumentId): ?array

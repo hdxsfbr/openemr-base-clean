@@ -70,7 +70,7 @@ docker compose up --detach --wait --wait-timeout 120 caddy
 
 # Fail loudly if any long-running service is not running. The one-shot jobs
 # (copilot-setup, demo-seed) are behind profiles and are not expected here.
-required_services=(database openemr agent caddy alerts)
+required_services=(database openemr agent extractor caddy alerts)
 running_services="$(docker compose ps --services --status running)"
 missing_services=()
 for service_name in "${required_services[@]}"; do

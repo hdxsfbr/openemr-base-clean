@@ -13,7 +13,7 @@
 return [
     'name' => 'AgentForge Clinical Co-Pilot',
     'description' => 'Source-cited pre-visit assistant with physician-controlled immutable document sources in the patient dashboard.',
-    'version' => '0.6.0',
+    'version' => '0.7.0',
     'author' => 'Andre Batista',
     'license' => 'GPL-3.0',
     'acl_category' => 'patients',
@@ -24,6 +24,8 @@ return [
     'tables' => [
         'copilot_conversation',
         'copilot_document_upload',
+        'copilot_extraction_job',
+        'copilot_worker_nonce',
         'copilot_document_extraction',
         'copilot_proposed_fact',
         'copilot_fact_review',
@@ -39,6 +41,9 @@ return [
     'upgrade' => [
         '0.6.0' => [
             'sql' => 'sql/upgrade_0.6.0.sql',
+        ],
+        '0.7.0' => [
+            'sql' => 'sql/upgrade_0.7.0.sql',
         ],
     ],
 ];

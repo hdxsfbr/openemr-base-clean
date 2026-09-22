@@ -192,6 +192,7 @@ final class DocumentLifecycle
             'site_id' => $context->siteId,
             'pid' => $context->pid,
             'created_by' => $context->userId,
+            'correlation_id' => $correlationId,
         ];
 
         try {
