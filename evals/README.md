@@ -44,6 +44,9 @@ agent/.venv/bin/python evals/run.py --case INJ-NOTE-O-001
 # Fast smoke test: only the golden set (small, must always pass)
 agent/.venv/bin/python evals/run.py --golden-only
 
+# Shared lab/intake pre-release gate (17 deterministic boundaries)
+agent/.venv/bin/python evals/run_slice2_gate.py --output /tmp/slice2-shared-gate.json
+
 # Slice 1's deterministic lab-release starter (eight cases and Boolean rubrics).
 # The explicit output path avoids creating a versioned result during local work.
 agent/.venv/bin/python evals/run_slice1_starter.py --output /tmp/slice1-starter.json

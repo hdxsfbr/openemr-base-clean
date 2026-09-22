@@ -8,7 +8,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app import main as main_module
 from app.delegation import mint_for_tests
-from app.contracts import DocumentLimitation, ExtractionStatus, LabExtractionResult
+from app.contracts import DocumentLimitation, ExtractionStatus, IntakeExtractionResult, LabExtractionResult
 from app.graph.build import build_graph
 from app.graph.nodes import Runtime
 from conftest import TEST_SECRET, FakeGateway, FakeModel
@@ -94,15 +94,38 @@ def test_lab_extraction_accepts_only_an_immutable_source_reference(client: TestC
 
     token = mint_for_tests(CID, "abcdefabcdefabdd", TEST_SECRET)
     source_id = "document:0123456789abcdef0123456789abcdef"
-    before = metrics.extractions[("unavailable", "unknown")]
+    before = metrics.extractions[("lab_pdf", "unavailable", "unknown")]
     r = client.post(f"/v1/conversations/{CID}/lab-extractions", json={"source_id": source_id}, headers={"X-Copilot-Token": token})
     assert r.status_code == 200
     assert r.json()["status"] == "unavailable" and r.json()["extraction"] is None
     assert main_module.app.state.intake_extractor.calls[0][0] == source_id
-    assert metrics.extractions[("unavailable", "unknown")] == before + 1
-    assert 'copilot_document_extractions_total{status="unavailable",confidence="unknown"}' in client.get("/metrics").text
+    assert metrics.extractions[("lab_pdf", "unavailable", "unknown")] == before + 1
+    assert 'copilot_document_extractions_total{document_type="lab_pdf",status="unavailable",confidence="unknown"}' in client.get("/metrics").text
     bad = client.post(f"/v1/conversations/{CID}/lab-extractions", json={"source_id": source_id, "pid": 7}, headers={"X-Copilot-Token": token})
     assert bad.status_code == 400 and bad.json()["code"] == "invalid_request"
+
+
+def test_intake_preview_metrics_use_the_worker_selected_document_type(client: TestClient) -> None:
+    from app.metrics import metrics
+
+    class IntakeExtractor:
+        async def extract(self, source_id, token, correlation_id, fault=None):
+            return IntakeExtractionResult(
+                source_id=source_id, handoff_id="b" * 32, status=ExtractionStatus.unavailable,
+                limitations=[DocumentLimitation(code="extraction_unavailable", detail="The intake preview is temporarily unavailable. No extracted facts were shown.")],
+            )
+
+    main_module.app.state.intake_extractor = IntakeExtractor()
+    token = mint_for_tests(CID, "abcdefabcdefabde", TEST_SECRET)
+    before = metrics.extractions[("intake_form", "unavailable", "unknown")]
+    response = client.post(
+        f"/v1/conversations/{CID}/lab-extractions",
+        json={"source_id": "document:0123456789abcdef0123456789abcdef"},
+        headers={"X-Copilot-Token": token},
+    )
+
+    assert response.status_code == 200
+    assert metrics.extractions[("intake_form", "unavailable", "unknown")] == before + 1
 
 
 # Operational controls at the API: the queue-depth gauge (A2), the verification counter and the

@@ -45,7 +45,7 @@ METADATA_KEYS = frozenset({
     "summary_basis", "summary_replaced", "prompt_version",
     "effort", "attempt", "stop_reason",
     "reason", "record_count", "truncated", "gateway_latency_ms",
-    "handoff_id", "contract_version", "model_version", "retrieval_hit_count", "extraction_confidence", "eval_outcome",
+    "handoff_id", "contract_version", "model_version", "document_type", "retrieval_hit_count", "extraction_confidence", "eval_outcome",
 })
 # Enum-shaped: lowercase-led snake/colon tokens ("partial", "lexicon:judgment", "http_503", "n/a").
 # Rejects names, dates, MRN/SSN/phone shapes, non-ASCII, and anything with whitespace.
