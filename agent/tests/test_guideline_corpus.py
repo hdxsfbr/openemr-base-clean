@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -74,6 +75,22 @@ def test_checked_in_active_pointer_validates_without_a_model_or_network() -> Non
     result = subprocess.run(
         [sys.executable, "-m", "app.guideline_corpus.build", "validate"],
         cwd=Path(__file__).parents[1],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "\"status\": \"ok\"" in result.stdout
+
+
+def test_active_pointer_validates_from_the_agent_image_layout(tmp_path: Path) -> None:
+    """The container has /app/app beside /app/guideline_corpus, not a checkout."""
+    runtime_root = tmp_path / "app"
+    shutil.copytree(Path(__file__).parents[1] / "app", runtime_root / "app")
+    shutil.copytree(CORPUS_ROOT, runtime_root / "guideline_corpus")
+    result = subprocess.run(
+        [sys.executable, "-m", "app.guideline_corpus.build", "validate"],
+        cwd=runtime_root,
+        env={**os.environ, "PYTHONPATH": str(runtime_root)},
         capture_output=True,
         text=True,
     )
