@@ -194,7 +194,12 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             return None
         return {"provider": settings.model_provider, "model": settings.model_id}
 
-    async def _call_batch(calls: list[tuple[str, dict[str, Any]]], state: TurnState) -> list[ToolResponse]:
+    async def _call_batch(
+        calls: list[tuple[str, dict[str, Any]]],
+        state: TurnState,
+        *,
+        disclose_to_model: bool = True,
+    ) -> list[ToolResponse]:
         """One gateway request serving every call in `calls`: one OpenEMR
         bootstrap (translation/ACL/layout lookups, PERF-MED-002) instead of
         one per tool. Fault-injected and invalid-params tools are resolved
@@ -227,7 +232,12 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             token = get_token(state["turn_id"]) or ""
             with contextlib.ExitStack() as stack:
                 observations = [stack.enter_context(tool_observation(tool, state["correlation_id"])) for _, tool, _ in live]
-                responses = await rt.gateway.call_batch([(tool, clean) for _, tool, clean in live], token, state["correlation_id"], disclosure=_disclosure(state))
+                # Revalidation replays authorized projections only to prove
+                # that a displayed claim still resolves.  Those records never
+                # enter the model context, so declaring a model disclosure
+                # here would create a false audit trail.
+                disclosure = _disclosure(state) if disclose_to_model else None
+                responses = await rt.gateway.call_batch([(tool, clean) for _, tool, clean in live], token, state["correlation_id"], disclosure=disclosure)
                 for (i, tool, _), obs, response in zip(live, observations, responses):
                     record_tool_result(obs, response)
                     metrics.tool_call(tool, response.status.value, response.reason)
@@ -376,7 +386,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         # first-turn deterministic fallback does: it must still refresh the
         # original bounded tool set before render builds its fallback claims.
         if calls:
-            responses = await _call_batch(calls, state)
+            responses = await _call_batch(calls, state, disclose_to_model=False)
             fresh_pack = EvidencePack(window_since=old_pack.window_since, window_until=old_pack.window_until)
             add_responses(fresh_pack, responses)
             derive_changes(fresh_pack)

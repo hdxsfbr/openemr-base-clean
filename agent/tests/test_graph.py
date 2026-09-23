@@ -317,7 +317,9 @@ async def test_the_agents_own_follow_ups_retrieve_without_a_plan_call() -> None:
     model, gateway = FakeModel(claims=[good]), FakeGateway()
     final = await make_graph(model, gateway).ainvoke(turn_input("  what does the chart say about why each current medication is on the list  "), CFG)
     assert model.plan_rounds == 0 and model.narrate_calls == 1, "the known question skipped the plan call and still narrated"
-    assert [c[0] for c in final["tool_calls"]] == ["medications", "problems", "clinical_notes"] == [tool for tool, _ in gateway.calls]
+    expected_tools = ["medications", "problems", "clinical_notes"]
+    assert [c[0] for c in final["tool_calls"]] == expected_tools
+    assert [tool for tool, _ in gateway.calls] == expected_tools * 2, "final display replays every bounded call under fresh authorization"
     assert final["turn_type"] == "followup" and final["status"] == "complete" and [c["id"] for c in final["accepted"]] == ["c1"]
 
     # Any other follow-up still goes through plan, which is what decides filters, search terms and the window.
@@ -344,16 +346,17 @@ async def test_a_retrieval_whose_records_go_to_the_model_declares_the_disclosure
     good = {"id": "c1", "type": "medication_status", "text": "Metformin is active.", "facts": {"name": "metformin", "status": "active"}, "source_ids": [METFORMIN]}
     gateway = FakeGateway()
     await make_graph(FakeModel(claims=[good]), gateway).ainvoke(turn_input("What changed since the last visit?"), CFG)
-    assert len(gateway.disclosures) == 2, "a UC-01 first turn retrieves in two batches"
-    assert all(d == {"provider": "anthropic", "model": settings.model_id} for d in gateway.disclosures)
+    assert len(gateway.disclosures) == 3, "a UC-01 first turn uses two model-bound batches plus one final revalidation batch"
+    assert gateway.disclosures[:2] == [{"provider": "anthropic", "model": settings.model_id}] * 2
+    assert gateway.disclosures[-1] is None, "revalidation projections never enter the model or produce a disclosure audit record"
 
     gateway = FakeGateway()
     await make_graph(None, gateway).ainvoke(turn_input("What changed since the last visit?", turn_id="fb5c2fa60b22e602"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb22"}})
-    assert gateway.disclosures == [None, None]
+    assert gateway.disclosures == [None, None, None]
 
     gateway = FakeGateway()
     await make_graph(FakeModel(claims=[good]), gateway).ainvoke(turn_input("What changed since the last visit?", turn_id="fb5c2fa60b22e603", fault="model"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb23"}})
-    assert gateway.disclosures == [None, None]
+    assert gateway.disclosures == [None, None, None]
 
 
 @pytest.mark.anyio
@@ -367,13 +370,13 @@ async def test_a_garbled_optional_plan_parameter_widens_the_retrieval_instead_of
     good = {"id": "c1", "type": "lab_result", "text": "Hemoglobin A1c 6.8 % on 2026-08-31, flagged abnormal.", "facts": {"analyte": "Hemoglobin A1c", "value_text": "6.8", "unit": "%", "date": "2026-08-31", "flag": "abnormal"}, "source_ids": [A1C_LATEST]}
     model, gateway = FakeModel(claims=[good], plan_calls=[("lab_results", {"since": "\n", "until": "</parameter>\n", "analyte": " A1c "})]), FakeGateway()
     final = await make_graph(model, gateway).ainvoke(turn_input("Are there earlier A1c results to compare?"), CFG)
-    assert gateway.calls == [("lab_results", {"analyte": "A1c", "limit": 50})], "blank and unparseable bounds are dropped, the analyte is kept and trimmed"
+    assert gateway.calls == [("lab_results", {"analyte": "A1c", "limit": 50})] * 2, "blank and unparseable bounds are dropped, the bounded call is replayed before display"
     assert final["status"] == "complete" and [c["id"] for c in final["accepted"]] == ["c1"] and model.narrate_calls == 1
 
     # Nothing usable at all is still refused: a wrong type for every parameter the tool has.
     model, gateway = FakeModel(claims=[good], plan_calls=[("lab_results", {"limit": "many"})]), FakeGateway()
     final = await make_graph(model, gateway).ainvoke(turn_input("Are there earlier A1c results to compare?", turn_id="fb5c2fa60b22e604"), {"configurable": {"thread_id": "57b815a321edb1bbab13699dec3adb24"}})
-    assert gateway.calls == [("lab_results", {"limit": 50})], "a bad limit falls back to the contract's default rather than cancelling the call"
+    assert gateway.calls == [("lab_results", {"limit": 50})] * 2, "a bad limit falls back to the contract's default and the bounded call is replayed before display"
 
 
 @pytest.mark.anyio
