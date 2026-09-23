@@ -25,6 +25,11 @@ Read the documents relevant to the change:
 Check `git status` before editing and preserve unrelated user changes. Inspect
 the existing OpenEMR pattern before introducing a new abstraction or dependency.
 
+For the OpenRouter PDF extraction work tracked by GitLab #50, the owner-provided
+local development API key is at `~/.config/agentforge/openrouter_api_key` on
+this machine. This records the path only; #51 must wire the key into the agent
+as a file secret. Never print or commit its contents. See `agent/README.md`.
+
 ## Hard Gates
 
 - Do not implement the AI layer until the audit executive summary and all five

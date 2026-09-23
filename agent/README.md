@@ -99,6 +99,12 @@ as `COPILOT_<FIELD>`). Secrets are files, never environment values. The
 settings, their code defaults, and what the demo Droplet's
 `infra/digitalocean/runtime/compose.yaml` sets instead:
 
+For the planned OpenRouter PDF extraction work (GitLab #50–#55), the
+owner-provided local development key is at
+`~/.config/agentforge/openrouter_api_key` on this machine. This path is not
+yet wired into `app/settings.py` or Compose; #51 adds that integration. Read
+the key from a file secret at runtime. Never print, log, or commit its value.
+
 | Variable | Code default | Notes |
 | --- | --- | --- |
 | `COPILOT_GATEWAY_BASE_URL`, `COPILOT_GATEWAY_PING_URL` | the module gateway at `http://openemr:80/...` | internal network, never through the edge |
