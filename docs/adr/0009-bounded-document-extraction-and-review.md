@@ -207,6 +207,43 @@ is future engine/performance tuning, explicitly out of #53's scope.
 The intake-form branch is untouched -- still the deterministic fixed-label
 parser; #54 decides whether it also moves to the OpenRouter path.
 
+## Status notes (2026-09-23, GitLab #54: OpenRouter intake extraction and verification)
+
+The intake-form branch moved to the same architecture as #53's lab branch
+(`resolve_intake_preview_via_model`), sharing its field-candidate schema and
+per-row `row_text` pairing check. Two differences from the lab branch, both
+driven by the intake contract's own optionality (`agent/app/contracts/documents.py`):
+every demographics field and `chief_concern` are optional on `IntakeExtraction`
+(`| None`), so they are omitted, not shown as missing, when the model itself
+never claims that question is even printed on this form -- only a field the
+model claims is printed but that fails independent verification is ever
+surfaced as `unreadable`. The repeated entry types' own identifying field
+(`medication.name`, `allergy.substance`, `family_history.relationship`/
+`condition`) is contract-required and is always shown once its own row is
+confirmed real, even when left blank -- a blank answer within a genuinely
+printed row is the "uncertain, not a chart fact" case the task asked for,
+distinct from a fully fabricated row (whose own `row_text` is never found in
+the source, and which is dropped entirely, matching #53).
+
+The synthetic forms' checkbox-style allergy answer is verified as two
+separately quoted claims -- the substance text and the checkbox glyph/word --
+so the printed check state is still classified deterministically from a
+verified quote, never trusted from the model's own say-so; if only the
+checkbox claim fails to verify, the substance still displays without a
+resolved checked/unchecked state, rather than withholding it outright. The
+same date-of-birth ambiguity and family-history conflicting-value
+classifiers from the old regex parser are preserved, now running over the
+model's verified quote instead of a regex capture. A scanned page with no
+local text layer degrades to the same honest `unavailable` state as #53's
+scanned lab case, for the same reason (nothing can be locally confirmed).
+
+One known, accepted limitation: the field-candidate schema's `printed`
+boolean cannot distinguish "this question's label is printed but left
+blank" from "this form never asks the question at all" -- both collapse to
+the same omitted-or-missing treatment described above. Giving the model a
+three-way signal for that distinction is a reasonable follow-up, not done
+here to keep this slice bounded.
+
 ## Revisit Triggers
 
 - Measured extraction quality cannot meet the Week 2 boolean eval thresholds.
