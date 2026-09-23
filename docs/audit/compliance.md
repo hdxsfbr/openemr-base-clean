@@ -338,6 +338,32 @@ question-triggered behaviour exactly. For the access-log review (§6.1), a
 expected and is not evidence of an unattended read; the physician opened that
 chart, which OpenEMR audits on its own.
 
+*Amended 2026-09-23 (GitLab #55): extended to the document-extraction
+worker's source read.* `copilot-model-disclosure` had only ever been wired
+into the chat path's `tools.php`; the lab/intake extraction worker's own
+read of a document's source bytes (`public/gateway/source.php`, called
+once per upload regardless of document type) never declared a disclosure,
+even though #53/#54 had already wired that read's bytes to leave for
+OpenRouter. `source.php` now accepts the same `{provider, model}`
+declaration as a query param (the agent's `read_source` always sends
+`{"provider": "openrouter", "model": <the pinned model id>}`, since this
+worker's only use of a read is handing it to that provider) and writes the
+row before returning bytes, fail-closed the same way as `tools.php`: if the
+row cannot be written, the read fails instead of returning undisclosed
+bytes. One row per document read, not one per model call -- the lab branch
+makes one OpenRouter call per read; the intake branch, since the same
+change, makes two (a primary and a secondary call over the same in-memory
+bytes, GitLab #55's schema fix), and still writes exactly one row,
+consistent with the existing rule that the row records a declared intent
+over the bytes, not a count of the model calls that intent enables.
+Separately, `Audit::modelDisclosure`'s own `$idShaped` sanitizer rejected
+any model id containing `/` (written for the chat path's Anthropic ids,
+which never do), so every row from this path recorded `model:
+"unspecified"` until the regex was widened -- confirmed both the bug and
+the fix directly against the `log` table on an integrated local stack,
+`google/gemini-2.5-flash` now recorded correctly
+(`docs/adr/0009-bounded-document-extraction-and-review.md` status note).
+
 ## 6. Procedures: demo project vs. real deployment
 
 ### 6.1 Access-log review
