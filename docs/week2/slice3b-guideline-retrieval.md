@@ -46,10 +46,12 @@ It exercised all eight finite topics three times (24 successful cases) on the
 same pinned active corpus. It recorded top-one topic accuracy 1.0 and exact
 chunk-hash preservation 1.0. Local total p50/p95 were 183.42/267.11 ms;
 per-stage p95 was sparse 0.53 ms, dense 10.26 ms, fusion 0.03 ms, and rerank
-259.92 ms. This passes the 1.5-second retrieval p95 target on the observed
+259.92 ms. This passed the then-current 1.5-second retrieval p95 target on the observed
 32-logical-CPU host, while retaining the two-second per-query hard deadline.
 Peak process RSS was 476,909,568 bytes. These host-local measurements do not
-replace the later co-located deployment gate.
+replace the later co-located deployment gate. The deployed gate was amended to
+2.0 seconds on 2026-09-22 with an explicit owner risk acceptance in
+ADR-0014; this historical local benchmark and its revisions are unchanged.
 
 Reproduce offline after setup:
 
