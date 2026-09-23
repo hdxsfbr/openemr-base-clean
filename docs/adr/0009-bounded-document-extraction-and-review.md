@@ -173,6 +173,40 @@ the presence of `analytes` rather than the old flat-field shape. This is a
 contract/UI change only; no field-evidence, citation, or authorization
 invariant from decisions 4-8 changed.
 
+## Status notes (2026-09-23, GitLab #53: OpenRouter lab extraction and verification)
+
+`agent/app/intake_extractor.py`'s lab branch replaced the fixed-label regex
+parser from #52 with the pinned OpenRouter client from #51
+(`resolve_lab_preview_via_model`). The model is asked, per the `LabExtraction`
+schema from #52, for the report's `collection_date` and each analyte row; for
+every field it must report whether it was printed and, when it was, an exact
+verbatim quote -- and each row must additionally report its own verbatim
+`row_text`. None of this is trusted on its own: the deterministic verifier
+independently confirms every quote is real text in the locally-extracted PDF
+text (the same non-OCR `_pdf_text` ground truth from #52) *and* is contained
+within that row's own `row_text`, so a value copied from a different row of
+the same document cannot pass verification just because it is real text
+somewhere else in the document -- this is the "row pairing" check the task
+asked for. A row whose own `row_text` is not found verbatim in the source is
+dropped entirely rather than shown with invented structure. `verify_lab_preview`
+(the final display-time authority from #52) is unchanged and still re-checks
+every citation before render.
+
+A scanned page with no local text layer (`_pdf_text` returns `""`) therefore
+drops every row regardless of what the model claims to see in the page image,
+and the whole extraction becomes `unavailable` -- an honest degraded state
+rather than trusting vision-only output the deterministic side cannot confirm.
+This is a conscious scope boundary, not a bug: decision 3's OCR-then-vision
+pipeline and decision 6's renderer-derived normalized bounding boxes are not
+implemented here (`normalized_box` stays unset, matching #52), consistent with
+the #51 status note that per-fact geometry needs local render/OCR page
+geometry, not a model's self-report. `openrouter_pdf_engine` stays at its
+default (`pdf-text`); switching the default to `native` for image-only pages
+is future engine/performance tuning, explicitly out of #53's scope.
+
+The intake-form branch is untouched -- still the deterministic fixed-label
+parser; #54 decides whether it also moves to the OpenRouter path.
+
 ## Revisit Triggers
 
 - Measured extraction quality cannot meet the Week 2 boolean eval thresholds.

@@ -22,6 +22,7 @@ from .graph.nodes import Runtime
 from .logging_setup import configure_logging
 from .metrics import metrics
 from .model import live_model
+from .openrouter_client import OpenRouterClient
 from .readiness import ReadinessReport, evaluate
 from .settings import settings
 from .state_store import checkpoint_path
@@ -64,6 +65,7 @@ async def lifespan(app: FastAPI):
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
     gateway = HttpGateway()
+    openrouter = OpenRouterClient()
     try:
         async with AsyncSqliteSaver.from_conn_string(checkpoint_path()) as saver:
             # Every checkpoint read/write serializes on the saver's own
@@ -77,7 +79,7 @@ async def lifespan(app: FastAPI):
             app.state.graph = build_graph(runtime, checkpointer=saver)
             # Separate from the chat graph: uploaded documents terminate at a
             # review-only preview and cannot become chat evidence or writes.
-            app.state.intake_extractor = IntakeExtractor(gateway)
+            app.state.intake_extractor = IntakeExtractor(gateway, openrouter)
             try:
                 app.state.guideline_release = GuidelineReleaseService(
                     EvidenceRetrieverWorker(GuidelineRetriever(
@@ -92,6 +94,7 @@ async def lifespan(app: FastAPI):
             yield
     finally:
         await gateway.aclose()
+        await openrouter.aclose()
 
 
 app = FastAPI(title="AgentForge Clinical Co-Pilot Agent", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan)
