@@ -82,7 +82,7 @@ class Settings(BaseSettings):
 
     # Bounded OpenRouter PDF client (GitLab #51). Separate from the chat model
     # above: a different provider, key, and pinned model for document extraction.
-    # Not yet called by any worker; #52-#54 wire it into intake extraction.
+    # Called by the lab-report extraction branch as of #53.
     openrouter_api_key_file: Path = Path("/run/secrets/openrouter_api_key")
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     # Owner decision 2026-09-22 (ADR-0009 status note): a vision-capable model
