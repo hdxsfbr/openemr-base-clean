@@ -10,6 +10,7 @@
 #   ~/.config/agentforge/langfuse_public_key
 #   ~/.config/agentforge/langfuse_secret_key
 #   ~/.config/agentforge/slack_alert_webhook   (Slack incoming webhook for runtime alerts)
+#   ~/.config/agentforge/openrouter_api_key   (bounded PDF extraction provider, GitLab #51/#53/#54)
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
@@ -26,7 +27,7 @@ ssh_options=(-o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
 source_dir="${AGENTFORGE_SECRETS_DIR:-${HOME}/.config/agentforge}"
 
 pushed=0
-for name in anthropic_api_key anthropic_workspace_id langfuse_public_key langfuse_secret_key slack_alert_webhook; do
+for name in anthropic_api_key anthropic_workspace_id langfuse_public_key langfuse_secret_key slack_alert_webhook openrouter_api_key; do
     path="${source_dir}/${name}"
     if [[ ! -s "${path}" ]]; then
         printf 'skip   %s (no local file)\n' "${name}"

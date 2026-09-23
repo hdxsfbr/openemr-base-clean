@@ -244,6 +244,136 @@ the same omitted-or-missing treatment described above. Giving the model a
 three-way signal for that distinction is a reasonable follow-up, not done
 here to keep this slice bounded.
 
+## Status notes (2026-09-23, GitLab #55: verified integrated PDF previews)
+
+The parent task's final child issue exercised the whole chain for real on
+the local dev stack, for the first time end to end: browser upload through
+the module UI, the module's own gateway, the agent service making real
+OpenRouter calls with the pinned key, and the audit/compliance trail --
+rather than the pytest doubles #51-#54 verified against. No local
+integration environment for this existed yet (`docs/REQUIREMENTS_TRACEABILITY.md`
+had flagged this as outstanding): a fresh `copilot-agent:local` image built
+from `agent/`'s current source, and a minimal Caddy edge mirroring
+`infra/digitalocean/runtime/Caddyfile`'s `/copilot-api/*` split, both
+attached to the `development-easy` stack's Docker network. This surfaced
+four real defects that no unit test could have caught, since none of them
+depend on document content or extraction logic -- all four are fixed here:
+
+1. **The pinned model can never actually respond, for either document
+   type, regardless of content.** `LAB_EXTRACTION_SCHEMA` and
+   `INTAKE_EXTRACTION_SCHEMA` (#52-#54) were shaped for a Gemini
+   structured-output compiler limit neither schema respected: every real
+   call to `google/gemini-2.5-flash` via OpenRouter failed `http_400`
+   ("the specified schema produces a constraint that has too many states
+   for serving"), independent of document content, so no extraction ever
+   reached the model's own judgment about a page -- every previously green
+   pytest run against `FakeOpenRouter` had validated the resolver/verifier
+   boundary correctly but never touched this. Bisected directly against the
+   live API: the lab schema's single `analytes` array serves up to 11 items
+   (12 fails); the intake schema, asking for three repeated-entry arrays in
+   one call, only serves 3 items each simultaneously (9 rows total; 4 each
+   already fails). `agent/app/intake_extractor.py` now caps lab analytes at
+   10 (one item of margin under the verified line), and splits intake into
+   two schemas run concurrently via `asyncio.gather`: a primary call
+   (demographics, chief_concern, medications; medications capped at 8, the
+   verified figure) and a secondary call (allergies, family_history; capped
+   at 6 each, verified). The secondary call failing on its own degrades to
+   empty allergies/family_history rather than failing a preview whose
+   primary section resolved fine -- new tests cover both the two-call split
+   and this independent degradation. Verified end to end against the real
+   API afterward: `synthetic-lab-varied-layout.pdf` resolves 2 analytes,
+   `synthetic-intake-varied-layout.pdf` resolves 2 medications/2
+   allergies/1 family-history entry, both fully verified; the scanned
+   fixtures both correctly return `None` (honest unavailable) from a real,
+   multi-second, `status: ok` OpenRouter call whose claims simply cannot be
+   confirmed against a page with no local text layer, not a pre-call
+   short-circuit -- the first time that specific scanned-page path was ever
+   exercised against the real provider rather than a test double. Real
+   observed latency for a two-analyte/two-medication document: 3.1-5.6 s
+   per OpenRouter call (lab, one call; intake, two concurrent calls, total
+   wall time close to the slower of the two) -- a fact recorded here per
+   the task's own instruction, not yet tuned.
+2. **The document-extraction path never wrote the compliance framework's
+   own model-disclosure control.** `copilot-model-disclosure`
+   (`docs/audit/compliance.md` section 5) is the audit row the module
+   writes before patient-bound content leaves for a model provider; it
+   existed for the chat path's `tools.php` since ADR-0003's amendment but
+   was never extended to `gateway/source.php`, the one place the lab/intake
+   extraction worker's source bytes exist before OpenRouter sees them --
+   #53/#54 wired the model call itself but not this control. `source.php`
+   now accepts the agent's `{provider, model}` declaration (query params,
+   mirroring `tools.php`'s JSON body field) and writes the same
+   `Audit::modelDisclosure` row before returning bytes, fail-closed the
+   same way (`agent/app/gateway_client.py`'s `read_source`, `Gateway/Audit.php`).
+   One row per document read regardless of how many OpenRouter calls follow
+   from those bytes in-process (verified: the intake branch's two calls
+   produce exactly one disclosure row, not two) -- consistent with the
+   existing precedent that the row records a declared intent, not a
+   per-model-call event.
+3. **`Audit::modelDisclosure`'s own sanitizer silently discarded every real
+   model id.** Its `$idShaped` regex (written for the chat path's
+   Anthropic ids, which never contain a `/`) rejected OpenRouter's
+   `vendor/model` convention, so `google/gemini-2.5-flash` always recorded
+   as `"unspecified"` -- confirmed via the audit table, both before and
+   after the fix. Widened to allow `/`.
+4. **Two module bugs the local integration test surfaced, unrelated to any
+   of the above:** `copilot.js`'s upload-rejection path read
+   `data.code`, which `document_upload.php`'s 409 body never sets (the
+   reason lives at `data.limitation.code`), so a real rejection (e.g. a
+   fixture missing the intake format marker) always displayed the generic
+   literal `"document_upload"` instead of the real reason; and
+   `renderExtractionPreview`'s lab-vs-intake label inference defaulted to
+   "Intake" for any `status: unavailable` result (no `extraction` object to
+   infer the type from), so a failed *lab* upload displayed "Intake
+   extraction preview only" -- worse, the render branch for that case had
+   no null guard and threw a `TypeError` reading `extraction.collection_date`
+   off a null `extraction`, which is what a clinician actually saw on
+   screen before this fix. Both fixed; the label now falls back to the
+   document type the clinician actually selected only when there is no
+   extraction to structurally infer it from, and the lab render branch is
+   now guarded the same way the intake branch already was.
+
+Two smaller, non-blocking findings fixed in passing: the demo Droplet's
+`infra/digitalocean/runtime/compose.yaml`/`start.sh`/`push-secrets.sh` never
+declared or provisioned the `openrouter_api_key` secret at all, so a real
+deployment today would have every extraction branch permanently
+`not_configured` (`docs/deployment/digitalocean.md`, `agent/README.md`
+updated); and `agent/app/logging_setup.py`'s structured-log field whitelist
+had no `reason` key, so a real OpenRouter failure's own diagnostic field
+(a bounded enum-like string, never content) was silently dropped from every
+log line, which cost real time diagnosing defect 1 above before it was
+found by calling the client directly and reading the raw provider error.
+
+Two of the two intake evaluation fixtures needed a fix of their own, not
+the application: `synthetic-intake-varied-layout.pdf` and
+`synthetic-intake-scanned.pdf` (built for #54's pytest-level resolver
+tests, which never go through the browser upload path) never carried
+`IntakeFormPolicy::FORMAT_MARKER`, the literal byte string the module's own
+upload boundary requires before it will store a file as an intake form
+(`interface/modules/custom_modules/oe-module-copilot/src/Documents/IntakeFormPolicy.php`).
+A real browser upload of either fixture was rejected at storage, before
+ever reaching the extractor. Added as a PDF comment line (confirmed inert
+to `_pdf_text()`'s `Tj`-scoped extraction and to every existing pytest
+assertion) rather than regenerating either fixture's content.
+
+**Confirmed working, not just re-asserted:** patient-bound authorization
+(`UploadContext::fromSession` derives pid from the live OpenEMR session,
+never a client-supplied value, and re-checks user-active/squad/document-ACL
+on every upload and every later source read); review-only framing (present
+on every rendered preview, in both the working and unavailable cases, now
+correctly labeled per defect 4); no "accept into chart" affordance anywhere
+in the UI (confirmed absent, matching the parent issue's explicit exclusion
+of physician promotion); and no document content, prompt, or model
+response in any log line or audit row across four full upload-to-preview
+cycles -- only ids, byte counts, tool/event names, and bounded status
+strings, in both the agent's structured logs and OpenEMR's own audit log.
+
+**Still not implemented, unchanged from #51-#54 and explicitly out of this
+task's scope:** OCR/vision retry for a scanned page (decision 3), renderer-
+derived bounding boxes (decision 6), physician promotion into the chart
+(ADR-0008), chat readback of an unreviewed document's extracted facts, and
+any latency/cost tuning of the calls this note measured but did not tune.
+
 ## Revisit Triggers
 
 - Measured extraction quality cannot meet the Week 2 boolean eval thresholds.

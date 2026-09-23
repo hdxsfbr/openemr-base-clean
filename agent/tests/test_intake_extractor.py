@@ -10,6 +10,7 @@ import pytest
 from app.contracts import ExtractionState, IntakeFieldState
 from app.intake_extractor import IntakeExtractor, SourceBytes, resolve_intake_preview_via_model, resolve_lab_preview_via_model, verify_intake_preview, verify_lab_preview
 from app.openrouter_client import OpenRouterResult
+from app.settings import settings
 
 
 FIXTURE = Path(__file__).parents[2] / "evals" / "fixtures" / "documents" / "synthetic-lab-golden.pdf"
@@ -27,24 +28,45 @@ class Reader:
     def __init__(self, result: SourceBytes) -> None:
         self.result = result
         self.calls: list[tuple[str, str, str]] = []
+        self.disclosures: list[dict[str, str] | None] = []
 
-    async def read_source(self, source_id: str, token: str, correlation_id: str) -> SourceBytes:
+    async def read_source(self, source_id: str, token: str, correlation_id: str, disclosure: dict[str, str] | None = None) -> SourceBytes:
         self.calls.append((source_id, token, correlation_id))
+        self.disclosures.append(disclosure)
         return self.result
 
 
 class FakeOpenRouter:
     """Scripts what the pinned OpenRouter model (#51) would have returned, so
-    the resolver/verifier boundary is exercised without any network call."""
+    the resolver/verifier boundary is exercised without any network call.
 
-    def __init__(self, data: dict | None = None, status: str = "ok", reason: str | None = None) -> None:
+    The intake resolver makes two concurrent calls (GitLab #55): one for the
+    "primary" schema (demographics/chief_concern/medications), one for the
+    "secondary" schema (allergies/family_history) -- see the schema
+    constants' comment in `intake_extractor.py` for why. By default this
+    fake answers both calls identically from `data`/`status`/`reason`
+    (matching every pre-#55 test's single-call fixture, which already
+    contains every key either call could ask for). Pass `secondary_status`/
+    `secondary_data`/`secondary_reason` to script the secondary call
+    independently, e.g. to exercise it failing while the primary succeeds.
+    """
+
+    def __init__(
+        self, data: dict | None = None, status: str = "ok", reason: str | None = None,
+        secondary_data: dict | None = "unset", secondary_status: str | None = None, secondary_reason: str | None = None,
+    ) -> None:
         self.data = data
         self.status = status
         self.reason = reason
+        self.secondary_data = data if secondary_data == "unset" else secondary_data
+        self.secondary_status = status if secondary_status is None else secondary_status
+        self.secondary_reason = reason if secondary_reason is None else secondary_reason
         self.calls: list[tuple[bytes, dict, str, str]] = []
 
     async def extract_pdf(self, pdf: bytes, schema: dict, prompt: str, correlation_id: str) -> OpenRouterResult:
         self.calls.append((pdf, schema, prompt, correlation_id))
+        if "allergies" in schema.get("properties", {}):
+            return OpenRouterResult(status=self.secondary_status, data=self.secondary_data, reason=self.secondary_reason)
         return OpenRouterResult(status=self.status, data=self.data, reason=self.reason)
 
 
@@ -428,6 +450,42 @@ async def test_intake_fixture_is_strictly_resolved_with_citations_and_preserved_
 
 
 @pytest.mark.anyio
+async def test_intake_resolution_makes_two_calls_with_the_split_schemas() -> None:
+    """GitLab #55: one combined schema (demographics + chief_concern + all
+    three repeated-entry arrays) is more than the real OpenRouter/Gemini
+    structured-output compiler can serve at any usable array size -- every
+    real call failed http_400 regardless of document content. The split
+    into a primary (demographics/chief_concern/medications) and a secondary
+    (allergies/family_history) call is what actually reaches the model."""
+    pdf = INTAKE_FIXTURE.read_bytes()
+    fake = FakeOpenRouter(INTAKE_FIXTURE_RESPONSE)
+    resolved = await resolve_intake_preview_via_model(SOURCE_ID, hashlib.sha3_512(pdf).hexdigest(), pdf, fake, CORRELATION_ID)
+
+    assert resolved is not None
+    assert len(fake.calls) == 2
+    schemas = [call[1] for call in fake.calls]
+    assert any("medications" in s.get("properties", {}) and "allergies" not in s.get("properties", {}) for s in schemas)
+    assert any("allergies" in s.get("properties", {}) and "medications" not in s.get("properties", {}) for s in schemas)
+
+
+@pytest.mark.anyio
+async def test_intake_secondary_call_failure_degrades_independently_of_the_primary() -> None:
+    """The secondary call (allergies/family_history) failing on its own --
+    a transient OpenRouter outage, say -- must not fail a preview whose
+    primary section (demographics/chief_concern/medications) resolved fine;
+    it degrades to the same empty-list shape a form that never mentions
+    either already produces, not a whole-document `unavailable`."""
+    pdf = INTAKE_FIXTURE.read_bytes()
+    fake = FakeOpenRouter(INTAKE_FIXTURE_RESPONSE, secondary_status="unavailable", secondary_data=None, secondary_reason="timeout")
+    resolved = await resolve_intake_preview_via_model(SOURCE_ID, hashlib.sha3_512(pdf).hexdigest(), pdf, fake, CORRELATION_ID)
+
+    assert resolved is not None
+    assert resolved.allergies == []
+    assert resolved.family_history == []
+    assert resolved.chief_concern is not None  # the primary section is unaffected
+
+
+@pytest.mark.anyio
 async def test_varied_intake_layout_supports_repeated_medications_and_allergies() -> None:
     """The resolver no longer depends on fixed intake labels, and repeated
     medication/allergy/family-history rows are all shown, not just one."""
@@ -610,3 +668,25 @@ async def test_intake_worker_uses_gateway_type_not_document_text_for_routing() -
     result = await IntakeExtractor(Reader(typed), FakeOpenRouter(INTAKE_FIXTURE_RESPONSE)).extract(SOURCE_ID, "delegation", CORRELATION_ID)
     assert result.status == "partial" and result.extraction is not None
     assert result.extraction.chief_concern is not None
+
+
+@pytest.mark.anyio
+async def test_lab_read_declares_the_openrouter_disclosure() -> None:
+    """GitLab #55: the gateway read is the only place this worker's source
+    bytes exist before they go to OpenRouter, so it must carry the same
+    {provider, model} disclosure a chat turn's retrieval batch carries
+    (agent/app/gateway_client.py's `read_source`, `gateway/source.php`)."""
+    reader = Reader(source())
+    await IntakeExtractor(reader, FakeOpenRouter(GOLDEN_RESPONSE)).extract(SOURCE_ID, "delegation", CORRELATION_ID)
+
+    assert reader.disclosures == [{"provider": "openrouter", "model": settings.openrouter_model_id}]
+
+
+@pytest.mark.anyio
+async def test_intake_read_declares_the_openrouter_disclosure() -> None:
+    pdf = INTAKE_FIXTURE.read_bytes()
+    typed = SourceBytes(200, SOURCE_ID, hashlib.sha3_512(pdf).hexdigest(), "application/pdf", pdf, "intake_form")
+    reader = Reader(typed)
+    await IntakeExtractor(reader, FakeOpenRouter(INTAKE_FIXTURE_RESPONSE)).extract(SOURCE_ID, "delegation", CORRELATION_ID)
+
+    assert reader.disclosures == [{"provider": "openrouter", "model": settings.openrouter_model_id}]

@@ -271,9 +271,11 @@ ssh "deployer@$DROPLET_IP" cat /opt/agentforge/secrets/demo_user_password
 
 Operator-supplied secrets (`anthropic_api_key`, `langfuse_public_key`,
 `langfuse_secret_key`, `anthropic_workspace_id` only when the Anthropic key
-is organization-level rather than workspace-scoped, and since 2026-09-20
+is organization-level rather than workspace-scoped, since 2026-09-20
 `slack_alert_webhook`, the Slack incoming webhook the `alerts` service posts
-to) live on the operator's machine as one file each in
+to, and since 2026-09-22 `openrouter_api_key`, the bounded PDF extraction
+provider the lab and intake preview branches call, GitLab #51/#53/#54) live
+on the operator's machine as one file each in
 `~/.config/agentforge/` (override the directory with `AGENTFORGE_SECRETS_DIR`),
 next to `do.env`, and are never committed. Push whichever exist, restart the
 agent, and print `/ready` with:
@@ -337,12 +339,12 @@ Droplet billing.
   10 MiB, three files), so a long-lived host no longer grows unbounded logs.
 - Droplet-local named volumes (database, sites, logs, TLS, agent state, Caddy)
   and randomly generated demo credentials.
-- Ten Compose file secrets under `/opt/agentforge/secrets/`: five generated
+- Eleven Compose file secrets under `/opt/agentforge/secrets/`: five generated
   on the host by `start.sh` (`mysql_root_password`, `mysql_password`,
   `openemr_admin_password`, `copilot_delegation_secret`,
-  `demo_user_password`) and five operator-supplied (`anthropic_api_key`,
+  `demo_user_password`) and six operator-supplied (`anthropic_api_key`,
   `anthropic_workspace_id`, `langfuse_public_key`, `langfuse_secret_key`,
-  `slack_alert_webhook`).
+  `slack_alert_webhook`, `openrouter_api_key`).
 - No `TZ` on any service: every container runs UTC ("Clocks" above).
 
 Terraform state remains local and ignored by Git. Application secrets are

@@ -49,7 +49,10 @@ final class Audit
      */
     public static function modelDisclosure(AuthorizedPatientContext $ctx, array $declared, array $released): void
     {
-        $idShaped = static fn(mixed $value): string => is_string($value) && preg_match('/^[A-Za-z0-9._:-]{1,64}$/', $value) === 1 ? $value : 'unspecified';
+        // "/" allows an OpenRouter-style vendor/model id (GitLab #55 -- the chat
+        // path's Anthropic ids never needed it, so the disclosure this worker's
+        // document read declares, gateway/source.php, always came back "unspecified").
+        $idShaped = static fn(mixed $value): string => is_string($value) && preg_match('#^[A-Za-z0-9._:/-]{1,64}$#', $value) === 1 ? $value : 'unspecified';
         $tools = [];
         $records = 0;
         foreach ($released as $envelope) {

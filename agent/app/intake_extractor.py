@@ -11,6 +11,7 @@ of correctness, confidence, or printed state is never trusted on its own.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 import secrets
@@ -43,6 +44,7 @@ from .contracts import (
     SourceCitation,
 )
 from .openrouter_client import OpenRouterPort
+from .settings import settings
 
 _INTAKE_COMPLETE_STATES = {IntakeFieldState.present, IntakeFieldState.checked, IntakeFieldState.unchecked}
 
@@ -58,7 +60,9 @@ class SourceBytes:
 
 
 class SourceReaderPort(Protocol):
-    async def read_source(self, source_id: str, token: str, correlation_id: str) -> SourceBytes: ...
+    async def read_source(
+        self, source_id: str, token: str, correlation_id: str, disclosure: dict[str, str] | None = None
+    ) -> SourceBytes: ...
 
 
 @dataclass(frozen=True)
@@ -208,7 +212,12 @@ LAB_EXTRACTION_SCHEMA = {
     "type": "object",
     "properties": {
         "collection_date": _FIELD_CANDIDATE_SCHEMA,
-        "analytes": {"type": "array", "items": _LAB_ANALYTE_SCHEMA, "minItems": 1, "maxItems": 50},
+        # 50 (until GitLab #55) is more than the real OpenRouter/Gemini structured-output
+        # compiler can serve: every real call failed http_400 ("too many states for
+        # serving") regardless of document content, lab or intake, so no extraction ever
+        # reached the model's own judgment about the page. Verified against the live
+        # pinned model (google/gemini-2.5-flash): 11 succeeds, 12 fails; 10 keeps a margin.
+        "analytes": {"type": "array", "items": _LAB_ANALYTE_SCHEMA, "minItems": 1, "maxItems": 10},
     },
     "required": ["collection_date", "analytes"],
     "additionalProperties": False,
@@ -347,16 +356,34 @@ _FAMILY_HISTORY_ENTRY_SCHEMA = {
     "additionalProperties": False,
 }
 
-INTAKE_EXTRACTION_SCHEMA = {
+# Split into two calls, not one (GitLab #55): a single schema asking for
+# demographics + chief_concern + all three repeated-entry arrays at once is more
+# than the real OpenRouter/Gemini structured-output compiler can serve at any
+# usable per-array size -- verified against the live pinned model
+# (google/gemini-2.5-flash): with all three arrays in one schema, only maxItems=3
+# each (9 rows total) succeeds; 4 each already fails http_400 ("too many states
+# for serving"). Splitting demographics/chief_concern/medications from
+# allergies/family_history buys back real per-array headroom (verified: 8 and 6
+# respectively) at the cost of one extra call -- still zero added calls for the
+# lab branch. `resolve_intake_preview_via_model` runs both concurrently.
+_INTAKE_PRIMARY_SCHEMA = {
     "type": "object",
     "properties": {
         "demographics": _INTAKE_DEMOGRAPHICS_SCHEMA,
         "chief_concern": _FIELD_CANDIDATE_SCHEMA,
-        "medications": {"type": "array", "items": _MEDICATION_ENTRY_SCHEMA, "maxItems": 50},
-        "allergies": {"type": "array", "items": _ALLERGY_ENTRY_SCHEMA, "maxItems": 50},
-        "family_history": {"type": "array", "items": _FAMILY_HISTORY_ENTRY_SCHEMA, "maxItems": 50},
+        "medications": {"type": "array", "items": _MEDICATION_ENTRY_SCHEMA, "maxItems": 8},
     },
-    "required": ["demographics", "chief_concern", "medications", "allergies", "family_history"],
+    "required": ["demographics", "chief_concern", "medications"],
+    "additionalProperties": False,
+}
+
+_INTAKE_SECONDARY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "allergies": {"type": "array", "items": _ALLERGY_ENTRY_SCHEMA, "maxItems": 6},
+        "family_history": {"type": "array", "items": _FAMILY_HISTORY_ENTRY_SCHEMA, "maxItems": 6},
+    },
+    "required": ["allergies", "family_history"],
     "additionalProperties": False,
 }
 
@@ -542,10 +569,34 @@ async def resolve_intake_preview_via_model(
     the source text actually read. Returns None when nothing in the
     response could be supported -- including a scanned page with no local
     text layer -- so the caller shows an honest unavailable state rather
-    than invented answers."""
-    result = await openrouter.extract_pdf(pdf, INTAKE_EXTRACTION_SCHEMA, _INTAKE_PROMPT, correlation_id)
-    if result.status != "ok" or not isinstance(result.data, dict):
+    than invented answers.
+
+    Two concurrent calls, not one (GitLab #55 -- see the schema constants'
+    comment): the primary call (demographics, chief_concern, medications) is
+    load-bearing, matching the lab branch's single-call contract -- a primary
+    failure is the same whole-preview `None` as before. The secondary call
+    (allergies, family_history) degrades independently on its own failure to
+    an empty list for both, the same shape a form that never mentions either
+    already produces, rather than failing a preview whose primary section
+    resolved fine."""
+    primary, secondary = await asyncio.gather(
+        openrouter.extract_pdf(pdf, _INTAKE_PRIMARY_SCHEMA, _INTAKE_PROMPT, correlation_id),
+        openrouter.extract_pdf(pdf, _INTAKE_SECONDARY_SCHEMA, _INTAKE_PROMPT, correlation_id),
+    )
+    if primary.status != "ok" or not isinstance(primary.data, dict):
         return None
+    secondary_data = secondary.data if secondary.status == "ok" and isinstance(secondary.data, dict) else {}
+    # Explicit per-key extraction, not a blind dict merge: each side's schema
+    # declares `additionalProperties: false`, so a real response is confined to
+    # its own keys, but this does not lean on the API honoring that -- primary
+    # is never read for allergies/family_history, nor secondary for anything else.
+    result_data = {
+        "demographics": primary.data.get("demographics"),
+        "chief_concern": primary.data.get("chief_concern"),
+        "medications": primary.data.get("medications"),
+        "allergies": secondary_data.get("allergies"),
+        "family_history": secondary_data.get("family_history"),
+    }
     text = _pdf_text(pdf)
 
     # Every demographics field and chief_concern are optional on the
@@ -553,7 +604,7 @@ async def resolve_intake_preview_via_model(
     # itself never claims the form even prints that question -- only a row
     # or field the model claims is printed but that fails verification is
     # ever surfaced as missing/unreadable.
-    raw_demographics = result.data.get("demographics")
+    raw_demographics = result_data.get("demographics")
     raw_demographics = raw_demographics if isinstance(raw_demographics, dict) else {}
     demographics_fields = {
         name: (
@@ -562,10 +613,10 @@ async def resolve_intake_preview_via_model(
         )
         for name in _DEMOGRAPHICS_FIELDS
     }
-    chief_concern = _optional_intake_field_from_model(source_id, source_hash, text, "chief_concern", result.data.get("chief_concern"))
+    chief_concern = _optional_intake_field_from_model(source_id, source_hash, text, "chief_concern", result_data.get("chief_concern"))
 
     def build_entries(raw_key: str, builder) -> list:
-        raw_items = result.data.get(raw_key)
+        raw_items = result_data.get(raw_key)
         if not isinstance(raw_items, list):
             raw_items = []
         built: list = []
@@ -669,7 +720,13 @@ class IntakeExtractor:
 
     async def extract(self, source_id: str, token: str, correlation_id: str, fault: str | None = None) -> LabExtractionResult | IntakeExtractionResult:
         handoff_id = secrets.token_hex(16)
-        source = await self.source_reader.read_source(source_id, token, correlation_id)
+        # This worker's only use of a read source is handing it to OpenRouter (#53/#54),
+        # so every read declares that disclosure -- same conservative accounting as a
+        # chat turn's retrieval batch (the row stands even if the model call that
+        # follows never runs, e.g. a bad content type or an injected fault).
+        source = await self.source_reader.read_source(
+            source_id, token, correlation_id, disclosure={"provider": "openrouter", "model": settings.openrouter_model_id}
+        )
         if source.status in {401, 403, 404}:
             # The API converts this to the same generic denial envelope as the
             # rest of the delegation boundary; no source bytes are exposed.

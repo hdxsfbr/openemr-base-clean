@@ -105,9 +105,14 @@ settings, their code defaults, and what the demo Droplet's
 For the OpenRouter PDF extraction work (GitLab #50–#55), the owner-provided
 local development key is at `~/.config/agentforge/openrouter_api_key` on this
 machine. `app/openrouter_client.py` (#51) reads it as a file secret through
-`COPILOT_OPENROUTER_API_KEY_FILE`, same pattern as the Anthropic key; it is
-not yet wired into Compose or any worker (#52–#54 do that). Never print, log,
-or commit its value.
+`COPILOT_OPENROUTER_API_KEY_FILE`, same pattern as the Anthropic key; the lab
+branch (#53) and the intake branch (#54) both call it. `infra/digitalocean/
+runtime/compose.yaml` and `start.sh` did not declare or provision this secret
+until #55 closed that gap (an agent started from the demo Droplet's compose
+before then found the key file absent and reported `not_configured` for both
+extraction branches, even with a real value at
+`~/.config/agentforge/openrouter_api_key` on the operator's machine, since
+nothing pushed it). Never print, log, or commit its value.
 
 | Variable | Code default | Notes |
 | --- | --- | --- |

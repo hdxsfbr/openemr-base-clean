@@ -234,10 +234,13 @@ holdout miss `CONF-DUP-NAMES-C2-001` was deliberately not tuned on.
 - Droplet `/opt/agentforge/secrets/`: `mysql_root_password`, `mysql_password`,
   `openemr_admin_password`, `copilot_delegation_secret`, `demo_user_password` (generated
   by `runtime/start.sh:33-37`); `anthropic_api_key`, `anthropic_workspace_id`,
-  `langfuse_public_key`, `langfuse_secret_key`, `slack_alert_webhook` (pushed by
-  `infra/digitalocean/push-secrets.sh`; the webhook since 2026-09-20, ten file secrets in all);
-  `/opt/agentforge/.env`; agent volume `/var/lib/copilot` (checkpoints, `alerts-state.json`).
-- Operator `~/.config/agentforge/`: `do.env`, the five pushed secrets above,
+  `langfuse_public_key`, `langfuse_secret_key`, `slack_alert_webhook`, `openrouter_api_key`
+  (pushed by `infra/digitalocean/push-secrets.sh`; the webhook since 2026-09-20, the
+  OpenRouter key since 2026-09-22 (GitLab #55, closing a gap where `compose.yaml` and
+  `start.sh` never wired the key the #53/#54 extraction branches already depended on),
+  eleven file secrets in all); `/opt/agentforge/.env`; agent volume `/var/lib/copilot`
+  (checkpoints, `alerts-state.json`).
+- Operator `~/.config/agentforge/`: `do.env`, the six pushed secrets above,
   `gitlab_runner_token`, `gitlab_pat`, `git-credentials`, `backups/`, `tfstate/<date>/`;
   repo-local, git-ignored: `infra/digitalocean/terraform.tfvars`, `terraform.tfstate*`.
 - DigitalOcean: Droplet snapshots `week1-final-2026-09-18` and `week1-final-2026-09-20` (the
