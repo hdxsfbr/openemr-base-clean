@@ -47,16 +47,24 @@ class HttpGateway:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def read_source(self, source_id: str, token: str, correlation_id: str) -> SourceBytes:
+    async def read_source(self, source_id: str, token: str, correlation_id: str, disclosure: dict[str, str] | None = None) -> SourceBytes:
         """Read exactly one delegated PDF from the module's internal boundary.
 
         This method deliberately returns no exception text and does not log the
         document. The intake worker maps every transport, timeout, integrity,
-        and parser failure to a typed preview limitation.
-        """
+        and parser failure to a typed preview limitation. `disclosure`
+        ({provider, model}, same contract as `call_batch`) declares that these
+        bytes are about to leave for a model provider; the module writes a
+        `copilot-model-disclosure` audit row before it returns them, and
+        returns none (a non-200 status) if it cannot (GitLab #55 -- #53/#54
+        wired the OpenRouter call but left this read undisclosed)."""
         headers = {"X-Copilot-Token": token, "X-Correlation-Id": correlation_id, "Accept": "application/pdf"}
+        params: dict[str, str] = {"source_id": source_id}
+        if disclosure:
+            params["provider"] = str(disclosure.get("provider", ""))
+            params["model"] = str(disclosure.get("model", ""))
         try:
-            response = await self._client.get(f"{self.base_url}/source.php", params={"source_id": source_id}, headers=headers)
+            response = await self._client.get(f"{self.base_url}/source.php", params=params, headers=headers)
         except httpx.HTTPError:
             return SourceBytes(status=503, source_id=None, source_hash=None, content_type=None, document_type=None, bytes=None)
         return SourceBytes(

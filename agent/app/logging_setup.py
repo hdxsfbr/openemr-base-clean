@@ -17,7 +17,13 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "msg": record.getMessage(),
         }
-        for key in ("correlation_id", "handoff_id", "path", "method", "status", "duration_ms", "component", "worker", "intent", "topic", "limitation", "candidate_count", "hit_count", "artifact_revision", "model_revision"):
+        # "reason" is a bounded enum-like string (e.g. "http_400", "timeout",
+        # "not_configured") set by openrouter_client.py's own failure logging --
+        # never request/response content. Its absence from this whitelist meant
+        # a real OpenRouter failure logged everything except the one field that
+        # says why, which cost real diagnostic time chasing GitLab #55's schema
+        # rejection (agent/app/openrouter_client.py:118,127).
+        for key in ("correlation_id", "handoff_id", "path", "method", "status", "reason", "duration_ms", "component", "worker", "intent", "topic", "limitation", "candidate_count", "hit_count", "artifact_revision", "model_revision"):
             value = getattr(record, key, None)
             if value is not None:
                 payload[key] = value
