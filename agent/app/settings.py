@@ -80,6 +80,20 @@ class Settings(BaseSettings):
     # Demo/CI only: honors X-Copilot-Fault (model, tool:<name>, tracer, budget).
     fault_injection: bool = False
 
+    # Bounded OpenRouter PDF client (GitLab #51). Separate from the chat model
+    # above: a different provider, key, and pinned model for document extraction.
+    # Not yet called by any worker; #52-#54 wire it into intake extraction.
+    openrouter_api_key_file: Path = Path("/run/secrets/openrouter_api_key")
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    # Owner decision 2026-09-22 (ADR-0009 status note): a vision-capable model
+    # with native PDF input, distinct from the Anthropic chat model above.
+    openrouter_model_id: str = "google/gemini-2.5-flash"
+    # OpenRouter's `file-parser` plugin engine for PDF input; "pdf-text" reads
+    # the existing text layer, no OCR cost. See ADR-0009 status note.
+    openrouter_pdf_engine: str = "pdf-text"
+    openrouter_timeout_seconds: float = 30.0
+    openrouter_max_output_tokens: int = 2048
+
     def anthropic_headers(self) -> dict[str, str]:
         workspace = self.secret(self.anthropic_workspace_id_file)
         return {"anthropic-workspace-id": workspace} if workspace else {}

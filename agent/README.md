@@ -64,7 +64,10 @@ report it). Layout under `app/`:
   trace as its class name only; a tool-type observation per gateway call; the
   `verification_passed`, `turn_error` and `summary_model_kept` scores on the
   turn trace; every warning carrying the correlation id), `state_store.py`
-  (SQLite checkpointer path, per-turn record and token caches).
+  (SQLite checkpointer path, per-turn record and token caches),
+  `openrouter_client.py` (bounded PDF client for the pinned OpenRouter model,
+  GitLab #51; own circuit breaker, one retry on 429/5xx, none on timeout; not
+  yet called by any worker).
 
 `pytest` runs 145 tests under `tests/` as of 2026-09-20 (API, contracts,
 graph, health, alerts, model output, the summary gate and fallback, telemetry
@@ -99,11 +102,12 @@ as `COPILOT_<FIELD>`). Secrets are files, never environment values. The
 settings, their code defaults, and what the demo Droplet's
 `infra/digitalocean/runtime/compose.yaml` sets instead:
 
-For the planned OpenRouter PDF extraction work (GitLab #50–#55), the
-owner-provided local development key is at
-`~/.config/agentforge/openrouter_api_key` on this machine. This path is not
-yet wired into `app/settings.py` or Compose; #51 adds that integration. Read
-the key from a file secret at runtime. Never print, log, or commit its value.
+For the OpenRouter PDF extraction work (GitLab #50–#55), the owner-provided
+local development key is at `~/.config/agentforge/openrouter_api_key` on this
+machine. `app/openrouter_client.py` (#51) reads it as a file secret through
+`COPILOT_OPENROUTER_API_KEY_FILE`, same pattern as the Anthropic key; it is
+not yet wired into Compose or any worker (#52–#54 do that). Never print, log,
+or commit its value.
 
 | Variable | Code default | Notes |
 | --- | --- | --- |
@@ -127,6 +131,10 @@ the key from a file secret at runtime. Never print, log, or commit its value.
 | `COPILOT_STATE_DIR` | `/var/lib/copilot` | checkpointer; on the Droplet the alerts job keeps its state file on the same volume |
 | `COPILOT_READY_CACHE_SECONDS` | `30.0` | |
 | `COPILOT_FAULT_INJECTION` | `false` | demo compose: `1`, honors `X-Copilot-Fault` (`model`, `tool:<name>`, `budget`) for the collection's failure examples and the eval fault cases |
+| `COPILOT_OPENROUTER_API_KEY_FILE` | `/run/secrets/openrouter_api_key` | file secret; a document worker's provider, separate from `COPILOT_ANTHROPIC_API_KEY_FILE` (ADR-0009 status note 2026-09-22) |
+| `COPILOT_OPENROUTER_BASE_URL`, `COPILOT_OPENROUTER_MODEL_ID` | `https://openrouter.ai/api/v1`, `google/gemini-2.5-flash` | pinned model; not yet named in a disclosure row since no worker calls it yet |
+| `COPILOT_OPENROUTER_PDF_ENGINE` | `pdf-text` | OpenRouter `file-parser` plugin engine; text-layer only, no OCR cost — a scanned page needs `native` or `mistral-ocr` instead (see the ADR-0009 status note) |
+| `COPILOT_OPENROUTER_TIMEOUT_SECONDS`, `COPILOT_OPENROUTER_MAX_OUTPUT_TOKENS` | `30.0`, `2048` | one retry on 429/5xx, none on timeout, own circuit breaker (`app/openrouter_client.py`) |
 
 The alerts job is the same package: `python -m app.alerts --url <metrics URL>
 [--ready-url URL] [--state FILE] [--interval SECONDS] [--webhook URL]
