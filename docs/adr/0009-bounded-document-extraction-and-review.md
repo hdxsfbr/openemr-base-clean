@@ -155,6 +155,24 @@ model to report one. Full detail, prompt, and both engine outputs:
 Engine selection per document shape (text-layer vs. scanned) is left to
 #52-#54.
 
+## Status notes (2026-09-22, GitLab #52: multi-result lab previews)
+
+Decision 4's lab schema (`LabExtraction` in `agent/app/contracts/documents.py`)
+changed from one flat six-field result to a report: one report-level
+`collection_date` field plus a repeated `analytes` list, each with its own
+`entry_id`, required `test_name`/`value`, and optional `unit`/
+`reference_range`/`abnormal_flag` that are omitted, never defaulted or
+invented, when not printed. `agent/app/intake_extractor.py`'s fixed-label
+lab parser and citation resolver/verifier were extended to split a report
+into per-analyte blocks and author a distinct citation per analyte field
+(`analyte_<n>_<field>`); it is still the same deterministic, non-OCR parser
+from decision 3's starting point, not the OpenRouter path — #53 replaces it.
+The review-only chat preview (`copilot.js`) now renders the shared
+collection date once and each analyte as its own labeled block, detected by
+the presence of `analytes` rather than the old flat-field shape. This is a
+contract/UI change only; no field-evidence, citation, or authorization
+invariant from decisions 4-8 changed.
+
 ## Revisit Triggers
 
 - Measured extraction quality cannot meet the Week 2 boolean eval thresholds.

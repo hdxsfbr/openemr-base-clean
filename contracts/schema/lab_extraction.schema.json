@@ -21,6 +21,119 @@
       "title": "ExtractionState",
       "type": "string"
     },
+    "LabAbnormalFlagField": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/LabFieldEvidence"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "enum": [
+                "abnormal",
+                "normal",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "evidence"
+      ],
+      "title": "LabAbnormalFlagField",
+      "type": "object"
+    },
+    "LabAnalyte": {
+      "additionalProperties": false,
+      "description": "One proposed test within a report. Printed-only fields are omitted, not invented.",
+      "properties": {
+        "abnormal_flag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LabAbnormalFlagField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "entry_id": {
+          "pattern": "^[a-f0-9]{32}$",
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "reference_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LabTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "test_name": {
+          "$ref": "#/$defs/LabTextField"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LabTextField"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "$ref": "#/$defs/LabTextField"
+        }
+      },
+      "required": [
+        "entry_id",
+        "test_name",
+        "value"
+      ],
+      "title": "LabAnalyte",
+      "type": "object"
+    },
+    "LabDateField": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/LabFieldEvidence"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "evidence"
+      ],
+      "title": "LabDateField",
+      "type": "object"
+    },
     "LabFieldEvidence": {
       "additionalProperties": false,
       "properties": {
@@ -47,6 +160,32 @@
         "confidence"
       ],
       "title": "LabFieldEvidence",
+      "type": "object"
+    },
+    "LabTextField": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/LabFieldEvidence"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "evidence"
+      ],
+      "title": "LabTextField",
       "type": "object"
     },
     "NormalizedBox": {
@@ -165,107 +304,28 @@
   "additionalProperties": false,
   "description": "A future worker proposal. It is explicitly not a clinical record fact.",
   "properties": {
-    "abnormal_flag": {
-      "default": "unknown",
-      "enum": [
-        "abnormal",
-        "normal",
-        "unknown"
-      ],
-      "title": "Abnormal Flag",
-      "type": "string"
+    "analytes": {
+      "items": {
+        "$ref": "#/$defs/LabAnalyte"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Analytes",
+      "type": "array"
     },
     "collection_date": {
-      "anyOf": [
-        {
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Collection Date"
+      "$ref": "#/$defs/LabDateField"
     },
     "contract_version": {
       "const": "2.0.0",
       "default": "2.0.0",
       "title": "Contract Version",
       "type": "string"
-    },
-    "fields": {
-      "additionalProperties": {
-        "$ref": "#/$defs/LabFieldEvidence"
-      },
-      "propertyNames": {
-        "enum": [
-          "test_name",
-          "value",
-          "unit",
-          "reference_range",
-          "collection_date",
-          "abnormal_flag"
-        ]
-      },
-      "title": "Fields",
-      "type": "object"
-    },
-    "reference_range": {
-      "anyOf": [
-        {
-          "maxLength": 160,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Reference Range"
-    },
-    "test_name": {
-      "anyOf": [
-        {
-          "maxLength": 160,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Test Name"
-    },
-    "unit": {
-      "anyOf": [
-        {
-          "maxLength": 64,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Unit"
-    },
-    "value": {
-      "anyOf": [
-        {
-          "maxLength": 160,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Value"
     }
   },
   "required": [
-    "fields"
+    "collection_date",
+    "analytes"
   ],
   "title": "LabExtraction",
   "type": "object",

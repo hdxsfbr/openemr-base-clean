@@ -46,6 +46,14 @@ requires every lab field's visible extraction state/confidence and source
 citation; it is not permitted to become a chart fact or final patient-record
 claim in this slice.
 
+Since GitLab #52, `LabExtraction` is a report: one report-level
+`collection_date` plus a repeated `analytes` list (1-50), each with its own
+`entry_id`, required `test_name`/`value`, and optional `unit`/
+`reference_range`/`abnormal_flag` fields that are omitted (not defaulted or
+invented) when not printed. This replaced the earlier single-result, flat
+six-field shape so the preview and its worker can show every result in a
+report, not just the first.
+
 Synthetic fixtures live under `evals/fixtures/documents/` and
 `agent/tests/fixtures/week2/`. They contain no patient identifier or real
 clinical content. Extraction, resolver/verifier display, preview UI, and a

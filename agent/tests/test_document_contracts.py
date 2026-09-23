@@ -16,8 +16,8 @@ FIXTURES = Path(__file__).parent / "fixtures" / "week2"
 
 def test_valid_lab_fixture_is_a_proposal_with_complete_field_evidence() -> None:
     proposal = LabExtraction.model_validate_json((FIXTURES / "valid_lab_extraction.json").read_text())
-    assert proposal.test_name == "Sample analyte"
-    assert proposal.fields["value"].source_citation is not None
+    assert proposal.analytes[0].test_name.value == "Sample analyte"
+    assert proposal.analytes[0].value.evidence.source_citation is not None
 
 
 def test_valid_upload_fixture_exposes_only_immutable_source_metadata() -> None:
@@ -29,9 +29,9 @@ def test_valid_upload_fixture_exposes_only_immutable_source_metadata() -> None:
 @pytest.mark.parametrize(
     "mutate",
     [
-        lambda payload: payload["fields"].__setitem__("patient_id", payload["fields"]["value"]),
-        lambda payload: payload["fields"]["value"].__setitem__("unexpected", True),
-        lambda payload: payload["fields"]["value"].__setitem__("source_citation", None),
+        lambda payload: payload.__setitem__("patient_id", 7),
+        lambda payload: payload["analytes"][0].__setitem__("unexpected", True),
+        lambda payload: payload["analytes"][0]["value"]["evidence"].__setitem__("source_citation", None),
     ],
 )
 def test_lab_contract_rejects_unknown_and_uncited_extracted_fields(mutate) -> None:
@@ -39,6 +39,32 @@ def test_lab_contract_rejects_unknown_and_uncited_extracted_fields(mutate) -> No
     mutate(payload)
     with pytest.raises(ValidationError):
         LabExtraction.model_validate(payload)
+
+
+def test_lab_contract_supports_a_report_with_multiple_analytes() -> None:
+    payload = json.loads((FIXTURES / "valid_lab_extraction.json").read_text())
+    second = json.loads(json.dumps(payload["analytes"][0]))
+    second["entry_id"] = "1" * 32
+    second["test_name"]["value"] = "Second analyte"
+    payload["analytes"].append(second)
+
+    proposal = LabExtraction.model_validate(payload)
+
+    assert [analyte.test_name.value for analyte in proposal.analytes] == ["Sample analyte", "Second analyte"]
+    assert proposal.analytes[0].entry_id != proposal.analytes[1].entry_id
+
+
+def test_lab_contract_omits_unit_and_range_when_not_printed_rather_than_inventing_them() -> None:
+    payload = json.loads((FIXTURES / "valid_lab_extraction.json").read_text())
+    del payload["analytes"][0]["unit"]
+    del payload["analytes"][0]["reference_range"]
+    del payload["analytes"][0]["abnormal_flag"]
+
+    proposal = LabExtraction.model_validate(payload)
+
+    assert proposal.analytes[0].unit is None
+    assert proposal.analytes[0].reference_range is None
+    assert proposal.analytes[0].abnormal_flag is None
 
 
 def test_upload_contract_rejects_unknown_fields() -> None:
