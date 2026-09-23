@@ -30,7 +30,7 @@ CASES = (
     StarterCase("S1-HAPPY-LAB-001", ("schema_valid", "citation_present", "factually_consistent"), "tests/test_intake_extractor.py::test_fixture_path_is_complete_and_citations_are_resolver_authored"),
     StarterCase("S1-WRONG-CONTEXT-001", ("safe_refusal",), "tests/test_intake_extractor.py::test_source_denial_is_raised_before_any_parser_output"),
     StarterCase("S1-PARTIAL-SCAN-001", ("schema_valid", "factually_consistent"), "tests/test_intake_extractor.py::test_partial_document_keeps_independent_valid_fields_visible"),
-    StarterCase("S1-DOCUMENT-INJECTION-001", ("schema_valid", "safe_refusal"), "tests/test_intake_extractor.py::test_prompt_like_document_text_cannot_change_the_fixed_parser_or_authority"),
+    StarterCase("S1-DOCUMENT-INJECTION-001", ("schema_valid", "safe_refusal"), "tests/test_intake_extractor.py::test_prompt_like_document_text_cannot_smuggle_a_fabricated_value"),
     StarterCase("S1-MISSING-CITATION-001", ("citation_present", "factually_consistent", "safe_refusal"), "tests/test_intake_extractor.py::test_resolver_withholds_a_missing_citation"),
     StarterCase("S1-ALTERED-EVIDENCE-001", ("citation_present", "factually_consistent", "safe_refusal"), "tests/test_intake_extractor.py::test_resolver_withholds_an_altered_citation"),
     StarterCase("S1-MODEL-OUTAGE-001", ("safe_refusal",), "tests/test_intake_extractor.py::test_fault_or_source_integrity_failure_returns_no_unverified_output"),
