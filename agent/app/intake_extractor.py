@@ -31,13 +31,16 @@ from .contracts import (
     IntakeFieldState,
     IntakeMedication,
     IntakeTextField,
+    LabAbnormalFlagField,
+    LabAnalyte,
+    LabDateField,
     LabExtraction,
     LabExtractionResult,
     LabFieldEvidence,
+    LabTextField,
     SourceCitation,
 )
 
-FIELD_NAMES = ("test_name", "value", "unit", "reference_range", "collection_date", "abnormal_flag")
 _INTAKE_COMPLETE_STATES = {IntakeFieldState.present, IntakeFieldState.checked, IntakeFieldState.unchecked}
 
 
@@ -93,8 +96,9 @@ def _match(text: str, pattern: str, group: int = 1) -> _Candidate:
     return _Candidate(value or None, value or None, ExtractionState.extracted if value else ExtractionState.malformed)
 
 
-def _parse(text: str) -> dict[str, _Candidate]:
-    """Parse only fixed field labels; every other document instruction is data."""
+def _parse_analyte(text: str) -> dict[str, _Candidate]:
+    """Parse only fixed field labels within one analyte block; every other
+    document instruction is data."""
     value = _match(text, r"\bValue:\s*([0-9]+(?:\.[0-9]+)?)\s+([A-Za-z][A-Za-z0-9_-]{0,63})")
     unit = _match(text, r"\bValue:\s*[0-9]+(?:\.[0-9]+)?\s+([A-Za-z][A-Za-z0-9_-]{0,63})")
     flag = _match(text, r"\bFlag:\s*(abnormal|normal|unknown)\b")
@@ -103,58 +107,98 @@ def _parse(text: str) -> dict[str, _Candidate]:
         "value": value,
         "unit": unit,
         "reference_range": _match(text, r"\bReference range:\s*([^|\n]{1,160})"),
-        "collection_date": _match(text, r"\bCollection date:\s*(\d{4}-\d{2}-\d{2})\b"),
         "abnormal_flag": flag,
     }
 
 
-def resolve_lab_preview(source_id: str, source_hash: str, pdf: bytes) -> LabExtraction:
+def _lab_evidence(
+    source_id: str, source_hash: str, text: str, field_id: str, candidate: _Candidate,
+) -> LabFieldEvidence:
     """Author citations from the source actually read, never from worker output."""
-    text = _pdf_text(pdf)
-    parsed = _parse(text)
-    fields: dict[str, LabFieldEvidence] = {}
-    values: dict[str, str | None] = {}
-    for name in FIELD_NAMES:
+    if candidate.state is not ExtractionState.extracted or candidate.quote is None or candidate.quote not in text:
+        return LabFieldEvidence(state=candidate.state, confidence=ExtractionConfidence.unknown)
+    citation = SourceCitation(
+        source_type="document", source_id=f"{source_id}:page:1", page_or_section=1,
+        field_or_chunk_id=field_id, quote_or_value=candidate.quote, source_hash=source_hash,
+    )
+    return LabFieldEvidence(state=ExtractionState.extracted, confidence=ExtractionConfidence.high, source_citation=citation)
+
+
+def _resolve_analyte(source_id: str, source_hash: str, text: str, block: str, index: int) -> LabAnalyte:
+    parsed = _parse_analyte(block)
+
+    def field_id(name: str) -> str:
+        return f"analyte_{index}_{name}"
+
+    def text_field(name: str) -> LabTextField:
         candidate = parsed[name]
-        values[name] = candidate.value
-        if candidate.state is not ExtractionState.extracted or candidate.quote is None or candidate.quote not in text:
-            fields[name] = LabFieldEvidence(state=candidate.state, confidence=ExtractionConfidence.unknown)
-            values[name] = None
-            continue
-        citation = SourceCitation(
-            source_type="document",
-            source_id=f"{source_id}:page:1",
-            page_or_section=1,
-            field_or_chunk_id=name,
-            quote_or_value=candidate.quote,
-            source_hash=source_hash,
-        )
-        fields[name] = LabFieldEvidence(state=ExtractionState.extracted, confidence=ExtractionConfidence.high, source_citation=citation)
-    flag = values["abnormal_flag"] if values["abnormal_flag"] in {"abnormal", "normal", "unknown"} else "unknown"
+        evidence = _lab_evidence(source_id, source_hash, text, field_id(name), candidate)
+        value = candidate.value if evidence.state is ExtractionState.extracted else None
+        return LabTextField(value=value, evidence=evidence)
+
+    def optional_text_field(name: str) -> LabTextField | None:
+        return text_field(name) if parsed[name].state is ExtractionState.extracted else None
+
+    flag_candidate = parsed["abnormal_flag"]
+    flag: LabAbnormalFlagField | None = None
+    if flag_candidate.state is ExtractionState.extracted:
+        # The regex only matches these three literal words, so the candidate
+        # value is always one of them here.
+        evidence = _lab_evidence(source_id, source_hash, text, field_id("abnormal_flag"), flag_candidate)
+        flag = LabAbnormalFlagField(value=flag_candidate.value, evidence=evidence)  # type: ignore[arg-type]
+
+    return LabAnalyte(
+        entry_id=secrets.token_hex(16),
+        test_name=text_field("test_name"),
+        value=text_field("value"),
+        unit=optional_text_field("unit"),
+        reference_range=optional_text_field("reference_range"),
+        abnormal_flag=flag,
+    )
+
+
+def resolve_lab_preview(source_id: str, source_hash: str, pdf: bytes) -> LabExtraction:
+    """Split the report into per-analyte blocks; a report always has one."""
+    text = _pdf_text(pdf)
+    collection_date_candidate = _match(text, r"\bCollection date:\s*(\d{4}-\d{2}-\d{2})\b")
+    collection_date_evidence = _lab_evidence(source_id, source_hash, text, "collection_date", collection_date_candidate)
+    collection_date_value = collection_date_candidate.value if collection_date_evidence.state is ExtractionState.extracted else None
+    blocks = re.split(r"\s*\|\|\s*", text) if text else [text]
+    analytes = [_resolve_analyte(source_id, source_hash, text, block, index) for index, block in enumerate(blocks, start=1)]
     return LabExtraction(
-        test_name=values["test_name"], value=values["value"], unit=values["unit"],
-        reference_range=values["reference_range"], collection_date=values["collection_date"],
-        abnormal_flag=flag, fields=fields,
+        collection_date=LabDateField(value=collection_date_value, evidence=collection_date_evidence),
+        analytes=analytes,
     )
 
 
 def verify_lab_preview(source_id: str, source_hash: str, pdf: bytes, extraction: LabExtraction) -> LabExtraction:
     """Final deterministic display authority for a document preview."""
     text = _pdf_text(pdf)
-    for name, evidence in extraction.fields.items():
-        if evidence.state is not ExtractionState.extracted:
-            continue
-        citation = evidence.source_citation
+
+    def check(field_id: str, field: LabTextField | LabDateField | LabAbnormalFlagField | None) -> None:
+        if field is None:
+            return
+        if field.evidence.state is not ExtractionState.extracted:
+            return
+        citation = field.evidence.source_citation
         if (
             citation is None
             or citation.source_id != f"{source_id}:page:1"
             or citation.source_hash != source_hash
-            or citation.field_or_chunk_id != name
+            or citation.field_or_chunk_id != field_id
             or citation.page_or_section != 1
             or citation.quote_or_value not in text
-            or citation.quote_or_value != getattr(extraction, name)
+            or citation.quote_or_value != field.value
         ):
             raise ValueError("citation_integrity")
+
+    check("collection_date", extraction.collection_date)
+    for index, analyte in enumerate(extraction.analytes, start=1):
+        check(f"analyte_{index}_test_name", analyte.test_name)
+        check(f"analyte_{index}_value", analyte.value)
+        check(f"analyte_{index}_unit", analyte.unit)
+        check(f"analyte_{index}_reference_range", analyte.reference_range)
+        check(f"analyte_{index}_abnormal_flag", analyte.abnormal_flag)
     return extraction
 
 
@@ -301,6 +345,23 @@ def verify_intake_preview(source_id: str, source_hash: str, pdf: bytes, extracti
     return extraction
 
 
+def _lab_limitations(extraction: LabExtraction) -> list[DocumentLimitation]:
+    """Report bounded field metadata only; document content never enters a limitation."""
+    fields: list[tuple[str, LabTextField | LabDateField | LabAbnormalFlagField | None]] = [("collection date", extraction.collection_date)]
+    for index, analyte in enumerate(extraction.analytes, start=1):
+        label = f"analyte {index}"
+        fields.append((f"{label} test name", analyte.test_name))
+        fields.append((f"{label} value", analyte.value))
+        fields.append((f"{label} unit", analyte.unit))
+        fields.append((f"{label} reference range", analyte.reference_range))
+        fields.append((f"{label} flag", analyte.abnormal_flag))
+    return [
+        DocumentLimitation(code="malformed_source", detail=f"{name.capitalize()} is {field.evidence.state.value}.")
+        for name, field in fields
+        if field is not None and field.evidence.state is not ExtractionState.extracted
+    ]
+
+
 class IntakeExtractor:
     """The PRD-named, read-only `intake_extractor` worker for Slice 1 lab PDFs."""
 
@@ -342,11 +403,8 @@ class IntakeExtractor:
                 source_id=source_id, handoff_id=handoff_id, status=ExtractionStatus.failed,
                 limitations=[DocumentLimitation(code="verification_failed", detail="The document preview could not be verified.")],
             )
-        status = ExtractionStatus.complete if all(field.state is ExtractionState.extracted for field in extraction.fields.values()) else ExtractionStatus.partial
-        limitations = [
-            DocumentLimitation(code="malformed_source", detail=f"{name.replace('_', ' ').capitalize()} is {field.state.value}.")
-            for name, field in extraction.fields.items() if field.state is not ExtractionState.extracted
-        ]
+        limitations = _lab_limitations(extraction)
+        status = ExtractionStatus.complete if not limitations else ExtractionStatus.partial
         return LabExtractionResult(source_id=source_id, handoff_id=handoff_id, status=status, extraction=extraction, limitations=limitations)
 
     @staticmethod

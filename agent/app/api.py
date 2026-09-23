@@ -119,9 +119,13 @@ def _preview_confidence(result: Any) -> str:
     extraction = getattr(result, "extraction", None)
     if extraction is None:
         return "unknown"
-    fields = getattr(extraction, "fields", None)
-    if fields is None:
-        fields = []
+    analytes = getattr(extraction, "analytes", None)
+    fields = []
+    if analytes is not None:
+        fields.append(getattr(extraction, "collection_date", None))
+        for analyte in analytes:
+            fields.extend(value for key, value in vars(analyte).items() if key != "entry_id" and value is not None)
+    else:
         demographics = getattr(extraction, "demographics", None)
         if demographics is not None:
             fields.extend(value for value in vars(demographics).values() if value is not None)
@@ -129,9 +133,7 @@ def _preview_confidence(result: Any) -> str:
         for group in (getattr(extraction, "medications", []), getattr(extraction, "allergies", []), getattr(extraction, "family_history", [])):
             for item in group:
                 fields.extend(value for key, value in vars(item).items() if key != "entry_id" and value is not None)
-        buckets = {field.evidence.confidence.value for field in fields}
-    else:
-        buckets = {field.confidence.value for field in fields.values()}
+    buckets = {field.evidence.confidence.value for field in fields if field is not None}
     for candidate in ("unknown", "low", "medium", "high"):
         if candidate in buckets:
             return candidate
@@ -142,9 +144,9 @@ def _preview_record_count(result: Any) -> int:
     extraction = getattr(result, "extraction", None)
     if extraction is None:
         return 0
-    fields = getattr(extraction, "fields", None)
-    if fields is not None:
-        return len(fields)
+    analytes = getattr(extraction, "analytes", None)
+    if analytes is not None:
+        return len(analytes)
     return len(getattr(extraction, "medications", [])) + len(getattr(extraction, "allergies", [])) + len(getattr(extraction, "family_history", []))
 
 

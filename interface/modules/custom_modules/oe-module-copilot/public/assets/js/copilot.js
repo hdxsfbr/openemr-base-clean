@@ -459,6 +459,28 @@
     function sourcePreviewUrl(sourceId) {
         return modulePath + '/public/api/document_source.php?source_id=' + encodeURIComponent(sourceId);
     }
+    function appendField(list, label, value, evidence, sourceId) {
+        evidence = evidence || {};
+        var dt = el('dt', null, label);
+        var dd = el('dd');
+        if (value !== null && value !== undefined) {
+            dd.appendChild(el('span', null, value));
+        } else {
+            dd.appendChild(el('span', 'text-warning', evidence.state || 'unavailable'));
+        }
+        var cite = evidence.source_citation;
+        if (cite) {
+            if ((value === null || value === undefined) || cite.quote_or_value !== value) {
+                dd.appendChild(el('span', 'small text-muted ml-2', 'Printed: ' + cite.quote_or_value));
+            }
+            var link = el('a', 'copilot-cite ml-2', 'Open source');
+            link.href = sourcePreviewUrl(sourceId);
+            link.target = '_blank'; link.rel = 'noopener';
+            link.title = 'Open source page ' + cite.page_or_section;
+            dd.appendChild(link);
+        }
+        list.appendChild(dt); list.appendChild(dd);
+    }
     function renderExtractionPreview(result, container) {
         container.textContent = '';
         var head = el('div', 'copilot-turn-head');
@@ -466,54 +488,49 @@
             result.status === 'complete' ? 'Preview verified' : result.status === 'partial' ? 'Preview partial' : 'Preview unavailable'));
         container.appendChild(head);
         var extraction = result.extraction;
-        var intake = extraction && !extraction.fields;
-        container.appendChild(el('p', 'copilot-preview-notice', (intake ? 'Intake extraction preview' : 'Lab extraction preview') + ' only — not saved to the chart and not used for later chart answers.'));
-        if (extraction) {
+        // A lab report has a `collection_date` + repeated `analytes`; an intake
+        // form does not, so this distinguishes the two without a browser-supplied type.
+        var isLab = !!(extraction && Array.isArray(extraction.analytes));
+        container.appendChild(el('p', 'copilot-preview-notice', (isLab ? 'Lab extraction preview' : 'Intake extraction preview') + ' only — not saved to the chart and not used for later chart answers.'));
+        if (isLab) {
+            var reportList = el('dl', 'copilot-extraction-fields');
+            var collectionDate = extraction.collection_date || {};
+            appendField(reportList, 'collection date', collectionDate.value, collectionDate.evidence, result.source_id);
+            container.appendChild(reportList);
+            extraction.analytes.forEach(function (analyte, index) {
+                container.appendChild(el('h6', 'copilot-analyte-heading mt-2', 'Result ' + (index + 1)));
+                var analyteList = el('dl', 'copilot-extraction-fields');
+                appendField(analyteList, 'test name', analyte.test_name.value, analyte.test_name.evidence, result.source_id);
+                appendField(analyteList, 'value', analyte.value.value, analyte.value.evidence, result.source_id);
+                if (analyte.unit) { appendField(analyteList, 'unit', analyte.unit.value, analyte.unit.evidence, result.source_id); }
+                if (analyte.reference_range) { appendField(analyteList, 'reference range', analyte.reference_range.value, analyte.reference_range.evidence, result.source_id); }
+                if (analyte.abnormal_flag) { appendField(analyteList, 'abnormal flag', analyte.abnormal_flag.value, analyte.abnormal_flag.evidence, result.source_id); }
+                container.appendChild(analyteList);
+            });
+        } else if (extraction) {
             var list = el('dl', 'copilot-extraction-fields');
-            var fields = extraction.fields || {};
-            var values = extraction;
-            if (!extraction.fields) {
-                function addIntake(name, field) {
-                    if (!field) { return; }
-                    fields[name] = field.evidence || {};
-                    values[name] = field.value;
-                }
-                var demo = extraction.demographics || {};
-                addIntake('given_name', demo.given_name);
-                addIntake('family_name', demo.family_name);
-                addIntake('date_of_birth', demo.date_of_birth);
-                addIntake('administrative_sex', demo.administrative_sex);
-                addIntake('gender_identity', demo.gender_identity);
-                addIntake('pronouns', demo.pronouns);
-                addIntake('address', demo.address);
-                addIntake('phone', demo.phone);
-                addIntake('chief_concern', extraction.chief_concern);
-                (extraction.medications || []).forEach(function (item, i) { ['name', 'strength', 'dose', 'route', 'frequency', 'status'].forEach(function (key) { addIntake('medication_' + (i + 1) + '_' + key, item[key]); }); });
-                (extraction.allergies || []).forEach(function (item, i) { ['substance', 'reaction', 'severity', 'status'].forEach(function (key) { addIntake('allergy_' + (i + 1) + '_' + key, item[key]); }); });
-                (extraction.family_history || []).forEach(function (item, i) { ['relationship', 'condition', 'onset_age_years'].forEach(function (key) { addIntake('family_history_' + (i + 1) + '_' + key, item[key]); }); });
-            }
-            Object.keys(fields).forEach(function (name) {
-                var evidence = fields[name] || {};
-                var dt = el('dt', null, name.replace(/_/g, ' '));
-                var dd = el('dd');
-                var value = values[name];
-                if (value !== null && value !== undefined) {
-                    dd.appendChild(el('span', null, value));
-                } else {
-                    dd.appendChild(el('span', 'text-warning', evidence.state || 'unavailable'));
-                }
-                var cite = evidence.source_citation;
-                if (cite) {
-                    if ((value === null || value === undefined) || cite.quote_or_value !== value) {
-                        dd.appendChild(el('span', 'small text-muted ml-2', 'Printed: ' + cite.quote_or_value));
-                    }
-                    var link = el('a', 'copilot-cite ml-2', 'Open source');
-                    link.href = sourcePreviewUrl(result.source_id);
-                    link.target = '_blank'; link.rel = 'noopener';
-                    link.title = 'Open source page ' + cite.page_or_section;
-                    dd.appendChild(link);
-                }
-                list.appendChild(dt); list.appendChild(dd);
+            var demo = extraction.demographics || {};
+            [
+                ['given name', demo.given_name], ['family name', demo.family_name], ['date of birth', demo.date_of_birth],
+                ['administrative sex', demo.administrative_sex], ['gender identity', demo.gender_identity], ['pronouns', demo.pronouns],
+                ['address', demo.address], ['phone', demo.phone], ['chief concern', extraction.chief_concern],
+            ].forEach(function (pair) {
+                if (pair[1]) { appendField(list, pair[0], pair[1].value, pair[1].evidence, result.source_id); }
+            });
+            (extraction.medications || []).forEach(function (item, i) {
+                ['name', 'strength', 'dose', 'route', 'frequency', 'status'].forEach(function (key) {
+                    if (item[key]) { appendField(list, 'medication ' + (i + 1) + ' ' + key, item[key].value, item[key].evidence, result.source_id); }
+                });
+            });
+            (extraction.allergies || []).forEach(function (item, i) {
+                ['substance', 'reaction', 'severity', 'status'].forEach(function (key) {
+                    if (item[key]) { appendField(list, 'allergy ' + (i + 1) + ' ' + key, item[key].value, item[key].evidence, result.source_id); }
+                });
+            });
+            (extraction.family_history || []).forEach(function (item, i) {
+                ['relationship', 'condition', 'onset_age_years'].forEach(function (key) {
+                    if (item[key]) { appendField(list, 'family history ' + (i + 1) + ' ' + key, item[key].value, item[key].evidence, result.source_id); }
+                });
             });
             container.appendChild(list);
         }

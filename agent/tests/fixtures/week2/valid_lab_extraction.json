@@ -1,17 +1,32 @@
 {
   "contract_version": "2.0.0",
-  "test_name": "Sample analyte",
-  "value": "7.2",
-  "unit": "synthetic-unit",
-  "reference_range": "4.0-8.0",
-  "collection_date": "2026-09-22",
-  "abnormal_flag": "normal",
-  "fields": {
-    "test_name": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "test_name", "quote_or_value": "Sample analyte", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
-    "value": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "value", "quote_or_value": "7.2", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
-    "unit": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "unit", "quote_or_value": "synthetic-unit", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
-    "reference_range": {"state": "extracted", "confidence": "medium", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "reference_range", "quote_or_value": "4.0-8.0", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
-    "collection_date": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "collection_date", "quote_or_value": "2026-09-22", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
-    "abnormal_flag": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "abnormal_flag", "quote_or_value": "normal", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
-  }
+  "collection_date": {
+    "value": "2026-09-22",
+    "evidence": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "collection_date", "quote_or_value": "2026-09-22", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+  },
+  "analytes": [
+    {
+      "entry_id": "dbaf673c2f7933a54a21feead7154573",
+      "test_name": {
+        "value": "Sample analyte",
+        "evidence": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "analyte_1_test_name", "quote_or_value": "Sample analyte", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+      },
+      "value": {
+        "value": "7.2",
+        "evidence": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "analyte_1_value", "quote_or_value": "7.2", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+      },
+      "unit": {
+        "value": "synthetic-unit",
+        "evidence": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "analyte_1_unit", "quote_or_value": "synthetic-unit", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+      },
+      "reference_range": {
+        "value": "4.0-8.0",
+        "evidence": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "analyte_1_reference_range", "quote_or_value": "4.0-8.0", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+      },
+      "abnormal_flag": {
+        "value": "normal",
+        "evidence": {"state": "extracted", "confidence": "high", "source_citation": {"source_type": "document", "source_id": "document:0123456789abcdef0123456789abcdef:page:1", "page_or_section": 1, "field_or_chunk_id": "analyte_1_abnormal_flag", "quote_or_value": "normal", "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+      }
+    }
+  ]
 }

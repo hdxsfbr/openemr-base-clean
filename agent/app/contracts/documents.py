@@ -251,31 +251,62 @@ class LabFieldEvidence(StrictModel):
         return self
 
 
+class LabTextField(StrictModel):
+    value: str | None = Field(default=None, max_length=160)
+    evidence: LabFieldEvidence
+
+    @model_validator(mode="after")
+    def value_matches_state(self) -> "LabTextField":
+        if self.evidence.state is ExtractionState.extracted and not self.value:
+            raise ValueError("an extracted lab field needs a value")
+        if self.evidence.state is not ExtractionState.extracted and self.value is not None:
+            raise ValueError("a non-extracted lab field cannot have a value")
+        return self
+
+
+class LabDateField(StrictModel):
+    value: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    evidence: LabFieldEvidence
+
+    @model_validator(mode="after")
+    def value_matches_state(self) -> "LabDateField":
+        if self.evidence.state is ExtractionState.extracted and not self.value:
+            raise ValueError("an extracted lab field needs a value")
+        if self.evidence.state is not ExtractionState.extracted and self.value is not None:
+            raise ValueError("a non-extracted lab field cannot have a value")
+        return self
+
+
+class LabAbnormalFlagField(StrictModel):
+    value: Literal["abnormal", "normal", "unknown"] | None = None
+    evidence: LabFieldEvidence
+
+    @model_validator(mode="after")
+    def value_matches_state(self) -> "LabAbnormalFlagField":
+        if self.evidence.state is ExtractionState.extracted and not self.value:
+            raise ValueError("an extracted lab field needs a value")
+        if self.evidence.state is not ExtractionState.extracted and self.value is not None:
+            raise ValueError("a non-extracted lab field cannot have a value")
+        return self
+
+
+class LabAnalyte(StrictModel):
+    """One proposed test within a report. Printed-only fields are omitted, not invented."""
+
+    entry_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    test_name: LabTextField
+    value: LabTextField
+    unit: LabTextField | None = None
+    reference_range: LabTextField | None = None
+    abnormal_flag: LabAbnormalFlagField | None = None
+
+
 class LabExtraction(StrictModel):
     """A future worker proposal. It is explicitly not a clinical record fact."""
 
     contract_version: Literal["2.0.0"] = DOCUMENT_CONTRACT_VERSION
-    test_name: str | None = Field(default=None, max_length=160)
-    value: str | None = Field(default=None, max_length=160)
-    unit: str | None = Field(default=None, max_length=64)
-    reference_range: str | None = Field(default=None, max_length=160)
-    collection_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    abnormal_flag: Literal["abnormal", "normal", "unknown"] = "unknown"
-    fields: dict[Literal["test_name", "value", "unit", "reference_range", "collection_date", "abnormal_flag"], LabFieldEvidence]
-
-    @model_validator(mode="after")
-    def missing_values_are_visible(self) -> "LabExtraction":
-        required = {"test_name", "value", "unit", "reference_range", "collection_date", "abnormal_flag"}
-        if set(self.fields) != required:
-            raise ValueError("every required lab field needs an explicit extraction state")
-        for name, evidence in self.fields.items():
-            if evidence.state is ExtractionState.extracted and getattr(self, name) in (None, ""):
-                raise ValueError(f"{name} is extracted but has no value")
-            if name == "abnormal_flag" and evidence.state is not ExtractionState.extracted and self.abnormal_flag == "unknown":
-                continue
-            if evidence.state is not ExtractionState.extracted and getattr(self, name) not in (None, ""):
-                raise ValueError(f"{name} has a value without extracted evidence")
-        return self
+    collection_date: LabDateField
+    analytes: list[LabAnalyte] = Field(min_length=1, max_length=50)
 
 
 class LabExtractionRequest(StrictModel):
