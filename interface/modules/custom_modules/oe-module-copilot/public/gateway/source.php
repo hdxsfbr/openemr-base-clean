@@ -23,6 +23,24 @@ try {
     $ctx = (new ContextBuilder(new ConversationRepository()))->build($token, $correlationId);
     $result = (new SourceReader())->read($ctx, (string) ($_GET['source_id'] ?? ''));
     Audit::toolRead($ctx, 'source_document', ['source_id' => $result['source']['source_id'], 'bytes' => (int) $result['source']['byte_size']]);
+    // AI disclosure (same rule as tools.php): the bytes this call returns are
+    // about to leave for the extraction worker's model provider (GitLab #55 --
+    // #53/#54 wired the OpenRouter call but left this read undisclosed). The
+    // agent declares {provider, model} on every read; no audit row means no bytes.
+    $declaredProvider = $_GET['provider'] ?? null;
+    $declaredModel = $_GET['model'] ?? null;
+    if (is_string($declaredProvider) && is_string($declaredModel)) {
+        try {
+            Audit::modelDisclosure(
+                $ctx,
+                ['provider' => $declaredProvider, 'model' => $declaredModel],
+                [['tool' => 'source_document', 'records' => 1]]
+            );
+        } catch (\Throwable $e) {
+            error_log('oe-module-copilot gateway/source.php disclosure audit failed: ' . $e::class);
+            throw new GatewayDenied('audit_unavailable', 503);
+        }
+    }
     header('Content-Type: ' . $result['source']['mime_type']);
     header('Cache-Control: no-store');
     header('X-Correlation-Id: ' . $correlationId);

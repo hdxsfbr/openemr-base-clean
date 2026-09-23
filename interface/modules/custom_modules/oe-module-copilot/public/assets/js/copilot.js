@@ -481,7 +481,7 @@
         }
         list.appendChild(dt); list.appendChild(dd);
     }
-    function renderExtractionPreview(result, container) {
+    function renderExtractionPreview(result, container, requestedType) {
         container.textContent = '';
         var head = el('div', 'copilot-turn-head');
         head.appendChild(el('span', 'badge badge-' + (result.status === 'complete' ? 'success' : result.status === 'partial' ? 'warning' : 'danger') + ' mr-2',
@@ -489,10 +489,19 @@
         container.appendChild(head);
         var extraction = result.extraction;
         // A lab report has a `collection_date` + repeated `analytes`; an intake
-        // form does not, so this distinguishes the two without a browser-supplied type.
-        var isLab = !!(extraction && Array.isArray(extraction.analytes));
+        // form does not, so this distinguishes the two without a browser-supplied type
+        // whenever there is an extraction to look at. A `status: unavailable` result
+        // carries no `extraction` at all (e.g. scanned page, dependency outage), so this
+        // falls back to the type the clinician actually selected for the label only --
+        // routing and verification never depend on it (GitLab #55: this used to default
+        // to "Intake" for every unavailable lab upload).
+        var isLab = extraction ? Array.isArray(extraction.analytes) : requestedType !== 'intake_form';
         container.appendChild(el('p', 'copilot-preview-notice', (isLab ? 'Lab extraction preview' : 'Intake extraction preview') + ' only — not saved to the chart and not used for later chart answers.'));
-        if (isLab) {
+        // `isLab` alone doesn't mean there IS an extraction to render -- a `status:
+        // unavailable` lab_pdf result has none, and used to crash here (GitLab #55)
+        // reading `extraction.collection_date` off a null `extraction`, surfacing a
+        // raw JS TypeError to the clinician instead of the clean label above.
+        if (isLab && extraction) {
             var reportList = el('dl', 'copilot-extraction-fields');
             var collectionDate = extraction.collection_date || {};
             appendField(reportList, 'collection date', collectionDate.value, collectionDate.evidence, result.source_id);
@@ -736,7 +745,12 @@
             formData.append('document', documentFile.files[0]);
             return fetchJson(modulePath + '/public/api/document_upload.php', { method: 'POST', body: formData }, TURN_TIMEOUT_MS);
         }).then(function (upload) {
-            if (!upload.ok || !upload.data || !upload.data.source || !upload.data.source.source_id) { throw new Error(upload.data && upload.data.code ? upload.data.code : 'document_upload'); }
+            if (!upload.ok || !upload.data || !upload.data.source || !upload.data.source.source_id) {
+                // A rejection's reason lives at data.limitation.code (document_upload.php's
+                // 409 body), not data.code -- this always fell through to the generic
+                // 'document_upload' literal instead of e.g. 'invalid_file' (GitLab #55).
+                throw new Error(upload.data && upload.data.limitation && upload.data.limitation.code ? upload.data.limitation.code : 'document_upload');
+            }
             clearPlaceholder();
             appendNote((selectedType === 'intake_form' ? 'Intake form' : 'Lab document') + ' stored. Extracting a review-only preview…', 'text-muted');
             pending = appendPending();
@@ -748,7 +762,7 @@
             });
         }).then(function (preview) {
             if (!preview.ok || !preview.data) { throw new Error(preview.data && preview.data.code ? preview.data.code : 'extraction'); }
-            renderExtractionPreview(preview.data, pending);
+            renderExtractionPreview(preview.data, pending, selectedType);
             documentFile.value = '';
             setStatus('', 'text-muted');
         }).catch(function (error) {
