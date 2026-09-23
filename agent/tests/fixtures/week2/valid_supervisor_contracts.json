@@ -1,0 +1,54 @@
+{
+  "request": {
+    "contract_version": "4.0.0",
+    "correlation_id": "123e4567-e89b-12d3-a456-426614174000",
+    "event": {
+      "event_kind": "chat_turn",
+      "event_id": "1111111111111111",
+      "authorization_ref": "2222222222222222",
+      "turn_ref": "3333333333333333",
+      "patient_record_authorized": true,
+      "include_guideline_evidence": false,
+      "intent_signals": ["evidence_for_supported_finding"],
+      "supported_finding_topics": ["aaa"]
+    },
+    "deadline_unix_ms": 1800000000000
+  },
+  "dispatch": {
+    "contract_version": "4.0.0",
+    "correlation_id": "123e4567-e89b-12d3-a456-426614174000",
+    "handoff_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "event_kind": "chat_turn",
+    "worker": "evidence_retriever",
+    "reason": "evidence_for_supported_finding",
+    "attempt": 1,
+    "deadline_unix_ms": 1800000000000,
+    "input_ref": {
+      "kind": "evidence_request",
+      "request_ref": "4444444444444444",
+      "corpus_version": "uspstf-recommendations-2026-09-21-v2",
+      "contract_version": "3.0.0"
+    },
+    "status": "dispatched"
+  },
+  "completion": {
+    "contract_version": "4.0.0",
+    "correlation_id": "123e4567-e89b-12d3-a456-426614174000",
+    "handoff_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "worker": "evidence_retriever",
+    "status": "completed",
+    "output_ref": {
+      "kind": "evidence_result",
+      "result_ref": "5555555555555555",
+      "result_version": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "contract_version": "3.0.0"
+    },
+    "timings": {"queued_ms": 1, "worker_ms": 5, "total_ms": 6}
+  },
+  "claim": {
+    "claim_ref": "6666666666666666",
+    "source_resolution": "passed",
+    "deterministic_verification": "accepted",
+    "displayed": true
+  }
+}

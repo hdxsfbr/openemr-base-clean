@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "AuthorizedChatEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_ref": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{16,64}$",
+          "title": "Authorization Ref",
+          "type": "string"
+        },
+        "event_id": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{16,64}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_kind": {
+          "const": "chat_turn",
+          "default": "chat_turn",
+          "title": "Event Kind",
+          "type": "string"
+        },
+        "include_guideline_evidence": {
+          "default": false,
+          "title": "Include Guideline Evidence",
+          "type": "boolean"
+        },
+        "intent_signals": {
+          "items": {
+            "$ref": "#/$defs/ChatIntentSignal"
+          },
+          "maxItems": 4,
+          "title": "Intent Signals",
+          "type": "array"
+        },
+        "patient_record_authorized": {
+          "const": true,
+          "default": true,
+          "title": "Patient Record Authorized",
+          "type": "boolean"
+        },
+        "supported_finding_topics": {
+          "items": {
+            "$ref": "#/$defs/GuidelineTopic"
+          },
+          "maxItems": 3,
+          "title": "Supported Finding Topics",
+          "type": "array"
+        },
+        "turn_ref": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{16,64}$",
+          "title": "Turn Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "authorization_ref",
+        "turn_ref"
+      ],
+      "title": "AuthorizedChatEvent",
+      "type": "object"
+    },
+    "AuthorizedDocumentEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_ref": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{16,64}$",
+          "title": "Authorization Ref",
+          "type": "string"
+        },
+        "authorized": {
+          "const": true,
+          "default": true,
+          "title": "Authorized",
+          "type": "boolean"
+        },
+        "document_type": {
+          "$ref": "#/$defs/DocumentType"
+        },
+        "event_id": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{16,64}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_kind": {
+          "enum": [
+            "document_uploaded",
+            "reprocess_requested"
+          ],
+          "title": "Event Kind",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 41,
+          "pattern": "^document:[a-f0-9]{32}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_kind",
+        "event_id",
+        "authorization_ref",
+        "source_id",
+        "source_version",
+        "document_type"
+      ],
+      "title": "AuthorizedDocumentEvent",
+      "type": "object"
+    },
+    "ChatIntentSignal": {
+      "description": "Finite, trusted results of an upstream inspection; never raw question text.",
+      "enum": [
+        "explicit_guideline_terms",
+        "evidence_for_supported_finding",
+        "ambiguous_evidence",
+        "diagnosis_intent",
+        "treatment_intent",
+        "dosing_intent",
+        "patient_applicability_intent"
+      ],
+      "title": "ChatIntentSignal",
+      "type": "string"
+    },
+    "DocumentType": {
+      "description": "The only two Week 2 source types accepted at the upload boundary.",
+      "enum": [
+        "lab_pdf",
+        "intake_form"
+      ],
+      "title": "DocumentType",
+      "type": "string"
+    },
+    "GuidelineTopic": {
+      "enum": [
+        "aaa",
+        "breast",
+        "cervical",
+        "colorectal",
+        "lung",
+        "child_obesity",
+        "hypertension",
+        "tobacco"
+      ],
+      "title": "GuidelineTopic",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Checkpoint-safe request state. It intentionally has no patient or content field.",
+  "properties": {
+    "contract_version": {
+      "const": "4.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "deadline_unix_ms": {
+      "maximum": 4102444800000,
+      "minimum": 1,
+      "title": "Deadline Unix Ms",
+      "type": "integer"
+    },
+    "event": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AuthorizedDocumentEvent"
+        },
+        {
+          "$ref": "#/$defs/AuthorizedChatEvent"
+        }
+      ],
+      "title": "Event"
+    }
+  },
+  "required": [
+    "contract_version",
+    "correlation_id",
+    "event",
+    "deadline_unix_ms"
+  ],
+  "title": "SupervisorRequestState",
+  "type": "object",
+  "x-contract-version": "4.0.0"
+}

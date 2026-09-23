@@ -25,6 +25,11 @@ from . import (
     GuidelineRetrievalLimitation,
     GuidelineSourceRequest,
     GuidelineSourceResponse,
+    AnswerReadinessResult,
+    DispatchRecord,
+    HandoffCompletion,
+    RouteDecision,
+    SupervisorRequestState,
     IntakeExtraction,
     IntakeExtractionResult,
     LabExtraction,
@@ -68,13 +73,26 @@ EXPORTS = {
     "guideline_source_request.schema.json": GuidelineSourceRequest,
     "guideline_source_response.schema.json": GuidelineSourceResponse,
     "guideline_retrieval_limitation.schema.json": GuidelineRetrievalLimitation,
+    "supervisor_request_state.schema.json": SupervisorRequestState,
+    "supervisor_route_decision.schema.json": RouteDecision,
+    "supervisor_dispatch_record.schema.json": DispatchRecord,
+    "supervisor_handoff_completion.schema.json": HandoffCompletion,
+    "supervisor_answer_readiness.schema.json": AnswerReadinessResult,
+}
+
+EXPORT_VERSIONS = {
+    "supervisor_request_state.schema.json": "4.0.0",
+    "supervisor_route_decision.schema.json": "4.0.0",
+    "supervisor_dispatch_record.schema.json": "4.0.0",
+    "supervisor_handoff_completion.schema.json": "4.0.0",
+    "supervisor_answer_readiness.schema.json": "4.0.0",
 }
 
 
-def render(model) -> str:
+def render(model, contract_version: str = CONTRACT_VERSION) -> str:
     schema = model.model_json_schema()
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["x-contract-version"] = CONTRACT_VERSION
+    schema["x-contract-version"] = contract_version
     return json.dumps(schema, indent=2, sort_keys=True) + "\n"
 
 
@@ -85,7 +103,7 @@ def main(argv: list[str]) -> int:
     drift = []
     for name, model in EXPORTS.items():
         path = out_dir / name
-        content = render(model)
+        content = render(model, EXPORT_VERSIONS.get(name, CONTRACT_VERSION))
         if check:
             if not path.exists() or path.read_text() != content:
                 drift.append(name)

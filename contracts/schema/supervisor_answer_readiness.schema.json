@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "SupervisorLimitation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/SupervisorLimitationCode"
+        },
+        "retryable": {
+          "const": false,
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "SupervisorLimitation",
+      "type": "object"
+    },
+    "SupervisorLimitationCode": {
+      "enum": [
+        "ambiguous_evidence_intent",
+        "disallowed_advice_intent",
+        "unauthorized_event",
+        "unsupported_event",
+        "stale_handoff",
+        "duplicate_terminal",
+        "wrong_worker",
+        "correlation_mismatch",
+        "contract_version_mismatch",
+        "malformed_transition",
+        "deadline_exceeded",
+        "worker_unavailable",
+        "worker_canceled",
+        "no_evidence"
+      ],
+      "title": "SupervisorLimitationCode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "4.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "displayed_claims_verified": {
+      "title": "Displayed Claims Verified",
+      "type": "boolean"
+    },
+    "limitation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SupervisorLimitation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "ready": {
+      "title": "Ready",
+      "type": "boolean"
+    },
+    "requested_branches_terminal": {
+      "title": "Requested Branches Terminal",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "contract_version",
+    "correlation_id",
+    "ready",
+    "requested_branches_terminal",
+    "displayed_claims_verified"
+  ],
+  "title": "AnswerReadinessResult",
+  "type": "object",
+  "x-contract-version": "4.0.0"
+}

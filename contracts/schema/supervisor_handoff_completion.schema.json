@@ -1,0 +1,190 @@
+{
+  "$defs": {
+    "HandoffOutputReference": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "enum": [
+            "2.0.0",
+            "3.0.0"
+          ],
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "extraction_result",
+            "evidence_result"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "result_ref": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{16,64}$",
+          "title": "Result Ref",
+          "type": "string"
+        },
+        "result_version": {
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Result Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "result_ref",
+        "result_version",
+        "contract_version"
+      ],
+      "title": "HandoffOutputReference",
+      "type": "object"
+    },
+    "HandoffTimings": {
+      "additionalProperties": false,
+      "properties": {
+        "queued_ms": {
+          "maximum": 95000,
+          "minimum": 0,
+          "title": "Queued Ms",
+          "type": "integer"
+        },
+        "total_ms": {
+          "maximum": 95000,
+          "minimum": 0,
+          "title": "Total Ms",
+          "type": "integer"
+        },
+        "worker_ms": {
+          "maximum": 95000,
+          "minimum": 0,
+          "title": "Worker Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queued_ms",
+        "worker_ms",
+        "total_ms"
+      ],
+      "title": "HandoffTimings",
+      "type": "object"
+    },
+    "SupervisorLimitation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/SupervisorLimitationCode"
+        },
+        "retryable": {
+          "const": false,
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "SupervisorLimitation",
+      "type": "object"
+    },
+    "SupervisorLimitationCode": {
+      "enum": [
+        "ambiguous_evidence_intent",
+        "disallowed_advice_intent",
+        "unauthorized_event",
+        "unsupported_event",
+        "stale_handoff",
+        "duplicate_terminal",
+        "wrong_worker",
+        "correlation_mismatch",
+        "contract_version_mismatch",
+        "malformed_transition",
+        "deadline_exceeded",
+        "worker_unavailable",
+        "worker_canceled",
+        "no_evidence"
+      ],
+      "title": "SupervisorLimitationCode",
+      "type": "string"
+    },
+    "SupervisorWorker": {
+      "enum": [
+        "intake_extractor",
+        "evidence_retriever"
+      ],
+      "title": "SupervisorWorker",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "4.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "handoff_id": {
+      "maxLength": 32,
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Handoff Id",
+      "type": "string"
+    },
+    "limitation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SupervisorLimitation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "output_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HandoffOutputReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "limited",
+        "canceled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "timings": {
+      "$ref": "#/$defs/HandoffTimings"
+    },
+    "worker": {
+      "$ref": "#/$defs/SupervisorWorker"
+    }
+  },
+  "required": [
+    "contract_version",
+    "correlation_id",
+    "handoff_id",
+    "worker",
+    "status",
+    "timings"
+  ],
+  "title": "HandoffCompletion",
+  "type": "object",
+  "x-contract-version": "4.0.0"
+}
