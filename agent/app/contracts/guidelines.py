@@ -229,6 +229,7 @@ class GuidelineRetrievalLimitationCode(StrEnum):
     duplicate_handoff = "guideline_duplicate_handoff"
     stale_handoff = "guideline_stale_handoff"
     malformed_output = "guideline_malformed_output"
+    authorization_changed = "guideline_authorization_changed"
 
 
 class GuidelineRetrievalLimitation(StrictModel):

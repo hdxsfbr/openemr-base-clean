@@ -263,6 +263,16 @@ class BranchState(StrEnum):
     terminal = "terminal"
 
 
+class AnswerReadinessState(StrEnum):
+    """Bounded rendering state, not a clinical or worker decision."""
+
+    waiting = "waiting"
+    ready = "ready"
+    partial = "partial"
+    limited = "limited"
+    refused = "refused"
+
+
 class SupervisorBranchState(StrictModel):
     worker: SupervisorWorker
     state: BranchState
@@ -303,6 +313,7 @@ class AnswerReadinessResult(StrictModel):
     ready: bool
     requested_branches_terminal: bool
     displayed_claims_verified: bool
+    state: AnswerReadinessState = AnswerReadinessState.waiting
     limitation: SupervisorLimitation | None = None
 
 
@@ -389,12 +400,31 @@ def answer_readiness(
         safe_correlation = TypeAdapter(CorrelationId).validate_python(correlation_id)
     except Exception as exc:
         raise ValueError("invalid correlation id") from exc
-    requested_terminal = all(branch.state is not BranchState.pending for branch in branches)
+    # A branch list contains requested branches only.  Treating an unrequested
+    # branch as completed would allow an omitted required worker to make an
+    # answer appear ready.  Duplicate workers and a corrupted correlation are
+    # likewise not terminal joins, even if a caller bypassed Pydantic with an
+    # in-memory ``model_copy``.
+    workers = [branch.worker for branch in branches]
+    requested_terminal = len(workers) == len(set(workers))
+    for branch in branches:
+        if branch.state is not BranchState.terminal or branch.dispatch is None or branch.terminal is None:
+            requested_terminal = False
+            break
+        if (
+            branch.dispatch.correlation_id != safe_correlation
+            or branch.terminal.correlation_id != safe_correlation
+            or branch.dispatch.handoff_id != branch.terminal.handoff_id
+            or branch.dispatch.worker is not branch.terminal.worker
+        ):
+            requested_terminal = False
+            break
     claims_verified = all(not claim.displayed or claim.deterministic_verification == "accepted" for claim in claims)
     ready = requested_terminal and claims_verified
+    state = AnswerReadinessState.ready if ready else AnswerReadinessState.waiting
     limitation = None if ready else SupervisorLimitation(code=SupervisorLimitationCode.malformed_transition)
     return AnswerReadinessResult(
         contract_version=SUPERVISOR_CONTRACT_VERSION, correlation_id=safe_correlation, ready=ready,
         requested_branches_terminal=requested_terminal,
-        displayed_claims_verified=claims_verified, limitation=limitation,
+        displayed_claims_verified=claims_verified, state=state, limitation=limitation,
     )

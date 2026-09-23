@@ -130,6 +130,60 @@ class GuidelineReleaseService:
         limitation = [] if claims else [GuidelineRetrievalLimitation(code=GuidelineRetrievalLimitationCode.corpus_unavailable, detail="Guideline evidence could not be verified against the active corpus.")]
         return GuidelineEvidenceResponse(turn_id=turn_id, correlation_id=correlation_id, status="complete" if claims else "limited", claims=claims, limitations=limitation, worker=result)
 
+    def reverify(self, response: GuidelineEvidenceResponse, correlation_id: str) -> GuidelineEvidenceResponse:
+        """Re-resolve response claims from the current approved corpus.
+
+        A worker result and the service's in-memory click cache are not source
+        authority.  The final display boundary calls this after its fresh chart
+        authorization check, so an activation, hash, or correlation change
+        withholds the affected lane instead of rendering a stale excerpt.
+        """
+        if response.correlation_id != correlation_id:
+            return self._limited_response(response, correlation_id, GuidelineRetrievalLimitationCode.malformed_output)
+        try:
+            rows = self._active_rows()
+        except CorpusStale:
+            return self._limited_response(response, correlation_id, GuidelineRetrievalLimitationCode.corpus_stale)
+        except Exception:
+            return self._limited_response(response, correlation_id, GuidelineRetrievalLimitationCode.corpus_unavailable)
+        claims = []
+        excerpt_fields = GuidelineExcerpt.model_fields
+        for claim in response.claims:
+            row = rows.get(claim.source_ids[0])
+            if row is None:
+                continue
+            try:
+                excerpt = GuidelineExcerpt.model_validate({
+                    key: value for key, value in row.items() if key in excerpt_fields
+                } | {"source_id": claim.source_ids[0]})
+            except Exception:
+                continue
+            if self._verify_claim(claim, excerpt, rows):
+                claims.append(claim)
+        if not claims:
+            return self._limited_response(response, correlation_id, GuidelineRetrievalLimitationCode.corpus_unavailable)
+        return response.model_copy(update={"claims": claims, "status": "complete", "limitations": []})
+
+    @staticmethod
+    def _limited_response(
+        response: GuidelineEvidenceResponse,
+        correlation_id: str,
+        code: GuidelineRetrievalLimitationCode,
+    ) -> GuidelineEvidenceResponse:
+        details = {
+            GuidelineRetrievalLimitationCode.authorization_changed: "Guideline evidence is unavailable for this chart.",
+            GuidelineRetrievalLimitationCode.corpus_stale: "Approved guideline evidence is stale.",
+        }
+        return response.model_copy(update={
+            "correlation_id": correlation_id,
+            "status": "limited",
+            "claims": [],
+            "limitations": [GuidelineRetrievalLimitation(
+                code=code,
+                detail=details.get(code, "Guideline evidence could not be verified against the active corpus."),
+            )],
+        })
+
     def resolve(self, conversation_id: str, evidence_turn_id: str, source_id: str) -> GuidelineSourceResponse | None:
         with self._lock:
             excerpt = self._evidence.get((conversation_id, evidence_turn_id), {}).get(source_id)

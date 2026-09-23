@@ -52,3 +52,27 @@ def test_stale_active_pointer_has_a_typed_no_evidence_state():
     service = GuidelineReleaseService(Worker(result_for_first_chunk()), ROOT, now=stale)
     response = service.invoke("c" * 32, "d" * 16, "guideline.0001", GuidelineEvidenceRequest(concepts=["aaa"], topic_filter="aaa"))
     assert response.claims == [] and response.limitations[0].code == "guideline_corpus_stale"
+
+
+def test_final_guideline_reverification_withholds_a_claim_when_the_active_source_changes(monkeypatch):
+    service = GuidelineReleaseService(Worker(result_for_first_chunk()), ROOT, now=NOW)
+    response = service.invoke("c" * 32, "d" * 16, "guideline.0001", GuidelineEvidenceRequest(concepts=["aaa"], topic_filter="aaa"))
+    assert response.claims
+    monkeypatch.setattr(service, "_active_rows", lambda: {})
+
+    final = service.reverify(response, "guideline.0001")
+
+    assert final.status == "limited"
+    assert final.claims == []
+    assert final.limitations[0].code == "guideline_retrieval_unavailable"
+
+
+def test_final_guideline_reverification_rejects_a_mismatched_correlation_without_reopening_sources():
+    service = GuidelineReleaseService(Worker(result_for_first_chunk()), ROOT, now=NOW)
+    response = service.invoke("c" * 32, "d" * 16, "guideline.0001", GuidelineEvidenceRequest(concepts=["aaa"], topic_filter="aaa"))
+
+    final = service.reverify(response, "different-correlation")
+
+    assert final.status == "limited"
+    assert final.claims == []
+    assert final.limitations[0].code == "guideline_malformed_output"

@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from . import __version__
 from .contracts import (CONTRACT_VERSION, ErrorEnvelope, GuidelineEvidenceRequest, GuidelineSourceRequest,
+    GuidelineEvidenceResponse, GuidelineRetrievalLimitation, GuidelineRetrievalLimitationCode,
     IntakeExtractionResult, LabExtractionRequest, TurnRequest, TurnResponse, Verification)
 from .delegation import Delegation, DelegationError, verify
 from .graph.state import PER_TURN_DEFAULTS
@@ -77,6 +78,40 @@ def _fault(request: Request) -> str | None:
         return None
     value = request.headers.get("X-Copilot-Fault", "").strip().lower()
     return value or None
+
+
+async def _reauthorize_chart_for_display(request: Request, token: str, correlation_id: str) -> bool:
+    """Ask the module to recheck the live chart without retaining its record.
+
+    The initial ticket proves only that the turn could start.  This last
+    gateway read happens after worker/model work and before a guideline lane is
+    displayed, so a user/site/patient/scope change turns into a typed lane
+    limitation.  The response is intentionally discarded and never enters a
+    model prompt, checkpoint, trace, or response body.
+    """
+    runtime = getattr(request.app.state, "runtime", None)
+    gateway = getattr(runtime, "gateway", None)
+    if gateway is None:
+        return False
+    try:
+        result = await gateway.call("patient_context", {}, token, correlation_id)
+    except Exception:
+        return False
+    return result.status.value == "ok"
+
+
+def _guideline_authorization_limited(turn_id: str, correlation_id: str, worker) -> GuidelineEvidenceResponse:
+    return GuidelineEvidenceResponse(
+        turn_id=turn_id,
+        correlation_id=correlation_id,
+        status="limited",
+        claims=[],
+        limitations=[GuidelineRetrievalLimitation(
+            code=GuidelineRetrievalLimitationCode.authorization_changed,
+            detail="Guideline evidence is unavailable for this chart.",
+        )],
+        worker=worker,
+    )
 
 
 def _preview_confidence(result: Any) -> str:
@@ -167,6 +202,7 @@ def _response_from_state(state: dict[str, Any], correlation_id: str) -> TurnResp
             rejected=state.get("rejected") or [],
             repair_attempted=bool(state.get("repair_attempted")),
         ).model_dump(mode="json"),
+        "readiness": state.get("readiness") or {},
         "usage": {**(state.get("usage") or {}), **{f"{k}_ms": v for k, v in (state.get("timings_ms") or {}).items()}},
         "correlation_id": correlation_id,
         "contract_version": CONTRACT_VERSION,
@@ -188,6 +224,10 @@ async def post_guideline_evidence(conversation_id: str, request: Request, author
     if service is None:
         return _error(503, "dependency_unavailable", "Guideline evidence is unavailable.", correlation_id)
     result = await asyncio.to_thread(service.invoke, conversation_id, auth.turn_id, correlation_id, body)
+    if not await _reauthorize_chart_for_display(request, auth.raw, correlation_id):
+        result = _guideline_authorization_limited(auth.turn_id, correlation_id, result.worker)
+    else:
+        result = await asyncio.to_thread(service.reverify, result, correlation_id)
     return JSONResponse(status_code=200, content=result.model_dump(mode="json"), headers={"X-Correlation-Id": correlation_id, "Cache-Control": "no-store"})
 
 

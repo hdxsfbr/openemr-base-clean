@@ -1,5 +1,17 @@
 {
   "$defs": {
+    "AnswerReadinessState": {
+      "description": "Bounded rendering state, not a clinical or worker decision.",
+      "enum": [
+        "waiting",
+        "ready",
+        "partial",
+        "limited",
+        "refused"
+      ],
+      "title": "AnswerReadinessState",
+      "type": "string"
+    },
     "SupervisorLimitation": {
       "additionalProperties": false,
       "properties": {
@@ -75,6 +87,10 @@
     "requested_branches_terminal": {
       "title": "Requested Branches Terminal",
       "type": "boolean"
+    },
+    "state": {
+      "$ref": "#/$defs/AnswerReadinessState",
+      "default": "waiting"
     }
   },
   "required": [
