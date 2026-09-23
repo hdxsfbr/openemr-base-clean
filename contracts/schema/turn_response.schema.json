@@ -546,6 +546,12 @@
       "title": "Limitations",
       "type": "array"
     },
+    "readiness": {
+      "additionalProperties": true,
+      "description": "Bounded final display-readiness state; contains no protected content",
+      "title": "Readiness",
+      "type": "object"
+    },
     "reference_encounter_source_id": {
       "anyOf": [
         {
@@ -568,7 +574,7 @@
       "type": "array"
     },
     "status": {
-      "pattern": "^(complete|partial|fallback|denied|failed)$",
+      "pattern": "^(complete|partial|fallback|denied|refused|failed)$",
       "title": "Status",
       "type": "string"
     },

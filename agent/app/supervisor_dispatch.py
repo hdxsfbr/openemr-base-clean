@@ -53,7 +53,7 @@ def chat_intent_projection(question: str, *, include_guideline_evidence: bool, t
     text is put in an event, handoff, checkpoint, or log.
     """
     text, signals = question.lower(), []
-    if any(term in text for term in ("diagnos", "treat", "dose", "dosing", "should i", "recommend", "applicab")):
+    if any(term in text for term in ("diagnos", "treat", "dose", "dosing", "should i", "recommend", "applicab", "apply to")):
         signals.append("treatment_intent")
     elif not include_guideline_evidence and any(term in text for term in ("guideline", "clinical standard", "uspstf", "publisher evidence", "source guideline")):
         signals.append("explicit_guideline_terms")

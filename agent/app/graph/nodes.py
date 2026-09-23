@@ -15,6 +15,15 @@ from pydantic import ValidationError
 
 from .. import budget
 from ..contracts import Claim, ClaimType, LabsParams, NotesParams, ToolResponse, WindowParams
+from ..contracts.supervisor import (
+    AuthorizedChatEvent,
+    ChatIntentSignal,
+    ClaimVerificationReference,
+    RouteAction,
+    SupervisorRequestState,
+    answer_readiness,
+    decide_route,
+)
 from ..evidence import EvidencePack, _day, add_responses, build_uc01_window, derive_changes, render
 from ..gateway_client import GatewayPort, unavailable
 from ..metrics import metrics
@@ -22,6 +31,7 @@ from ..model import ModelError, ModelPort, NarrateResult, PlanResult, Usage
 from ..settings import settings
 from ..state_store import get_pack, get_token, put_pack
 from ..telemetry import record_tool_result, tool_observation
+from ..supervisor_dispatch import chat_intent_projection
 from ..verifier import (
     CONFLICT_NOTE_QUESTION,
     FLAGGED_LABS_QUESTION,
@@ -115,9 +125,28 @@ def _narratable(pack: EvidencePack) -> bool:
 
 
 def make_nodes(rt: Runtime) -> dict[str, Callable]:
+    def _refused_before_retrieval(state: TurnState) -> bool:
+        """Use the sealed route table; discard inspected message text immediately."""
+        signals, _topics = chat_intent_projection(state["question"], include_guideline_evidence=False, topics=[])
+        trusted = [ChatIntentSignal(signal) for signal in signals]
+        request = SupervisorRequestState(
+            contract_version="4.0.0",
+            correlation_id=state["correlation_id"],
+            deadline_unix_ms=int(time.time() * 1000) + int(settings.turn_wall_clock_seconds * 1000),
+            event=AuthorizedChatEvent(
+                event_id=state["turn_id"],
+                authorization_ref=state["turn_id"],
+                turn_ref=state["turn_id"],
+                intent_signals=trusted,
+            ),
+        )
+        return decide_route(request).action is RouteAction.refuse
+
     async def authorize(state: TurnState) -> dict[str, Any]:
         if state.get("closed"):
             return {"denied": {"code": "conversation_closed", "message": "This conversation is closed."}, "status": "denied", "route": "render"}
+        if _refused_before_retrieval(state):
+            return {"refused": True, "status": "refused", "route": "render"}
         limit = budget.check(0, int(state.get("conversation_tokens") or 0))
         if state.get("fault") == "budget":
             limit = "model_budget_exhausted"
@@ -268,12 +297,12 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
 
     async def narrate(state: TurnState) -> dict[str, Any]:
         if state.get("narrate_error"):
-            return {"raw_claims": None, "route": "render"}
+            return {"raw_claims": None, "route": "revalidate"}
         limit = state.get("budget_limit") or budget.check(_turn_tokens(state), int(state.get("conversation_tokens") or 0))
         if limit:
-            return {"raw_claims": None, "narrate_error": limit, "route": "render"}
+            return {"raw_claims": None, "narrate_error": limit, "route": "revalidate"}
         if state.get("fault") == "model" or rt.model is None:
-            return {"raw_claims": None, "narrate_error": "fault_injected" if state.get("fault") == "model" else "model_unavailable", "route": "render"}
+            return {"raw_claims": None, "narrate_error": "fault_injected" if state.get("fault") == "model" else "model_unavailable", "route": "revalidate"}
         pack = get_pack(state["turn_id"])
         if pack is not None and not _narratable(pack):
             # Every clinical section was denied or failed: there is nothing a claim could cite,
@@ -284,10 +313,10 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         try:
             result: NarrateResult = await rt.model.narrate(state["question"], pack.text if pack else "", effort, correlation_id=state.get("correlation_id"))
         except ModelError as exc:
-            return {"raw_claims": None, "narrate_error": exc.kind, "route": "render"}
+            return {"raw_claims": None, "narrate_error": exc.kind, "route": "revalidate"}
         budget.daily.add(result.usage.total)
         if result.claims is None:
-            return {"raw_claims": None, "narrate_error": result.error, "usage": _add_usage(state, result.usage), "route": "render"}
+            return {"raw_claims": None, "narrate_error": result.error, "usage": _add_usage(state, result.usage), "route": "revalidate"}
         return {"raw_claims": [c.model_dump(mode="json") for c in result.claims.claims], "raw_summary": result.claims.summary, "raw_suggestions": list(result.claims.suggestions), "usage": _add_usage(state, result.usage), "route": "verify"}
 
     async def verify_node(state: TurnState) -> dict[str, Any]:
@@ -305,7 +334,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             for prior in state.get("rejected") or []:
                 if prior["claim_id"] not in accepted_ids and (prior["claim_id"], prior["rule"]) not in seen:
                     rejected.append(prior)
-        route = "repair" if result.rejected and not state.get("repair_attempted") and can_repair else "render"
+        route = "repair" if result.rejected and not state.get("repair_attempted") and can_repair else "revalidate"
         return {"accepted": [c.model_dump(mode="json") for c in result.accepted], "rejected": rejected, "rules": result.rules_applied, "route": route}
 
     async def repair(state: TurnState) -> dict[str, Any]:
@@ -314,16 +343,91 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
         try:
             result = await rt.model.narrate(state["question"], pack.text if pack else "", effort, rejections=state.get("rejected") or [], correlation_id=state.get("correlation_id"))  # type: ignore[union-attr]
         except ModelError:
-            return {"repair_attempted": True, "route": "render"}
+            return {"repair_attempted": True, "route": "revalidate"}
         budget.daily.add(result.usage.total)
         if result.claims is None:
-            return {"repair_attempted": True, "usage": _add_usage(state, result.usage), "route": "render"}
+            return {"repair_attempted": True, "usage": _add_usage(state, result.usage), "route": "revalidate"}
         return {"repair_attempted": True, "raw_claims": [c.model_dump(mode="json") for c in result.claims.claims], "raw_summary": result.claims.summary, "usage": _add_usage(state, result.usage), "route": "verify"}
+
+    async def revalidate(state: TurnState) -> dict[str, Any]:
+        """Re-fetch the turn's authorized projections before any claim renders.
+
+        The first verifier pass protects model output.  It cannot prove that a
+        chart row still resolves after a long narration/repair round, however.
+        Replaying the already-authorized, bounded calls forces the gateway to
+        recheck user, site, patient and scope and gives the deterministic
+        verifier current record projections.  The old pack and worker/model
+        output are context only; no cached record can authorize display here.
+        """
+        old_pack = get_pack(state["turn_id"]) or EvidencePack()
+        raw_calls = state.get("tool_calls") or []
+        calls: list[tuple[str, dict[str, Any]]] = []
+        for item in raw_calls:
+            if not isinstance(item, list) or len(item) != 2 or not isinstance(item[0], str) or not isinstance(item[1], dict):
+                return {
+                    "accepted": [],
+                    "rejected": list(state.get("rejected") or []) + [{"claim_id": "revalidation", "rule": "malformed_transition", "detail": "Current records could not be resolved."}],
+                    "readiness": answer_readiness(state["correlation_id"], [], []).model_dump(mode="json"),
+                    "route": "render",
+                }
+            calls.append((item[0], item[1]))
+
+        # A refusal/no-retrieval turn has no clinical claim to re-resolve.  A
+        # first-turn deterministic fallback does: it must still refresh the
+        # original bounded tool set before render builds its fallback claims.
+        if calls:
+            responses = await _call_batch(calls, state)
+            fresh_pack = EvidencePack(window_since=old_pack.window_since, window_until=old_pack.window_until)
+            add_responses(fresh_pack, responses)
+            derive_changes(fresh_pack)
+            render(fresh_pack, settings.evidence_pack_max_chars)
+            put_pack(state["turn_id"], fresh_pack)
+        else:
+            fresh_pack = old_pack
+
+        candidates = [Claim.model_validate(c) for c in (state.get("accepted") or [])]
+        verified = verify(candidates, fresh_pack)
+        rejected = list(state.get("rejected") or [])
+        seen = {(item["claim_id"], item["rule"]) for item in rejected}
+        for item in verified.rejected:
+            if (item["claim_id"], item["rule"]) not in seen:
+                rejected.append(item)
+        refs = [
+            ClaimVerificationReference(
+                claim_ref=(claim.id[1:] * 16)[:16],
+                source_resolution="passed",
+                deterministic_verification="accepted",
+                displayed=True,
+            )
+            for claim in verified.accepted
+        ]
+        readiness = answer_readiness(state["correlation_id"], [], refs)
+        return {
+            "accepted": [claim.model_dump(mode="json") for claim in verified.accepted],
+            "rejected": rejected,
+            "rules": list(dict.fromkeys((state.get("rules") or []) + verified.rules_applied)),
+            "evidence": fresh_pack.evidence_summary(),
+            "readiness": readiness.model_dump(mode="json"),
+            "route": "render",
+        }
 
     async def render_node(state: TurnState) -> dict[str, Any]:
         started = time.perf_counter()
         if state.get("denied"):
             return {"status": "denied", "limitations": [], "route": "end"}
+        if state.get("refused"):
+            return {
+                "status": "refused",
+                "accepted": [],
+                "limitations": [{"kind": "out_of_scope", "section": None, "detail": "This co-pilot cannot provide diagnosis, treatment, dosing, or patient-applicability advice.", "source_ids": []}],
+                "summary": "No patient records or guideline evidence were retrieved for this request.",
+                "summary_basis": "deterministic",
+                "suggestions": [],
+                "sources": [],
+                "answered_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                "readiness": {"state": "refused", "ready": False},
+                "route": "end",
+            }
         pack = get_pack(state["turn_id"]) or EvidencePack()
         limitations = pack_limitations(pack)
         accepted = [Claim.model_validate(c) for c in (state.get("accepted") or [])]
@@ -374,6 +478,7 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             "window_since": state.get("window_since"),
             "reference_encounter_source_id": state.get("reference_encounter_source_id"),
             "status": status,
+            "readiness": state.get("readiness") or {},
         })
         usage = dict(state.get("usage") or {})
         usage["render_ms"] = round((time.perf_counter() - started) * 1000, 1)
@@ -387,13 +492,14 @@ def make_nodes(rt: Runtime) -> dict[str, Callable]:
             "suggestions": suggestions,
             "answered_at": answered_at,
             "status": status,
+            "readiness": state.get("readiness") or {},
             "history": history,
             "conversation_tokens": int(state.get("conversation_tokens") or 0) + int(usage.get("input_tokens", 0) + usage.get("output_tokens", 0)),
             "usage": usage,
             "route": "end",
         }
 
-    nodes = {"authorize": authorize, "classify": classify, "plan": plan, "retrieve": retrieve, "narrate": narrate, "verify": verify_node, "repair": repair, "render": render_node}
+    nodes = {"authorize": authorize, "classify": classify, "plan": plan, "retrieve": retrieve, "narrate": narrate, "verify": verify_node, "repair": repair, "revalidate": revalidate, "render": render_node}
     return {name: _timed(name, fn) for name, fn in nodes.items()}
 
 

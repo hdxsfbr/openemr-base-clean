@@ -18,6 +18,7 @@ class TurnState(TypedDict, total=False):
     turn_type: str
     fault: str | None
     denied: dict[str, str] | None
+    refused: bool
     budget_limit: str | None
     plan_round: int
     tool_calls: list[list[Any]]
@@ -37,6 +38,7 @@ class TurnState(TypedDict, total=False):
     accepted: list[dict[str, Any]]
     rejected: list[dict[str, str]]
     rules: list[str]
+    readiness: dict[str, Any]
     repair_attempted: bool
     limitations: list[dict[str, Any]]
     sources: list[dict[str, Any]]
@@ -55,6 +57,7 @@ PER_TURN_DEFAULTS: dict[str, Any] = {
     "turn_type": "followup",
     "fault": None,
     "denied": None,
+    "refused": False,
     "budget_limit": None,
     "plan_round": 0,
     "tool_calls": [],
@@ -74,6 +77,7 @@ PER_TURN_DEFAULTS: dict[str, Any] = {
     "accepted": [],
     "rejected": [],
     "rules": [],
+    "readiness": {},
     "repair_attempted": False,
     "limitations": [],
     "sources": [],

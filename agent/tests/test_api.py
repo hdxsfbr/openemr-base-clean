@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -60,6 +62,17 @@ def test_access_log_redacts_conversation_identifier(client: TestClient, caplog: 
     requests = [record for record in caplog.records if record.name == "copilot.api" and record.getMessage() == "request"]
     assert requests and requests[-1].path == "guideline_evidence"
     assert all(CID not in str(record.__dict__) for record in requests)
+
+
+def test_guideline_final_display_reauthorization_discards_the_chart_projection() -> None:
+    """The final guideline check has no route to serialize its gateway record."""
+    from app.api import _reauthorize_chart_for_display
+
+    gateway = FakeGateway()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(runtime=SimpleNamespace(gateway=gateway))))
+
+    assert asyncio.run(_reauthorize_chart_for_display(request, "delegation", "guideline.0001"))
+    assert gateway.calls == [("patient_context", {})]
 
 
 def test_turn_returns_contract_shaped_response_with_correlation_id(client: TestClient) -> None:

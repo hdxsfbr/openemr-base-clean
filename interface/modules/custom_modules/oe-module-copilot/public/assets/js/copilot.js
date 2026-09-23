@@ -330,7 +330,7 @@
     }
 
     var CLAIM_LABELS = { change_event: 'Change', medication_status: 'Medication', problem_status: 'Problem', lab_result: 'Lab result', lab_comparison: 'Lab trend', documented_reference: 'Documented', absence: 'Absent', conflict: 'Conflict', undated: 'Undated', interpretation: 'Reading' };
-    var STATUS_WORD = { complete: 'Verified', partial: 'Partially verified', fallback: 'Records only', denied: 'Denied', failed: 'Failed' };
+    var STATUS_WORD = { complete: 'Verified', partial: 'Partially verified', fallback: 'Records only', denied: 'Denied', refused: 'Not available', failed: 'Failed' };
 
     function claimDetail(claim) {
         var f = claim.facts || {};
@@ -413,6 +413,10 @@
         var header = el('div', 'copilot-turn-head');
         var tone = turn.status === 'complete' ? 'success' : turn.status === 'denied' || turn.status === 'failed' ? 'danger' : 'warning';
         header.appendChild(el('span', 'badge badge-' + tone + ' mr-2', STATUS_WORD[turn.status] || turn.status));
+        if (turn.readiness && turn.readiness.state) {
+            var readinessText = turn.readiness.ready ? 'Current sources rechecked' : 'Final source check incomplete';
+            header.appendChild(el('span', 'small text-muted', readinessText));
+        }
         if (turn.summary_basis === 'deterministic') {
             header.appendChild(el('span', 'small text-muted', 'Summary built from verified records only.'));
         }

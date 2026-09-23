@@ -124,7 +124,7 @@ class TurnResponse(StrictModel):
     turn_id: str
     conversation_id: str
     turn_type: str = Field(pattern=r"^(uc01_first|followup)$")
-    status: str = Field(pattern=r"^(complete|partial|fallback|denied|failed)$")
+    status: str = Field(pattern=r"^(complete|partial|fallback|denied|refused|failed)$")
     reference_encounter_source_id: SourceId | None = None
     window_since: date | None = None
     evidence: list[EvidenceSummary] = Field(default_factory=list)
@@ -137,6 +137,7 @@ class TurnResponse(StrictModel):
     suggestions: list[str] = Field(default_factory=list, max_length=3, description="Follow-up questions offered as chips; lexicon-filtered, never facts")
     answered_at: str | None = Field(default=None, description="UTC time the answer was rendered (ISO 8601); shown so a restored transcript reads as history")
     verification: Verification
+    readiness: dict[str, object] = Field(default_factory=dict, description="Bounded final display-readiness state; contains no protected content")
     usage: dict[str, int | float] = Field(default_factory=dict)
     correlation_id: CorrelationId
     contract_version: str

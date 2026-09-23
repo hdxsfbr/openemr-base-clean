@@ -10,7 +10,8 @@
         "guideline_retrieval_canceled",
         "guideline_duplicate_handoff",
         "guideline_stale_handoff",
-        "guideline_malformed_output"
+        "guideline_malformed_output",
+        "guideline_authorization_changed"
       ],
       "title": "GuidelineRetrievalLimitationCode",
       "type": "string"
