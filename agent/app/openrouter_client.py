@@ -3,10 +3,9 @@
 A small, injectable client that sends authorized PDF bytes to a pinned,
 version-locked OpenRouter model with a requested JSON schema and returns a
 typed result: the parsed structured output and usage, or a typed unavailable
-result. Wired into `IntakeExtractor`'s lab-report branch (#53); the intake
-branch stays deterministic and does not use it (#54 decides whether that
-changes). Never logs PDF bytes, extracted text, or prompts; only enum-shaped
-status/reason and counts.
+result. Wired into both of `IntakeExtractor`'s branches (#53 for lab reports, #54 for
+intake forms). Never logs PDF bytes, extracted text, or prompts; only
+enum-shaped status/reason and counts.
 """
 
 from __future__ import annotations

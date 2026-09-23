@@ -1,0 +1,26 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 645 >>
+stream
+BT /F1 11 Tf 60 760 Td (Riverside Family Clinic -- New Patient Intake) Tj ET
+BT /F1 11 Tf 60 744 Td (Patient goes by Jordan Rivera.) Tj ET
+BT /F1 11 Tf 60 728 Td (Reason for today's visit: annual physical, no acute complaints.) Tj ET
+BT /F1 11 Tf 60 712 Td (Medication 1: Lisinopril 10mg, once daily by mouth, active.) Tj ET
+BT /F1 11 Tf 60 696 Td (Medication 2: Metformin 500mg, twice daily by mouth, active.) Tj ET
+BT /F1 11 Tf 60 680 Td (Known allergy, checked: Penicillin -- reaction: hives.) Tj ET
+BT /F1 11 Tf 60 664 Td (Known allergy, unchecked: Shellfish.) Tj ET
+BT /F1 11 Tf 60 648 Td (Family history: Mother had type 2 diabetes.) Tj ET
+endstream
+endobj
+trailer
+<< /Size 5 /Root 1 0 R >>
+%%EOF
