@@ -1,0 +1,144 @@
+{
+  "$defs": {
+    "RouteAction": {
+      "enum": [
+        "dispatch_intake",
+        "dispatch_evidence",
+        "patient_record_only",
+        "clarify",
+        "refuse"
+      ],
+      "title": "RouteAction",
+      "type": "string"
+    },
+    "RouteReason": {
+      "enum": [
+        "document_event",
+        "patient_record_only",
+        "explicit_control",
+        "explicit_guideline_terms",
+        "evidence_for_supported_finding",
+        "ambiguous",
+        "disallowed_advice"
+      ],
+      "title": "RouteReason",
+      "type": "string"
+    },
+    "SupervisorEventKind": {
+      "enum": [
+        "document_uploaded",
+        "reprocess_requested",
+        "chat_turn"
+      ],
+      "title": "SupervisorEventKind",
+      "type": "string"
+    },
+    "SupervisorLimitation": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/SupervisorLimitationCode"
+        },
+        "retryable": {
+          "const": false,
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "SupervisorLimitation",
+      "type": "object"
+    },
+    "SupervisorLimitationCode": {
+      "enum": [
+        "ambiguous_evidence_intent",
+        "disallowed_advice_intent",
+        "unauthorized_event",
+        "unsupported_event",
+        "stale_handoff",
+        "duplicate_terminal",
+        "wrong_worker",
+        "correlation_mismatch",
+        "contract_version_mismatch",
+        "malformed_transition",
+        "deadline_exceeded",
+        "worker_unavailable",
+        "worker_canceled",
+        "no_evidence"
+      ],
+      "title": "SupervisorLimitationCode",
+      "type": "string"
+    },
+    "SupervisorWorker": {
+      "enum": [
+        "intake_extractor",
+        "evidence_retriever"
+      ],
+      "title": "SupervisorWorker",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/RouteAction"
+    },
+    "contract_version": {
+      "const": "4.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "correlation_id": {
+      "pattern": "^[A-Za-z0-9\\-._]{8,64}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "event_kind": {
+      "$ref": "#/$defs/SupervisorEventKind"
+    },
+    "limitation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SupervisorLimitation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "preserve_patient_record_path": {
+      "title": "Preserve Patient Record Path",
+      "type": "boolean"
+    },
+    "reason": {
+      "$ref": "#/$defs/RouteReason"
+    },
+    "worker": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SupervisorWorker"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "contract_version",
+    "correlation_id",
+    "event_kind",
+    "action",
+    "reason",
+    "preserve_patient_record_path"
+  ],
+  "title": "RouteDecision",
+  "type": "object",
+  "x-contract-version": "4.0.0"
+}
