@@ -133,6 +133,28 @@ visible uncertainty without allowing extraction output to become chart truth.
 - Telemetry tests assert that OCR, page crops, document bytes, and raw values
   do not appear in logs, metrics, traces, or errors.
 
+## Status notes (2026-09-22, GitLab #51: bounded OpenRouter PDF client)
+
+`agent/app/openrouter_client.py` adds a small injectable client that sends
+authorized PDF bytes to a pinned OpenRouter model (`google/gemini-2.5-flash`,
+`openrouter_model_id`) with a requested JSON schema and returns a typed
+result; a separate `CircuitBreaker` instance and one retry on 429/5xx (no
+retry on timeout), matching decision 3's retry policy. It is not wired into
+`intake_extractor` yet — #52-#54 do that. One live run confirms, rather than
+changes, decision 3: with the `native` engine (page images passed directly to
+the model), the pinned model correctly extracted every field of a synthetic
+lab result and named the correct page for each, but returned an empty
+bounding box for every field despite an explicit request and a schema
+requiring one; the `pdf-text` engine (free, text-layer only) returned nothing
+on a scanned-shaped page, confirming OCR (or this vision path) is needed for
+non-text-layer documents, exactly as decision 3 assumes. Decision 6's
+per-fact normalized bounding box will need to come from the deterministic
+local OCR/render step's own page geometry, not from asking the OpenRouter
+model to report one. Full detail, prompt, and both engine outputs:
+`docs/audit/evidence/architecture/openrouter-pdf-client-smoke-2026-09-22.md`.
+Engine selection per document shape (text-layer vs. scanned) is left to
+#52-#54.
+
 ## Revisit Triggers
 
 - Measured extraction quality cannot meet the Week 2 boolean eval thresholds.
